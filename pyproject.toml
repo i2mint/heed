@@ -1,0 +1,67 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "heed"
+version = "0.0.1"
+description = "Embeddable, no-install, framework-agnostic end-user feedback / bug-report / feature-request capability with a pluggable backend (standalone; optional enlace add-on)"
+readme = "README.md"
+requires-python = ">=3.10"
+keywords = [
+    "feedback",
+    "bug-report",
+    "feature-request",
+    "widget",
+    "embeddable",
+    "github",
+    "fastapi",
+    "enlace",
+]
+authors = [{ name = "Thor Whalen" }]
+dependencies = [
+    "pydantic>=2.0.0",
+    "fastapi>=0.100.0",
+    "python-multipart>=0.0.9",
+    "dol>=0.2",
+]
+
+[project.license]
+text = "Apache-2.0"
+
+[project.urls]
+Homepage = "https://github.com/i2mint/heed"
+
+[project.scripts]
+heed = "heed.__main__:main"
+
+[project.optional-dependencies]
+# The GitHub sink (brokers issue/discussion creation via a GitHub App or token).
+github = ["ghapi>=1.0"]
+# Optional, lazy-imported integration: mount heed into an enlace platform.
+enlace = ["enlace>=0.1.0"]
+# Expose the feedback queue to a coding agent (e.g. Claude Code) over MCP.
+mcp = ["py2mcp>=0.1.0"]
+dev = ["pytest", "httpx", "pytest-asyncio"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "D100"]
+ignore = ["D203"]
+
+[tool.wads.ci]
+installer = "uv"
+
+[tool.wads.ci.testing]
+python_versions = ["3.10", "3.12"]
+coverage_enabled = false
+test_on_windows = false
+
+[tool.hatch.build.targets.wheel]
+packages = ["heed"]
