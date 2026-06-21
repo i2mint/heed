@@ -58,6 +58,11 @@ ignore = ["D203"]
 [tool.wads.ci]
 installer = "uv"
 
+[tool.wads.ci.publish]
+# Design phase: do NOT auto-publish to PyPI on main pushes. Flip to true for the
+# first real release (the PyPI name `heed` is reserved by this repo's intent).
+enabled = false
+
 [tool.wads.ci.testing]
 python_versions = ["3.10", "3.12"]
 coverage_enabled = false
