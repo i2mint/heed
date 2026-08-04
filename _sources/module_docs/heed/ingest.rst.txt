@@ -1,0 +1,4 @@
+heed.ingest
+===========
+.. automodule:: heed.ingest
+   :members:

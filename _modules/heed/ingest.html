@@ -1,0 +1,333 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>heed.ingest &mdash; heed 0.0.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../../_static/copybutton.css?v=76b2166b" />
+      <link rel="stylesheet" type="text/css" href="../../_static/graphviz.css?v=4ae1632d" />
+
+  
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=d45e8c67"></script>
+      <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="../../_static/toggleprompt.js?v=d7ede5d2"></script>
+      <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../../_static/copybutton.js?v=f281be69"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            heed
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../module_docs/heed.html">heed</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../module_docs/heed/__main__.html">heed.__main__</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../module_docs/heed/base.html">heed.base</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../module_docs/heed/config.html">heed.config</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../module_docs/heed/ingest.html">heed.ingest</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../module_docs/heed/security.html">heed.security</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../module_docs/heed/sinks.html">heed.sinks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../module_docs/heed/sinks/base.html">heed.sinks.base</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../module_docs/heed/sinks/github.html">heed.sinks.github</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../module_docs/heed/sinks/store.html">heed.sinks.store</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../module_docs/heed/storage.html">heed.storage</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">heed</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">heed.ingest</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for heed.ingest</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;The ingest layer — build a Report from a submission and route it to a sink.</span>
+
+<span class="sd">``process_submission`` is the pure, framework-free core (dependency-injected sink,</span>
+<span class="sd">stores, clock, id generator) so it is unit-testable without a server. ``make_router``</span>
+<span class="sd">wraps it in a FastAPI ``APIRouter`` you can run standalone (``make_app``) or</span>
+<span class="sd">``include_router`` into an enlace app. Identity is anonymous by default; pass a</span>
+<span class="sd">``user_dependency`` to bind identity when an auth layer (e.g. enlace_auth) is present.</span>
+
+<span class="sd">NOTE: this module does not ``from __future__ import annotations`` — FastAPI resolves</span>
+<span class="sd">route-handler annotations against module globals, so the request/response types are</span>
+<span class="sd">imported at module level.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">MutableMapping</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Optional</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">fastapi</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">APIRouter</span><span class="p">,</span>
+    <span class="n">Depends</span><span class="p">,</span>
+    <span class="n">FastAPI</span><span class="p">,</span>
+    <span class="n">File</span><span class="p">,</span>
+    <span class="n">Form</span><span class="p">,</span>
+    <span class="n">HTTPException</span><span class="p">,</span>
+    <span class="n">Request</span><span class="p">,</span>
+    <span class="n">UploadFile</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">heed.base</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">Attachment</span><span class="p">,</span>
+    <span class="n">Identity</span><span class="p">,</span>
+    <span class="n">Report</span><span class="p">,</span>
+    <span class="n">ReportSubmission</span><span class="p">,</span>
+    <span class="n">Status</span><span class="p">,</span>
+    <span class="n">new_report_id</span><span class="p">,</span>
+    <span class="n">utcnow</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">heed.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">HeedConfig</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">heed.security</span><span class="w"> </span><span class="kn">import</span> <span class="n">InMemoryRateLimiter</span><span class="p">,</span> <span class="n">RateLimiter</span><span class="p">,</span> <span class="n">origin_allowed</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">heed.sinks.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">Sink</span><span class="p">,</span> <span class="n">SinkResult</span>
+
+
+<div class="viewcode-block" id="process_submission">
+<a class="viewcode-back" href="../../module_docs/heed/ingest.html#heed.process_submission">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">process_submission</span><span class="p">(</span>
+    <span class="n">submission</span><span class="p">:</span> <span class="n">ReportSubmission</span><span class="p">,</span>
+    <span class="n">sink</span><span class="p">:</span> <span class="n">Sink</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">origin</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
+    <span class="n">user</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">screenshot</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bytes</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">attachment_store</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">MutableMapping</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">config</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">HeedConfig</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">id_gen</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[],</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">new_report_id</span><span class="p">,</span>
+    <span class="n">clock</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[],</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="n">utcnow</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Report</span><span class="p">,</span> <span class="n">SinkResult</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Enrich ``submission`` into a Report, store any screenshot, and route to ``sink``.</span>
+
+<span class="sd">    Returns the (report, sink-result) pair. The server owns id/created_at/identity/</span>
+<span class="sd">    origin/status — never the client. Opt-in capture (console/network) is dropped unless</span>
+<span class="sd">    enabled in ``config``.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">config</span> <span class="o">=</span> <span class="n">config</span> <span class="ow">or</span> <span class="n">HeedConfig</span><span class="p">()</span>
+    <span class="n">report_id</span> <span class="o">=</span> <span class="n">id_gen</span><span class="p">()</span>
+
+    <span class="n">attachments</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Attachment</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">if</span> <span class="n">screenshot</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">attachment_store</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">key</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">report_id</span><span class="si">}</span><span class="s2">.png&quot;</span>
+        <span class="n">attachment_store</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">screenshot</span>
+        <span class="n">attachments</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Attachment</span><span class="p">(</span><span class="n">ref</span><span class="o">=</span><span class="n">key</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">screenshot</span><span class="p">)))</span>
+
+    <span class="n">report</span> <span class="o">=</span> <span class="n">Report</span><span class="p">(</span>
+        <span class="nb">id</span><span class="o">=</span><span class="n">report_id</span><span class="p">,</span>
+        <span class="n">created_at</span><span class="o">=</span><span class="n">clock</span><span class="p">(),</span>
+        <span class="n">category</span><span class="o">=</span><span class="n">submission</span><span class="o">.</span><span class="n">category</span><span class="p">,</span>
+        <span class="n">title</span><span class="o">=</span><span class="n">submission</span><span class="o">.</span><span class="n">title</span><span class="p">,</span>
+        <span class="n">body</span><span class="o">=</span><span class="n">submission</span><span class="o">.</span><span class="n">body</span><span class="p">,</span>
+        <span class="n">page_url</span><span class="o">=</span><span class="n">submission</span><span class="o">.</span><span class="n">page_url</span><span class="p">,</span>
+        <span class="n">env</span><span class="o">=</span><span class="n">submission</span><span class="o">.</span><span class="n">env</span><span class="p">,</span>
+        <span class="n">attachments</span><span class="o">=</span><span class="n">attachments</span><span class="p">,</span>
+        <span class="n">console</span><span class="o">=</span><span class="n">submission</span><span class="o">.</span><span class="n">console</span> <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">accept_console</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">network</span><span class="o">=</span><span class="n">submission</span><span class="o">.</span><span class="n">network</span> <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">accept_network</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">identity</span><span class="o">=</span><span class="n">Identity</span><span class="p">(</span><span class="n">anon_id</span><span class="o">=</span><span class="n">submission</span><span class="o">.</span><span class="n">anon_id</span> <span class="ow">or</span> <span class="n">report_id</span><span class="p">,</span> <span class="n">user</span><span class="o">=</span><span class="n">user</span><span class="p">),</span>
+        <span class="n">origin</span><span class="o">=</span><span class="n">origin</span><span class="p">,</span>
+        <span class="n">status</span><span class="o">=</span><span class="n">Status</span><span class="o">.</span><span class="n">received</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="n">sink</span><span class="o">.</span><span class="n">submit</span><span class="p">(</span><span class="n">report</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">report</span><span class="p">,</span> <span class="n">result</span></div>
+
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_build_submission</span><span class="p">(</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">title</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">body</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">category</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">page_url</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">env</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">anon_id</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ReportSubmission</span><span class="p">:</span>
+    <span class="n">env_obj</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">env</span><span class="p">)</span> <span class="k">if</span> <span class="n">env</span> <span class="k">else</span> <span class="p">{}</span>
+    <span class="k">return</span> <span class="n">ReportSubmission</span><span class="p">(</span>
+        <span class="n">title</span><span class="o">=</span><span class="n">title</span><span class="p">,</span>
+        <span class="n">body</span><span class="o">=</span><span class="n">body</span><span class="p">,</span>
+        <span class="n">category</span><span class="o">=</span><span class="n">category</span><span class="p">,</span>
+        <span class="n">page_url</span><span class="o">=</span><span class="n">page_url</span><span class="p">,</span>
+        <span class="n">env</span><span class="o">=</span><span class="n">env_obj</span><span class="p">,</span>
+        <span class="n">anon_id</span><span class="o">=</span><span class="n">anon_id</span><span class="p">,</span>
+    <span class="p">)</span>
+
+
+<div class="viewcode-block" id="make_router">
+<a class="viewcode-back" href="../../module_docs/heed/ingest.html#heed.make_router">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">make_router</span><span class="p">(</span>
+    <span class="n">sink</span><span class="p">:</span> <span class="n">Sink</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">config</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">HeedConfig</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">attachment_store</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">MutableMapping</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">rate_limiter</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">RateLimiter</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">user_dependency</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Callable</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">APIRouter</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Build a FastAPI APIRouter exposing ``POST /report``.</span>
+
+<span class="sd">    Run standalone via :func:`make_app`, or ``include_router`` it into an enlace app.</span>
+<span class="sd">    Provide ``user_dependency`` (a FastAPI dependency returning a user id or None) to</span>
+<span class="sd">    bind identity when an auth layer like enlace_auth is present.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">cfg</span> <span class="o">=</span> <span class="n">config</span> <span class="ow">or</span> <span class="n">HeedConfig</span><span class="p">()</span>
+    <span class="n">limiter</span> <span class="o">=</span> <span class="n">rate_limiter</span> <span class="ow">or</span> <span class="n">InMemoryRateLimiter</span><span class="p">(</span>
+        <span class="n">max_per_window</span><span class="o">=</span><span class="n">cfg</span><span class="o">.</span><span class="n">rate_limit_per_minute</span>
+    <span class="p">)</span>
+    <span class="n">router</span> <span class="o">=</span> <span class="n">APIRouter</span><span class="p">()</span>
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_no_user</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="n">user_dep</span> <span class="o">=</span> <span class="n">user_dependency</span> <span class="ow">or</span> <span class="n">_no_user</span>
+
+    <span class="nd">@router</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="s2">&quot;/report&quot;</span><span class="p">)</span>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">submit_report</span><span class="p">(</span>
+        <span class="n">request</span><span class="p">:</span> <span class="n">Request</span><span class="p">,</span>
+        <span class="n">title</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">Form</span><span class="p">(</span><span class="o">...</span><span class="p">),</span>
+        <span class="n">body</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">Form</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">),</span>
+        <span class="n">category</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">Form</span><span class="p">(</span><span class="s2">&quot;bug&quot;</span><span class="p">),</span>
+        <span class="n">page_url</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">Form</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">),</span>
+        <span class="n">env</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">Form</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">{}</span><span class="s2">&quot;</span><span class="p">),</span>
+        <span class="n">anon_id</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">Form</span><span class="p">(</span><span class="kc">None</span><span class="p">),</span>
+        <span class="n">screenshot</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">UploadFile</span><span class="p">]</span> <span class="o">=</span> <span class="n">File</span><span class="p">(</span><span class="kc">None</span><span class="p">),</span>
+        <span class="n">user</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">Depends</span><span class="p">(</span><span class="n">user_dep</span><span class="p">),</span>
+    <span class="p">):</span>
+        <span class="n">origin</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">headers</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;origin&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">origin_allowed</span><span class="p">(</span><span class="n">origin</span> <span class="ow">or</span> <span class="kc">None</span><span class="p">,</span> <span class="n">cfg</span><span class="o">.</span><span class="n">allowed_origins</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="n">HTTPException</span><span class="p">(</span><span class="n">status_code</span><span class="o">=</span><span class="mi">403</span><span class="p">,</span> <span class="n">detail</span><span class="o">=</span><span class="s2">&quot;origin not allowed&quot;</span><span class="p">)</span>
+        <span class="n">client_key</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">host</span> <span class="k">if</span> <span class="n">request</span><span class="o">.</span><span class="n">client</span> <span class="k">else</span> <span class="s2">&quot;unknown&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">limiter</span><span class="o">.</span><span class="n">allow</span><span class="p">(</span><span class="n">client_key</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="n">HTTPException</span><span class="p">(</span><span class="n">status_code</span><span class="o">=</span><span class="mi">429</span><span class="p">,</span> <span class="n">detail</span><span class="o">=</span><span class="s2">&quot;rate limit exceeded&quot;</span><span class="p">)</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">submission</span> <span class="o">=</span> <span class="n">_build_submission</span><span class="p">(</span>
+                <span class="n">title</span><span class="o">=</span><span class="n">title</span><span class="p">,</span>
+                <span class="n">body</span><span class="o">=</span><span class="n">body</span><span class="p">,</span>
+                <span class="n">category</span><span class="o">=</span><span class="n">category</span><span class="p">,</span>
+                <span class="n">page_url</span><span class="o">=</span><span class="n">page_url</span><span class="p">,</span>
+                <span class="n">env</span><span class="o">=</span><span class="n">env</span><span class="p">,</span>
+                <span class="n">anon_id</span><span class="o">=</span><span class="n">anon_id</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">HTTPException</span><span class="p">(</span>
+                <span class="n">status_code</span><span class="o">=</span><span class="mi">422</span><span class="p">,</span> <span class="n">detail</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;invalid submission: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span>
+
+        <span class="n">shot</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bytes</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">screenshot</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">shot</span> <span class="o">=</span> <span class="k">await</span> <span class="n">screenshot</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">shot</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">cfg</span><span class="o">.</span><span class="n">max_screenshot_bytes</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">HTTPException</span><span class="p">(</span><span class="n">status_code</span><span class="o">=</span><span class="mi">413</span><span class="p">,</span> <span class="n">detail</span><span class="o">=</span><span class="s2">&quot;screenshot too large&quot;</span><span class="p">)</span>
+
+        <span class="n">report</span><span class="p">,</span> <span class="n">result</span> <span class="o">=</span> <span class="n">process_submission</span><span class="p">(</span>
+            <span class="n">submission</span><span class="p">,</span>
+            <span class="n">sink</span><span class="p">,</span>
+            <span class="n">origin</span><span class="o">=</span><span class="n">origin</span><span class="p">,</span>
+            <span class="n">user</span><span class="o">=</span><span class="n">user</span><span class="p">,</span>
+            <span class="n">screenshot</span><span class="o">=</span><span class="n">shot</span><span class="p">,</span>
+            <span class="n">attachment_store</span><span class="o">=</span><span class="n">attachment_store</span><span class="p">,</span>
+            <span class="n">config</span><span class="o">=</span><span class="n">cfg</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s2">&quot;id&quot;</span><span class="p">:</span> <span class="n">report</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+            <span class="s2">&quot;ok&quot;</span><span class="p">:</span> <span class="n">result</span><span class="o">.</span><span class="n">ok</span><span class="p">,</span>
+            <span class="s2">&quot;ref&quot;</span><span class="p">:</span> <span class="n">result</span><span class="o">.</span><span class="n">external_ref</span><span class="p">,</span>
+            <span class="s2">&quot;url&quot;</span><span class="p">:</span> <span class="n">result</span><span class="o">.</span><span class="n">url</span><span class="p">,</span>
+        <span class="p">}</span>
+
+    <span class="k">return</span> <span class="n">router</span></div>
+
+
+
+<div class="viewcode-block" id="make_app">
+<a class="viewcode-back" href="../../module_docs/heed/ingest.html#heed.make_app">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">make_app</span><span class="p">(</span>
+    <span class="n">sink</span><span class="p">:</span> <span class="n">Sink</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">config</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">HeedConfig</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">attachment_store</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">MutableMapping</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">prefix</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;/heed&quot;</span><span class="p">,</span>
+    <span class="o">**</span><span class="n">router_kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">FastAPI</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;A standalone FastAPI app serving the heed router under ``prefix``.&quot;&quot;&quot;</span>
+    <span class="n">app</span> <span class="o">=</span> <span class="n">FastAPI</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="s2">&quot;heed&quot;</span><span class="p">)</span>
+    <span class="n">app</span><span class="o">.</span><span class="n">include_router</span><span class="p">(</span>
+        <span class="n">make_router</span><span class="p">(</span>
+            <span class="n">sink</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="n">config</span><span class="p">,</span> <span class="n">attachment_store</span><span class="o">=</span><span class="n">attachment_store</span><span class="p">,</span> <span class="o">**</span><span class="n">router_kwargs</span>
+        <span class="p">),</span>
+        <span class="n">prefix</span><span class="o">=</span><span class="n">prefix</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">app</span></div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p></p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

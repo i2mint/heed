@@ -1,0 +1,4 @@
+heed.__main__
+=============
+.. automodule:: heed.__main__
+   :members:

@@ -1,0 +1,158 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>heed.sinks.github &mdash; heed 0.0.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/copybutton.css?v=76b2166b" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/graphviz.css?v=4ae1632d" />
+
+  
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=d45e8c67"></script>
+      <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="../../../_static/toggleprompt.js?v=d7ede5d2"></script>
+      <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../../../_static/copybutton.js?v=f281be69"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+    <link rel="next" title="heed.sinks.store" href="store.html" />
+    <link rel="prev" title="heed.sinks.base" href="base.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            heed
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../heed.html">heed</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../__main__.html">heed.__main__</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../base.html">heed.base</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../config.html">heed.config</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../ingest.html">heed.ingest</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../security.html">heed.security</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../sinks.html">heed.sinks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="base.html">heed.sinks.base</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">heed.sinks.github</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#heed.sinks.github.GitHubIssuesSink"><code class="docutils literal notranslate"><span class="pre">GitHubIssuesSink</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#heed.sinks.github.github_sink_from_token"><code class="docutils literal notranslate"><span class="pre">github_sink_from_token()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#heed.sinks.github.render_issue_body"><code class="docutils literal notranslate"><span class="pre">render_issue_body()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="store.html">heed.sinks.store</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../storage.html">heed.storage</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">heed</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">heed.sinks.github</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../../../_sources/module_docs/heed/sinks/github.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-heed.sinks.github">
+<span id="heed-sinks-github"></span><h1>heed.sinks.github<a class="headerlink" href="#module-heed.sinks.github" title="Link to this heading"></a></h1>
+<p>A sink that turns a report into a GitHub issue.</p>
+<p>The issue-creating call is dependency-injected (<code class="docutils literal notranslate"><span class="pre">create_issue</span></code>) so the sink is
+testable without network access and so the credential-brokering strategy (a GitHub App
+minting short-lived installation tokens, or a server-side token) is pluggable. A
+convenience factory builds a <code class="docutils literal notranslate"><span class="pre">create_issue</span></code> from a token via <code class="docutils literal notranslate"><span class="pre">ghapi</span></code> (lazy import,
+the <code class="docutils literal notranslate"><span class="pre">heed[github]</span></code> extra).</p>
+<p>Hard platform limit (see misc/docs/design.md): there is no GitHub API to attach an image
+to an issue. Resolve a <code class="docutils literal notranslate"><span class="pre">screenshot_url</span></code> (committed-file / attachment-store URL) and
+embed it in the body; base64 data-URIs do not render.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="heed.sinks.github.GitHubIssuesSink">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">heed.sinks.github.</span></span><span class="sig-name descname"><span class="pre">GitHubIssuesSink</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">create_issue</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Callable</span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Mapping</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">label_map</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Mapping</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="../base.html#heed.base.Category" title="heed.base.Category"><span class="pre">Category</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">screenshot_url</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Callable</span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="../base.html#heed.base.Report" title="heed.base.Report"><span class="pre">Report</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/heed/sinks/github.html#GitHubIssuesSink"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.sinks.github.GitHubIssuesSink" title="Link to this definition"></a></dt>
+<dd><p>Route a report to a GitHub issue via an injected <code class="docutils literal notranslate"><span class="pre">create_issue</span></code> callable.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="heed.sinks.github.github_sink_from_token">
+<span class="sig-prename descclassname"><span class="pre">heed.sinks.github.</span></span><span class="sig-name descname"><span class="pre">github_sink_from_token</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">repo</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">token</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#heed.sinks.github.GitHubIssuesSink" title="heed.sinks.github.GitHubIssuesSink"><span class="pre">GitHubIssuesSink</span></a></span></span><a class="reference internal" href="../../../_modules/heed/sinks/github.html#github_sink_from_token"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.sinks.github.github_sink_from_token" title="Link to this definition"></a></dt>
+<dd><p>Build a GitHubIssuesSink that creates issues in <code class="docutils literal notranslate"><span class="pre">repo</span></code> (‘owner/name’).</p>
+<p>Requires the <code class="docutils literal notranslate"><span class="pre">heed[github]</span></code> extra. <code class="docutils literal notranslate"><span class="pre">token</span></code> is a server-side credential (a GitHub
+App installation token or a PAT) — never shipped to the browser.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="heed.sinks.github.render_issue_body">
+<span class="sig-prename descclassname"><span class="pre">heed.sinks.github.</span></span><span class="sig-name descname"><span class="pre">render_issue_body</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">report</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="../base.html#heed.base.Report" title="heed.base.Report"><span class="pre">Report</span></a></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">screenshot_url</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="reference internal" href="../../../_modules/heed/sinks/github.html#render_issue_body"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.sinks.github.render_issue_body" title="Link to this definition"></a></dt>
+<dd><p>Render a report as a GitHub-flavoured markdown issue body.</p>
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="base.html" class="btn btn-neutral float-left" title="heed.sinks.base" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="store.html" class="btn btn-neutral float-right" title="heed.sinks.store" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p></p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
