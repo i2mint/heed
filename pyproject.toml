@@ -42,10 +42,18 @@ github = ["ghapi>=1.0"]
 enlace = ["enlace>=0.1.0"]
 # Expose the feedback queue to a coding agent (e.g. Claude Code) over MCP.
 mcp = ["py2mcp>=0.1.0"]
-dev = ["pytest", "httpx", "pytest-asyncio"]
+# Test/dev tooling. `fastapi.testclient` delegates to `starlette.testclient`,
+# which needs an HTTP client at import time: starlette >=1 prefers `httpx2` and
+# only falls back to `httpx` with a deprecation warning, while starlette <1
+# knows `httpx` alone. Both are declared so the suite collects on either
+# resolution; they are distinct top-level modules and coexist fine.
+dev = ["pytest", "httpx", "httpx2", "pytest-asyncio"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+# wads CI runs `pytest --doctest-modules` with NO path argument, so collection is
+# driven entirely by `testpaths`. The package dir must be listed here or none of
+# its doctests ever run.
+testpaths = ["tests", "heed"]
 
 [tool.ruff]
 line-length = 88
@@ -58,9 +66,16 @@ ignore = ["D203"]
 [tool.wads.ci]
 installer = "uv"
 
+[tool.wads.ci.install]
+# CI installs only the core dependencies unless extras are named here. The test
+# suite needs the `dev` extra (its HTTP client in particular), so opt in.
+extras = "dev"
+
 [tool.wads.ci.publish]
-# Design phase: do NOT auto-publish to PyPI on main pushes. Flip to true for the
-# first real release (the PyPI name `heed` is reserved by this repo's intent).
+# Design phase: do NOT auto-publish to PyPI on main pushes.
+# NOTE: the PyPI name `heed` is NOT available -- it is taken by an unrelated
+# project. A first release therefore needs a different distribution name (the
+# import package can stay `heed`). See the repo issues for that decision.
 enabled = false
 
 [tool.wads.ci.testing]
