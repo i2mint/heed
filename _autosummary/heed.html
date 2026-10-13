@@ -423,7 +423,7 @@ make_image_sanitizer, strip_image, reencode_image, attachment_headers
 recover_claimed, discard_held</p>
 </dd>
 </dl>
-<p>Storage   make_report_store, make_attachment_store
+<p>Storage   make_report_store, make_holding_store, make_attachment_store
 Serving   make_attachment_router, make_attachment_app, AttachmentSigner,</p>
 <blockquote>
 <div><p>screenshot_url_resolver (a separate origin for screenshots, #19)</p>
@@ -514,6 +514,9 @@ Serving   make_attachment_router, make_attachment_app, AttachmentSigner,</p>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="#heed.make_attachment_store" title="heed.make_attachment_store"><code class="xref py py-obj docutils literal notranslate"><span class="pre">make_attachment_store</span></code></a>([rootdir, delete_func])</p></td>
 <td><p>A bytes store for attachments.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#heed.make_holding_store" title="heed.make_holding_store"><code class="xref py py-obj docutils literal notranslate"><span class="pre">make_holding_store</span></code></a>([rootdir, delete_func])</p></td>
+<td><p>A report store for held reports, with a dedicated claims store beside it.</p></td>
 </tr>
 </tbody>
 </table>
@@ -1157,6 +1160,29 @@ false positive costs a human click, not a lost report.</p>
 </dd></dl>
 
 <dl class="py function">
+<dt class="sig sig-object py" id="heed.make_holding_store">
+<span class="sig-prename descclassname"><span class="pre">heed.</span></span><span class="sig-name descname"><span class="pre">make_holding_store</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">rootdir</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">delete_func</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;built-in</span> <span class="pre">function</span> <span class="pre">remove&gt;</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/storage.html#make_holding_store"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.make_holding_store" title="Link to this definition">#</a></dt>
+<dd><p>A report store for held reports, with a dedicated claims store beside it.</p>
+<p><code class="docutils literal notranslate"><span class="pre">release_held</span></code> and <code class="docutils literal notranslate"><span class="pre">recover_claimed</span></code> find the claims store on the holding store
+(<code class="docutils literal notranslate"><span class="pre">heed_claims</span></code>), so a release lists only the reports being released right now,
+not every held report (issue #21), and nothing listing holding (a moderation view,
+<code class="docutils literal notranslate"><span class="pre">StoreSink.find_duplicates</span></code>) ever sees a claim. With <code class="docutils literal notranslate"><span class="pre">rootdir</span></code>, claims live in a
+sibling directory, <code class="docutils literal notranslate"><span class="pre">&lt;rootdir&gt;.claims</span></code> (a subdirectory would show up in the
+holding store’s recursive listing).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.MutableMapping" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">MutableMapping</span></code></a></span></p>
+</dd>
+</dl>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">held</span> <span class="o">=</span> <span class="n">make_holding_store</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">held</span><span class="p">[</span><span class="s2">"r1"</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"</span><span class="si">{}</span><span class="s2">"</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">list</span><span class="p">(</span><span class="n">held</span><span class="p">),</span> <span class="nb">dict</span><span class="p">(</span><span class="n">held</span><span class="o">.</span><span class="n">heed_claims</span><span class="p">)</span>
+<span class="go">(['r1'], {})</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py function">
 <dt class="sig sig-object py" id="heed.make_image_sanitizer">
 <span class="sig-prename descclassname"><span class="pre">heed.</span></span><span class="sig-name descname"><span class="pre">make_image_sanitizer</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'auto'</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_pixels</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">25000000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_concurrent</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">busy_wait_seconds</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/images.html#make_image_sanitizer"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.make_image_sanitizer" title="Link to this definition">#</a></dt>
 <dd><p>Build a sanitizer from the <code class="xref py py-data docutils literal notranslate"><span class="pre">image_sanitizers</span></code> registry by name.</p>
@@ -1246,13 +1272,22 @@ unless enabled in <code class="docutils literal notranslate"><span class="pre">c
 
 <dl class="py function">
 <dt class="sig sig-object py" id="heed.recover_claimed">
-<span class="sig-prename descclassname"><span class="pre">heed.</span></span><span class="sig-name descname"><span class="pre">recover_claimed</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">holding_store</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">claimed_store</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/routing.html#recover_claimed"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.recover_claimed" title="Link to this definition">#</a></dt>
+<span class="sig-prename descclassname"><span class="pre">heed.</span></span><span class="sig-name descname"><span class="pre">recover_claimed</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">holding_store</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">claimed_store</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stale_after</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">clock</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;built-in</span> <span class="pre">function</span> <span class="pre">time&gt;</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/routing.html#recover_claimed"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.recover_claimed" title="Link to this definition">#</a></dt>
 <dd><p>Return every claimed report to holding, and the ids returned.</p>
 <p>A claim outlives its <a class="reference internal" href="#heed.release_held" title="heed.release_held"><code class="xref py py-func docutils literal notranslate"><span class="pre">release_held()</span></code></a> only if the process died mid-release
 (the sink may or may not have accepted the report, so a recovered report may be
-sent twice – never zero times). Call this when no release is running – e.g. at
-startup – since an in-flight release’s claim looks the same. Pass the same
-<code class="docutils literal notranslate"><span class="pre">claimed_store</span></code> as to <a class="reference internal" href="#heed.release_held" title="heed.release_held"><code class="xref py py-func docutils literal notranslate"><span class="pre">release_held()</span></code></a>.</p>
+sent twice – never zero times). Pass the same <code class="docutils literal notranslate"><span class="pre">claimed_store</span></code> as to
+<a class="reference internal" href="#heed.release_held" title="heed.release_held"><code class="xref py py-func docutils literal notranslate"><span class="pre">release_held()</span></code></a>.</p>
+<p>An in-flight release’s claim looks the same as a stranded one. With one process,
+call this when no release is running (e.g. at startup) and leave <code class="docutils literal notranslate"><span class="pre">stale_after</span></code>
+unset: every claim is recovered. With several workers, one worker’s startup can
+overlap another’s release, so pass <code class="docutils literal notranslate"><span class="pre">stale_after</span></code> (seconds; longer than any sink
+call can take plus the clock skew between workers, e.g. <code class="docutils literal notranslate"><span class="pre">600</span></code>): only claims older
+than that are recovered (and claims stamped further ahead than that, by a clock
+running fast). Claims made before claim keys carried a time count as stale. A
+release whose claim is recovered anyway puts the report back in holding and fails.
+Beside a dedicated claims store, <code class="docutils literal notranslate"><span class="pre">claimed--</span></code> claims an older heed left in holding
+are recovered too (which lists holding once).</p>
 <p>Only a valid report (whose own id matches its claim key) is ever written to
 holding, and a valid holding copy is never replaced: a claim whose report is
 intact in holding is just dropped (even a torn one), and one whose holding copy
@@ -1282,16 +1317,18 @@ malformed, oversized or too costly image.</p>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="heed.release_held">
-<span class="sig-prename descclassname"><span class="pre">heed.</span></span><span class="sig-name descname"><span class="pre">release_held</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">report_id</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">holding_store</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sink</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">resolve_sink</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">claimed_store</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/routing.html#release_held"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.release_held" title="Link to this definition">#</a></dt>
+<span class="sig-prename descclassname"><span class="pre">heed.</span></span><span class="sig-name descname"><span class="pre">release_held</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">report_id</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">holding_store</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sink</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">resolve_sink</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">claimed_store</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">clock</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;built-in</span> <span class="pre">function</span> <span class="pre">time&gt;</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/routing.html#release_held"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.release_held" title="Link to this definition">#</a></dt>
 <dd><p>Release a held report: route it on and remove it from holding.</p>
 <p><code class="docutils literal notranslate"><span class="pre">holding_store</span></code> is the store behind the holding sink (a <code class="docutils literal notranslate"><span class="pre">StoreSink</span></code>’s
 <code class="docutils literal notranslate"><span class="pre">.store</span></code>). The destination is <code class="docutils literal notranslate"><span class="pre">sink</span></code>, or — for a multi-site backend — the sink
 <code class="docutils literal notranslate"><span class="pre">resolve_sink</span></code> gives for the report’s own origin (pass exactly one).</p>
 <p>The report is claimed before submitting, so a second release while the first is in
 flight finds nothing to send. Claiming <em>moves</em> it: it is written under a claim key
-of its own (<code class="docutils literal notranslate"><span class="pre">claimed--&lt;id&gt;--&lt;token&gt;</span></code> in <code class="docutils literal notranslate"><span class="pre">holding_store</span></code>, or <code class="docutils literal notranslate"><span class="pre">&lt;id&gt;--&lt;token&gt;</span></code>
-in <code class="docutils literal notranslate"><span class="pre">claimed_store</span></code>, a store used for nothing else) and only then deleted from
-holding. If the sink fails the report is put back in holding; a release only ever
+of its own (<code class="docutils literal notranslate"><span class="pre">&lt;id&gt;--&lt;time&gt;-&lt;token&gt;</span></code>) in the claims store and only then deleted
+from holding. The claims store is <code class="docutils literal notranslate"><span class="pre">claimed_store</span></code> if given, else the one a
+<code class="code docutils literal notranslate"><span class="pre">make_holding_store</span></code> store carries, else (legacy) <code class="docutils literal notranslate"><span class="pre">holding_store</span></code> itself under a
+<code class="docutils literal notranslate"><span class="pre">claimed--</span></code> prefix – which makes every release list the whole holding store.
+If the sink fails the report is put back in holding; a release only ever
 deletes its own claim, and only once the sink has accepted the report or it is
 back in holding. So a crash at any point leaves the report in holding, in the
 claims, or in both – never lost – and <a class="reference internal" href="#heed.recover_claimed" title="heed.recover_claimed"><code class="xref py py-func docutils literal notranslate"><span class="pre">recover_claimed()</span></code></a> returns stranded
@@ -1514,6 +1551,7 @@ one too costly to decode (over <code class="docutils literal notranslate"><span 
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.make_attachment_store"><code class="docutils literal notranslate"><span class="pre">make_attachment_store()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.make_bot_verifier"><code class="docutils literal notranslate"><span class="pre">make_bot_verifier()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.make_heuristic_moderator"><code class="docutils literal notranslate"><span class="pre">make_heuristic_moderator()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.make_holding_store"><code class="docutils literal notranslate"><span class="pre">make_holding_store()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.make_image_sanitizer"><code class="docutils literal notranslate"><span class="pre">make_image_sanitizer()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.make_rate_limiter"><code class="docutils literal notranslate"><span class="pre">make_rate_limiter()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.make_report_store"><code class="docutils literal notranslate"><span class="pre">make_report_store()</span></code></a></li>

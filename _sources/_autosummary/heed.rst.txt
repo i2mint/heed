@@ -32,6 +32,7 @@
       discard_held
       make_report_store
       make_attachment_store
+      make_holding_store
    
    .. rubric:: Classes
 

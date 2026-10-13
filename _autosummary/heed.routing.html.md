@@ -117,15 +117,25 @@ false positive costs a human click, not a lost report.
 ['accept', 'hold', 'hold']
 ```
 
-### heed.routing.recover_claimed(, holding_store, claimed_store=None)
+### heed.routing.recover_claimed(\*, holding_store, claimed_store=None, stale_after=None, clock=<built-in function time>)
 
 Return every claimed report to holding, and the ids returned.
 
 A claim outlives its [`release_held()`](#heed.routing.release_held) only if the process died mid-release
 (the sink may or may not have accepted the report, so a recovered report may be
-sent twice – never zero times). Call this when no release is running – e.g. at
-startup – since an in-flight release’s claim looks the same. Pass the same
-`claimed_store` as to [`release_held()`](#heed.routing.release_held).
+sent twice – never zero times). Pass the same `claimed_store` as to
+[`release_held()`](#heed.routing.release_held).
+
+An in-flight release’s claim looks the same as a stranded one. With one process,
+call this when no release is running (e.g. at startup) and leave `stale_after`
+unset: every claim is recovered. With several workers, one worker’s startup can
+overlap another’s release, so pass `stale_after` (seconds; longer than any sink
+call can take plus the clock skew between workers, e.g. `600`): only claims older
+than that are recovered (and claims stamped further ahead than that, by a clock
+running fast). Claims made before claim keys carried a time count as stale. A
+release whose claim is recovered anyway puts the report back in holding and fails.
+Beside a dedicated claims store, `claimed--` claims an older heed left in holding
+are recovered too (which lists holding once).
 
 Only a valid report (whose own id matches its claim key) is ever written to
 holding, and a valid holding copy is never replaced: a claim whose report is
@@ -136,7 +146,7 @@ left in place, and not returned.
 * **Return type:**
   [`list`](https://docs.python.org/3/builtins/stdtypes.html#list)[[`str`](https://docs.python.org/3/builtins/stdtypes.html#str)]
 
-### heed.routing.release_held(report_id, , holding_store, sink=None, resolve_sink=None, claimed_store=None)
+### heed.routing.release_held(report_id, \*, holding_store, sink=None, resolve_sink=None, claimed_store=None, clock=<built-in function time>)
 
 Release a held report: route it on and remove it from holding.
 
@@ -146,9 +156,11 @@ Release a held report: route it on and remove it from holding.
 
 The report is claimed before submitting, so a second release while the first is in
 flight finds nothing to send. Claiming *moves* it: it is written under a claim key
-of its own (`claimed--<id>--<token>` in `holding_store`, or `<id>--<token>`
-in `claimed_store`, a store used for nothing else) and only then deleted from
-holding. If the sink fails the report is put back in holding; a release only ever
+of its own (`<id>--<time>-<token>`) in the claims store and only then deleted
+from holding. The claims store is `claimed_store` if given, else the one a
+`make_holding_store` store carries, else (legacy) `holding_store` itself under a
+`claimed--` prefix – which makes every release list the whole holding store.
+If the sink fails the report is put back in holding; a release only ever
 deletes its own claim, and only once the sink has accepted the report or it is
 back in holding. So a crash at any point leaves the report in holding, in the
 claims, or in both – never lost – and [`recover_claimed()`](#heed.routing.recover_claimed) returns stranded

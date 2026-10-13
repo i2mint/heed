@@ -1035,7 +1035,7 @@ window.runMermaid = runMermaid;</script>
     <span class="k">if</span> <span class="n">moderator</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">holding_sink</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
             <span class="s2">"a moderator needs a holding_sink to park held reports in (a failing "</span>
-            <span class="s2">"moderator also holds), e.g. holding_sink=StoreSink(make_report_store("</span>
+            <span class="s2">"moderator also holds), e.g. holding_sink=StoreSink(make_holding_store("</span>
             <span class="s2">"'held/'))"</span>
         <span class="p">)</span>
     <span class="k">if</span> <span class="n">holding_sink</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">moderator</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>

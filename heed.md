@@ -1,4 +1,4 @@
-> built 2026-10-13 08:55 UTC from fa3240f (main) · heed 0.0.1. Details: build_info.json
+> built 2026-10-13 09:03 UTC from 5cc1c05 (main) · heed 0.0.1. Details: build_info.json
 
 # index.html.md
 
@@ -311,7 +311,7 @@ Public API (Phase 1):
   : make_heuristic_moderator, chain_moderators, release_held,
     recover_claimed, discard_held
   <br/>
-  Storage   make_report_store, make_attachment_store
+  Storage   make_report_store, make_holding_store, make_attachment_store
   Serving   make_attachment_router, make_attachment_app, AttachmentSigner,
   <br/>
   > screenshot_url_resolver (a separate origin for screenshots, #19)
@@ -355,6 +355,7 @@ True
 | [`discard_held`](_autosummary/heed.html.md#heed.discard_held)(report_id, \*, holding_store[, ...])  | Delete a held report for good, with its attachments (e.g. a screenshot).                                                            |
 | [`make_report_store`](_autosummary/heed.html.md#heed.make_report_store)([rootdir, delete_func])          | A text store for report JSON.                                                                                                       |
 | [`make_attachment_store`](_autosummary/heed.html.md#heed.make_attachment_store)([rootdir, delete_func])      | A bytes store for attachments.                                                                                                      |
+| [`make_holding_store`](_autosummary/heed.html.md#heed.make_holding_store)([rootdir, delete_func])         | A report store for held reports, with a dedicated claims store beside it.                                                           |
 
 ### Classes
 
@@ -810,6 +811,27 @@ false positive costs a human click, not a lost report.
 ['accept', 'hold', 'hold']
 ```
 
+### heed.make_holding_store(rootdir=None, \*, delete_func=<built-in function remove>)
+
+A report store for held reports, with a dedicated claims store beside it.
+
+`release_held` and `recover_claimed` find the claims store on the holding store
+(`heed_claims`), so a release lists only the reports being released right now,
+not every held report (issue #21), and nothing listing holding (a moderation view,
+`StoreSink.find_duplicates`) ever sees a claim. With `rootdir`, claims live in a
+sibling directory, `<rootdir>.claims` (a subdirectory would show up in the
+holding store’s recursive listing).
+
+* **Return type:**
+  [`MutableMapping`](https://docs.python.org/3/library/collections.abc.html#collections.abc.MutableMapping)
+
+```pycon
+>>> held = make_holding_store()
+>>> held["r1"] = "{}"
+>>> list(held), dict(held.heed_claims)
+(['r1'], {})
+```
+
 ### heed.make_image_sanitizer(name='auto', , max_pixels=25000000, max_concurrent=2, busy_wait_seconds=2.0)
 
 Build a sanitizer from the `image_sanitizers` registry by name.
@@ -880,15 +902,25 @@ unless enabled in `config`. `moderator` decides first: `hold` sends the report
 * **Return type:**
   [`tuple`](https://docs.python.org/3/builtins/stdtypes.html#tuple)[[`Report`](_autosummary/heed.base.html.md#heed.base.Report), [`SinkResult`](_autosummary/heed.sinks.base.html.md#heed.sinks.base.SinkResult)]
 
-### heed.recover_claimed(, holding_store, claimed_store=None)
+### heed.recover_claimed(\*, holding_store, claimed_store=None, stale_after=None, clock=<built-in function time>)
 
 Return every claimed report to holding, and the ids returned.
 
 A claim outlives its [`release_held()`](_autosummary/heed.html.md#heed.release_held) only if the process died mid-release
 (the sink may or may not have accepted the report, so a recovered report may be
-sent twice – never zero times). Call this when no release is running – e.g. at
-startup – since an in-flight release’s claim looks the same. Pass the same
-`claimed_store` as to [`release_held()`](_autosummary/heed.html.md#heed.release_held).
+sent twice – never zero times). Pass the same `claimed_store` as to
+[`release_held()`](_autosummary/heed.html.md#heed.release_held).
+
+An in-flight release’s claim looks the same as a stranded one. With one process,
+call this when no release is running (e.g. at startup) and leave `stale_after`
+unset: every claim is recovered. With several workers, one worker’s startup can
+overlap another’s release, so pass `stale_after` (seconds; longer than any sink
+call can take plus the clock skew between workers, e.g. `600`): only claims older
+than that are recovered (and claims stamped further ahead than that, by a clock
+running fast). Claims made before claim keys carried a time count as stale. A
+release whose claim is recovered anyway puts the report back in holding and fails.
+Beside a dedicated claims store, `claimed--` claims an older heed left in holding
+are recovered too (which lists holding once).
 
 Only a valid report (whose own id matches its claim key) is ever written to
 holding, and a valid holding copy is never replaced: a claim whose report is
@@ -911,7 +943,7 @@ malformed, oversized or too costly image.
 * **Return type:**
   [`bytes`](https://docs.python.org/3/builtins/stdtypes.html#bytes)
 
-### heed.release_held(report_id, , holding_store, sink=None, resolve_sink=None, claimed_store=None)
+### heed.release_held(report_id, \*, holding_store, sink=None, resolve_sink=None, claimed_store=None, clock=<built-in function time>)
 
 Release a held report: route it on and remove it from holding.
 
@@ -921,9 +953,11 @@ Release a held report: route it on and remove it from holding.
 
 The report is claimed before submitting, so a second release while the first is in
 flight finds nothing to send. Claiming *moves* it: it is written under a claim key
-of its own (`claimed--<id>--<token>` in `holding_store`, or `<id>--<token>`
-in `claimed_store`, a store used for nothing else) and only then deleted from
-holding. If the sink fails the report is put back in holding; a release only ever
+of its own (`<id>--<time>-<token>`) in the claims store and only then deleted
+from holding. The claims store is `claimed_store` if given, else the one a
+`make_holding_store` store carries, else (legacy) `holding_store` itself under a
+`claimed--` prefix – which makes every release list the whole holding store.
+If the sink fails the report is put back in holding; a release only ever
 deletes its own claim, and only once the sink has accepted the report or it is
 back in holding. So a crash at any point leaves the report in holding, in the
 claims, or in both – never lost – and [`recover_claimed()`](_autosummary/heed.html.md#heed.recover_claimed) returns stranded
@@ -1303,15 +1337,25 @@ false positive costs a human click, not a lost report.
 ['accept', 'hold', 'hold']
 ```
 
-### heed.routing.recover_claimed(, holding_store, claimed_store=None)
+### heed.routing.recover_claimed(\*, holding_store, claimed_store=None, stale_after=None, clock=<built-in function time>)
 
 Return every claimed report to holding, and the ids returned.
 
 A claim outlives its [`release_held()`](_autosummary/heed.routing.html.md#heed.routing.release_held) only if the process died mid-release
 (the sink may or may not have accepted the report, so a recovered report may be
-sent twice – never zero times). Call this when no release is running – e.g. at
-startup – since an in-flight release’s claim looks the same. Pass the same
-`claimed_store` as to [`release_held()`](_autosummary/heed.routing.html.md#heed.routing.release_held).
+sent twice – never zero times). Pass the same `claimed_store` as to
+[`release_held()`](_autosummary/heed.routing.html.md#heed.routing.release_held).
+
+An in-flight release’s claim looks the same as a stranded one. With one process,
+call this when no release is running (e.g. at startup) and leave `stale_after`
+unset: every claim is recovered. With several workers, one worker’s startup can
+overlap another’s release, so pass `stale_after` (seconds; longer than any sink
+call can take plus the clock skew between workers, e.g. `600`): only claims older
+than that are recovered (and claims stamped further ahead than that, by a clock
+running fast). Claims made before claim keys carried a time count as stale. A
+release whose claim is recovered anyway puts the report back in holding and fails.
+Beside a dedicated claims store, `claimed--` claims an older heed left in holding
+are recovered too (which lists holding once).
 
 Only a valid report (whose own id matches its claim key) is ever written to
 holding, and a valid holding copy is never replaced: a claim whose report is
@@ -1322,7 +1366,7 @@ left in place, and not returned.
 * **Return type:**
   [`list`](https://docs.python.org/3/builtins/stdtypes.html#list)[[`str`](https://docs.python.org/3/builtins/stdtypes.html#str)]
 
-### heed.routing.release_held(report_id, , holding_store, sink=None, resolve_sink=None, claimed_store=None)
+### heed.routing.release_held(report_id, \*, holding_store, sink=None, resolve_sink=None, claimed_store=None, clock=<built-in function time>)
 
 Release a held report: route it on and remove it from holding.
 
@@ -1332,9 +1376,11 @@ Release a held report: route it on and remove it from holding.
 
 The report is claimed before submitting, so a second release while the first is in
 flight finds nothing to send. Claiming *moves* it: it is written under a claim key
-of its own (`claimed--<id>--<token>` in `holding_store`, or `<id>--<token>`
-in `claimed_store`, a store used for nothing else) and only then deleted from
-holding. If the sink fails the report is put back in holding; a release only ever
+of its own (`<id>--<time>-<token>`) in the claims store and only then deleted
+from holding. The claims store is `claimed_store` if given, else the one a
+`make_holding_store` store carries, else (legacy) `holding_store` itself under a
+`claimed--` prefix – which makes every release list the whole holding store.
+If the sink fails the report is put back in holding; a release only ever
 deletes its own claim, and only once the sink has accepted the report or it is
 back in holding. So a crash at any point leaves the report in holding, in the
 claims, or in both – never lost – and [`recover_claimed()`](_autosummary/heed.routing.html.md#heed.routing.recover_claimed) returns stranded
@@ -2064,11 +2110,25 @@ Stores are plain `MutableMapping``s, so the rest of heed never depends on a spec
 backend. Defaults are in-memory; pass a directory to persist to the filesystem, or
 inject any ``dol` store (S3, Mongo, …).
 
+### Module Attributes
+
+| [`CLAIMS_ATTR`](_autosummary/heed.storage.html.md#heed.storage.CLAIMS_ATTR)   | the store its reports are claimed in while `heed.routing.release_held` sends them.   |
+|----------------------------------------------------------------|--------------------------------------------------------------------------------------|
+
 ### Functions
 
-| [`make_attachment_store`](_autosummary/heed.storage.html.md#heed.storage.make_attachment_store)([rootdir, delete_func])   | A bytes store for attachments.   |
-|--------------------------------------------------------------------------------------------------|----------------------------------|
-| [`make_report_store`](_autosummary/heed.storage.html.md#heed.storage.make_report_store)([rootdir, delete_func])       | A text store for report JSON.    |
+| [`make_attachment_store`](_autosummary/heed.storage.html.md#heed.storage.make_attachment_store)([rootdir, delete_func])   | A bytes store for attachments.                                            |
+|--------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------|
+| [`make_holding_store`](_autosummary/heed.storage.html.md#heed.storage.make_holding_store)([rootdir, delete_func])      | A report store for held reports, with a dedicated claims store beside it. |
+| [`make_report_store`](_autosummary/heed.storage.html.md#heed.storage.make_report_store)([rootdir, delete_func])       | A text store for report JSON.                                             |
+
+### heed.storage.CLAIMS_ATTR *= 'heed_claims'*
+
+the store its
+reports are claimed in while `heed.routing.release_held` sends them.
+
+* **Type:**
+  Attribute a holding store made by `make_holding_store` carries
 
 ### heed.storage.make_attachment_store(rootdir=None, \*, delete_func=<built-in function remove>)
 
@@ -2078,6 +2138,27 @@ Deletion is permanent by default, for the reason given in `make_report_store`.
 
 * **Return type:**
   [`MutableMapping`](https://docs.python.org/3/library/collections.abc.html#collections.abc.MutableMapping)
+
+### heed.storage.make_holding_store(rootdir=None, \*, delete_func=<built-in function remove>)
+
+A report store for held reports, with a dedicated claims store beside it.
+
+`release_held` and `recover_claimed` find the claims store on the holding store
+(`heed_claims`), so a release lists only the reports being released right now,
+not every held report (issue #21), and nothing listing holding (a moderation view,
+`StoreSink.find_duplicates`) ever sees a claim. With `rootdir`, claims live in a
+sibling directory, `<rootdir>.claims` (a subdirectory would show up in the
+holding store’s recursive listing).
+
+* **Return type:**
+  [`MutableMapping`](https://docs.python.org/3/library/collections.abc.html#collections.abc.MutableMapping)
+
+```pycon
+>>> held = make_holding_store()
+>>> held["r1"] = "{}"
+>>> list(held), dict(held.heed_claims)
+(['r1'], {})
+```
 
 ### heed.storage.make_report_store(rootdir=None, \*, delete_func=<built-in function remove>)
 
@@ -2097,7 +2178,7 @@ report – and reports can carry personal data. Pass `delete_func` to opt back i
 
 # About this build
 
-This documentation was built on **2026-10-13 08:55 UTC** from commit <a href="https://github.com/i2mint/heed/commit/fa3240f08829073b6ecfff7d99d7f64a6c8bd759"><code>fa3240f</code></a> on branch <code>main</code>, for **heed 0.0.1** (from <code>pyproject.toml</code>).
+This documentation was built on **2026-10-13 09:03 UTC** from commit <a href="https://github.com/i2mint/heed/commit/5cc1c05dcb4c63571e7a924316f38ba0fe571837"><code>5cc1c05</code></a> on branch <code>main</code>, for **heed 0.0.1** (from <code>pyproject.toml</code>).
 
 #### WARNING
 The documentation and the package may be misaligned:
@@ -2108,7 +2189,7 @@ The documentation and the package may be misaligned:
 
 |                     |                                                                                                                                                    |
 |---------------------|----------------------------------------------------------------------------------------------------------------------------------------------------|
-| Commit              | <a href="https://github.com/i2mint/heed/commit/fa3240f08829073b6ecfff7d99d7f64a6c8bd759"><code>fa3240f08829073b6ecfff7d99d7f64a6c8bd759</code></a> |
+| Commit              | <a href="https://github.com/i2mint/heed/commit/5cc1c05dcb4c63571e7a924316f38ba0fe571837"><code>5cc1c05dcb4c63571e7a924316f38ba0fe571837</code></a> |
 | Branch              | <code>main</code>                                                                                                                                  |
 | Tags at this commit | none                                                                                                                                               |
 | Working tree        | clean                                                                                                                                              |
@@ -2119,9 +2200,9 @@ The documentation and the package may be misaligned:
 |              |                                                                                            |
 |--------------|--------------------------------------------------------------------------------------------|
 | Repository   | <code>i2mint/heed</code>                                                                   |
-| Run          | <a href="https://github.com/i2mint/heed/actions/runs/38372459393">38372459393</a>          |
+| Run          | <a href="https://github.com/i2mint/heed/actions/runs/38373407650">38373407650</a>          |
 | Ref          | <code>refs/heads/main</code>                                                               |
-| Event commit | <code>fa3240f08829073b6ecfff7d99d7f64a6c8bd759</code> (in the history of the built commit) |
+| Event commit | <code>5cc1c05dcb4c63571e7a924316f38ba0fe571837</code> (in the history of the built commit) |
 
 ## Tools
 
@@ -2152,7 +2233,7 @@ Latest release: <a href="https://pypi.org/project/heed/0.1.0/">0.1.0</a>, newer 
 
 ```bash
 git clone https://github.com/i2mint/heed && cd heed
-git checkout fa3240f08829073b6ecfff7d99d7f64a6c8bd759
+git checkout 5cc1c05dcb4c63571e7a924316f38ba0fe571837
 pip install "epythet==0.2.15"
 epythet quickstart . --ignore tests/ scrap/ examples/
 ```

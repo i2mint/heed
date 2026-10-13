@@ -729,7 +729,9 @@ window.runMermaid = runMermaid;</script>
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">math</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">re</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">unicodedata</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Iterable</span><span class="p">,</span> <span class="n">Mapping</span><span class="p">,</span> <span class="n">MutableMapping</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">enum</span><span class="w"> </span><span class="kn">import</span> <span class="n">Enum</span>
@@ -739,6 +741,7 @@ window.runMermaid = runMermaid;</script>
 <span class="kn">from</span><span class="w"> </span><span class="nn">heed.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">Report</span><span class="p">,</span> <span class="n">Status</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">heed.security</span><span class="w"> </span><span class="kn">import</span> <span class="n">normalize_origin</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">heed.sinks.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">Sink</span><span class="p">,</span> <span class="n">SinkResult</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">heed.storage</span><span class="w"> </span><span class="kn">import</span> <span class="n">CLAIMS_ATTR</span>
 
 <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
 
@@ -875,9 +878,11 @@ window.runMermaid = runMermaid;</script>
 <span class="c1">#: Prefix of the keys reports are claimed under, in the holding store itself, while</span>
 <span class="c1">#: they are being released (when no separate ``claimed_store`` is given).</span>
 <span class="n">CLAIM_PREFIX</span> <span class="o">=</span> <span class="s2">"claimed--"</span>
-<span class="c1">#: Separates a report id from the per-release token (a uuid4 hex) in a claim key.</span>
+<span class="c1">#: Separates a report id from the per-release token in a claim key. The token is</span>
+<span class="c1">#: ``&lt;claim time, ms since the epoch&gt;-&lt;uuid4 hex&gt;`` (claims made before #21 have no</span>
+<span class="c1">#: time, and count as stale).</span>
 <span class="n">_CLAIM_SEP</span> <span class="o">=</span> <span class="s2">"--"</span>
-<span class="n">_CLAIM_TOKEN</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">"[0-9a-f]</span><span class="si">{32}</span><span class="s2">"</span><span class="p">)</span>
+<span class="n">_CLAIM_TOKEN</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">"(?:(?P&lt;ms&gt;[0-9]{1,15})-)?[0-9a-f]</span><span class="si">{32}</span><span class="s2">"</span><span class="p">)</span>
 
 
 <div class="viewcode-block" id="release_held">
@@ -889,6 +894,7 @@ window.runMermaid = runMermaid;</script>
     <span class="n">sink</span><span class="p">:</span> <span class="n">Sink</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">resolve_sink</span><span class="p">:</span> <span class="n">SinkResolver</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">claimed_store</span><span class="p">:</span> <span class="n">MutableMapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">clock</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[],</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SinkResult</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Release a held report: route it on and remove it from holding.</span>
 
@@ -898,9 +904,11 @@ window.runMermaid = runMermaid;</script>
 
 <span class="sd">    The report is claimed before submitting, so a second release while the first is in</span>
 <span class="sd">    flight finds nothing to send. Claiming *moves* it: it is written under a claim key</span>
-<span class="sd">    of its own (``claimed--&lt;id&gt;--&lt;token&gt;`` in ``holding_store``, or ``&lt;id&gt;--&lt;token&gt;``</span>
-<span class="sd">    in ``claimed_store``, a store used for nothing else) and only then deleted from</span>
-<span class="sd">    holding. If the sink fails the report is put back in holding; a release only ever</span>
+<span class="sd">    of its own (``&lt;id&gt;--&lt;time&gt;-&lt;token&gt;``) in the claims store and only then deleted</span>
+<span class="sd">    from holding. The claims store is ``claimed_store`` if given, else the one a</span>
+<span class="sd">    `make_holding_store` store carries, else (legacy) ``holding_store`` itself under a</span>
+<span class="sd">    ``claimed--`` prefix -- which makes every release list the whole holding store.</span>
+<span class="sd">    If the sink fails the report is put back in holding; a release only ever</span>
 <span class="sd">    deletes its own claim, and only once the sink has accepted the report or it is</span>
 <span class="sd">    back in holding. So a crash at any point leaves the report in holding, in the</span>
 <span class="sd">    claims, or in both -- never lost -- and :func:`recover_claimed` returns stranded</span>
@@ -913,21 +921,26 @@ window.runMermaid = runMermaid;</script>
 <span class="sd">    """</span>
     <span class="k">if</span> <span class="p">(</span><span class="n">sink</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">)</span> <span class="o">==</span> <span class="p">(</span><span class="n">resolve_sink</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">):</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"pass exactly one of sink= or resolve_sink="</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">claimed_store</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">report_id</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="n">CLAIM_PREFIX</span><span class="p">):</span>
+    <span class="n">claims</span><span class="p">,</span> <span class="n">own_prefix</span> <span class="o">=</span> <span class="n">_claims_of</span><span class="p">(</span><span class="n">holding_store</span><span class="p">,</span> <span class="n">claimed_store</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">_is_claim_key</span><span class="p">(</span><span class="n">report_id</span><span class="p">,</span> <span class="kc">True</span><span class="p">):</span>  <span class="c1"># incl. one left in holding by an older heed</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
             <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">report_id</span><span class="si">!r}</span><span class="s2"> is a claim, not a held report: use recover_claimed() to "</span>
             <span class="s2">"return stranded claims to holding"</span>
         <span class="p">)</span>
-    <span class="n">claims</span> <span class="o">=</span> <span class="n">holding_store</span> <span class="k">if</span> <span class="n">claimed_store</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">claimed_store</span>
     <span class="n">raw</span> <span class="o">=</span> <span class="n">holding_store</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">report_id</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">raw</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"No held report with id </span><span class="si">{</span><span class="n">report_id</span><span class="si">!r}</span><span class="s2">"</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">_claim_keys_of</span><span class="p">(</span><span class="n">report_id</span><span class="p">,</span> <span class="n">claims</span><span class="p">,</span> <span class="n">own_prefix</span><span class="o">=</span><span class="n">claimed_store</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">_claim_keys_of</span><span class="p">(</span><span class="n">report_id</span><span class="p">,</span> <span class="n">claims</span><span class="p">,</span> <span class="n">own_prefix</span><span class="o">=</span><span class="n">own_prefix</span><span class="p">):</span>
         <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span>
             <span class="sa">f</span><span class="s2">"Held report </span><span class="si">{</span><span class="n">report_id</span><span class="si">!r}</span><span class="s2"> is being released, or a crashed release left a "</span>
             <span class="s2">"claim on it: call recover_claimed() when no release is running"</span>
         <span class="p">)</span>
-    <span class="n">claim_key</span> <span class="o">=</span> <span class="n">_new_claim_key</span><span class="p">(</span><span class="n">report_id</span><span class="p">,</span> <span class="n">own_prefix</span><span class="o">=</span><span class="n">claimed_store</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="n">claim_key</span> <span class="o">=</span> <span class="n">_new_claim_key</span><span class="p">(</span><span class="n">report_id</span><span class="p">,</span> <span class="n">own_prefix</span><span class="o">=</span><span class="n">own_prefix</span><span class="p">,</span> <span class="n">now</span><span class="o">=</span><span class="n">clock</span><span class="p">())</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span>
+        <span class="n">_is_claim_key</span><span class="p">(</span><span class="n">claim_key</span><span class="p">,</span> <span class="n">own_prefix</span><span class="p">)</span>
+        <span class="ow">and</span> <span class="n">_report_id_of_claim_key</span><span class="p">(</span><span class="n">claim_key</span><span class="p">,</span> <span class="n">own_prefix</span><span class="p">)</span> <span class="o">==</span> <span class="n">report_id</span>
+    <span class="p">):</span>  <span class="c1"># never write a claim recover_claimed() could not find</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">report_id</span><span class="si">!r}</span><span class="s2"> cannot be claimed: its claim key is ambiguous"</span><span class="p">)</span>
     <span class="n">claims</span><span class="p">[</span><span class="n">claim_key</span><span class="p">]</span> <span class="o">=</span> <span class="n">raw</span>
     <span class="k">if</span> <span class="n">report_id</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">holding_store</span><span class="p">:</span>  <span class="c1"># a concurrent release took it meanwhile</span>
         <span class="n">_drop_claim</span><span class="p">(</span><span class="n">claims</span><span class="p">,</span> <span class="n">claim_key</span><span class="p">)</span>
@@ -938,9 +951,7 @@ window.runMermaid = runMermaid;</script>
         <span class="c1"># Usually a concurrent release took it first, and its claim is the one that</span>
         <span class="c1"># counts. But if no other claim exists the delete may have happened anyway</span>
         <span class="c1"># (stores that report errors after acting): keep ours, so it is not lost.</span>
-        <span class="n">others</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span>
-            <span class="n">_claim_keys_of</span><span class="p">(</span><span class="n">report_id</span><span class="p">,</span> <span class="n">claims</span><span class="p">,</span> <span class="n">own_prefix</span><span class="o">=</span><span class="n">claimed_store</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">)</span>
-        <span class="p">)</span>
+        <span class="n">others</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">_claim_keys_of</span><span class="p">(</span><span class="n">report_id</span><span class="p">,</span> <span class="n">claims</span><span class="p">,</span> <span class="n">own_prefix</span><span class="o">=</span><span class="n">own_prefix</span><span class="p">))</span>
         <span class="k">if</span> <span class="n">report_id</span> <span class="ow">in</span> <span class="n">holding_store</span> <span class="ow">or</span> <span class="n">others</span> <span class="o">-</span> <span class="p">{</span><span class="n">claim_key</span><span class="p">}:</span>
             <span class="n">_drop_claim</span><span class="p">(</span><span class="n">claims</span><span class="p">,</span> <span class="n">claim_key</span><span class="p">)</span>
             <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"No held report with id </span><span class="si">{</span><span class="n">report_id</span><span class="si">!r}</span><span class="s2">"</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="kc">None</span>
@@ -948,6 +959,15 @@ window.runMermaid = runMermaid;</script>
             <span class="sa">f</span><span class="s2">"Could not take held report </span><span class="si">{</span><span class="n">report_id</span><span class="si">!r}</span><span class="s2"> out of holding; its claim is "</span>
             <span class="s2">"kept: call recover_claimed() when no release is running"</span>
         <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="kc">None</span>
+    <span class="k">if</span> <span class="n">claim_key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">claims</span><span class="p">:</span>
+        <span class="c1"># A recover_claimed() elsewhere took our claim for a stranded one while holding</span>
+        <span class="c1"># was still intact (a pause or clock skew longer than its stale_after). We just</span>
+        <span class="c1"># emptied holding, so put the report back rather than leave it nowhere.</span>
+        <span class="n">holding_store</span><span class="p">[</span><span class="n">report_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">raw</span>
+        <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"The claim on held report </span><span class="si">{</span><span class="n">report_id</span><span class="si">!r}</span><span class="s2"> was recovered by another worker "</span>
+            <span class="s2">"during this release; the report is back in holding. Raise stale_after."</span>
+        <span class="p">)</span>
     <span class="k">try</span><span class="p">:</span>
         <span class="n">report</span> <span class="o">=</span> <span class="n">Report</span><span class="o">.</span><span class="n">model_validate_json</span><span class="p">(</span><span class="n">raw</span><span class="p">)</span>
         <span class="n">destination</span> <span class="o">=</span> <span class="n">sink</span> <span class="k">if</span> <span class="n">sink</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">resolve_sink</span><span class="p">(</span><span class="n">report</span><span class="o">.</span><span class="n">origin</span><span class="p">)</span>
@@ -1012,14 +1032,26 @@ window.runMermaid = runMermaid;</script>
     <span class="o">*</span><span class="p">,</span>
     <span class="n">holding_store</span><span class="p">:</span> <span class="n">MutableMapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span>
     <span class="n">claimed_store</span><span class="p">:</span> <span class="n">MutableMapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">stale_after</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">clock</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[],</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">"""Return every claimed report to holding, and the ids returned.</span>
 
 <span class="sd">    A claim outlives its :func:`release_held` only if the process died mid-release</span>
 <span class="sd">    (the sink may or may not have accepted the report, so a recovered report may be</span>
-<span class="sd">    sent twice -- never zero times). Call this when no release is running -- e.g. at</span>
-<span class="sd">    startup -- since an in-flight release's claim looks the same. Pass the same</span>
-<span class="sd">    ``claimed_store`` as to :func:`release_held`.</span>
+<span class="sd">    sent twice -- never zero times). Pass the same ``claimed_store`` as to</span>
+<span class="sd">    :func:`release_held`.</span>
+
+<span class="sd">    An in-flight release's claim looks the same as a stranded one. With one process,</span>
+<span class="sd">    call this when no release is running (e.g. at startup) and leave ``stale_after``</span>
+<span class="sd">    unset: every claim is recovered. With several workers, one worker's startup can</span>
+<span class="sd">    overlap another's release, so pass ``stale_after`` (seconds; longer than any sink</span>
+<span class="sd">    call can take plus the clock skew between workers, e.g. ``600``): only claims older</span>
+<span class="sd">    than that are recovered (and claims stamped further ahead than that, by a clock</span>
+<span class="sd">    running fast). Claims made before claim keys carried a time count as stale. A</span>
+<span class="sd">    release whose claim is recovered anyway puts the report back in holding and fails.</span>
+<span class="sd">    Beside a dedicated claims store, ``claimed--`` claims an older heed left in holding</span>
+<span class="sd">    are recovered too (which lists holding once).</span>
 
 <span class="sd">    Only a valid report (whose own id matches its claim key) is ever written to</span>
 <span class="sd">    holding, and a valid holding copy is never replaced: a claim whose report is</span>
@@ -1027,21 +1059,51 @@ window.runMermaid = runMermaid;</script>
 <span class="sd">    is torn or missing restores it. Otherwise a claim that is not a valid report is</span>
 <span class="sd">    left in place, and not returned.</span>
 <span class="sd">    """</span>
-    <span class="n">own_prefix</span> <span class="o">=</span> <span class="n">claimed_store</span> <span class="ow">is</span> <span class="kc">None</span>
-    <span class="n">claims</span> <span class="o">=</span> <span class="n">holding_store</span> <span class="k">if</span> <span class="n">own_prefix</span> <span class="k">else</span> <span class="n">claimed_store</span>
+    <span class="k">if</span> <span class="n">stale_after</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="p">(</span>
+        <span class="n">math</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">stale_after</span><span class="p">)</span> <span class="ow">and</span> <span class="n">stale_after</span> <span class="o">&gt;=</span> <span class="mi">0</span>
+    <span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"stale_after must be &gt;= 0 seconds, got </span><span class="si">{</span><span class="n">stale_after</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+    <span class="n">claims</span><span class="p">,</span> <span class="n">own_prefix</span> <span class="o">=</span> <span class="n">_claims_of</span><span class="p">(</span><span class="n">holding_store</span><span class="p">,</span> <span class="n">claimed_store</span><span class="p">)</span>
+    <span class="n">now</span> <span class="o">=</span> <span class="n">_checked_time</span><span class="p">(</span><span class="n">clock</span><span class="p">())</span>
     <span class="n">recovered</span> <span class="o">=</span> <span class="p">[]</span>
-    <span class="k">for</span> <span class="n">claim_key</span> <span class="ow">in</span> <span class="p">[</span><span class="n">k</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">claims</span><span class="p">)</span> <span class="k">if</span> <span class="n">_is_claim_key</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">own_prefix</span><span class="p">)]:</span>
-        <span class="n">report_id</span> <span class="o">=</span> <span class="n">_report_id_of_claim_key</span><span class="p">(</span><span class="n">claim_key</span><span class="p">,</span> <span class="n">own_prefix</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">_is_report</span><span class="p">(</span><span class="n">holding_store</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">report_id</span><span class="p">),</span> <span class="n">report_id</span><span class="p">):</span>
-            <span class="n">_drop_claim</span><span class="p">(</span><span class="n">claims</span><span class="p">,</span> <span class="n">claim_key</span><span class="p">)</span>  <span class="c1"># holding is intact: the claim is redundant</span>
-            <span class="k">continue</span>
-        <span class="n">raw</span> <span class="o">=</span> <span class="n">claims</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">claim_key</span><span class="p">)</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">_is_report</span><span class="p">(</span><span class="n">raw</span><span class="p">,</span> <span class="n">report_id</span><span class="p">):</span>
-            <span class="k">continue</span>  <span class="c1"># torn or foreign: never let it replace anything</span>
-        <span class="n">_unclaim</span><span class="p">(</span><span class="n">report_id</span><span class="p">,</span> <span class="n">raw</span><span class="p">,</span> <span class="n">holding_store</span><span class="p">,</span> <span class="n">claims</span><span class="p">,</span> <span class="n">claim_key</span><span class="p">)</span>
-        <span class="n">recovered</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">report_id</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">store</span><span class="p">,</span> <span class="n">prefixed</span> <span class="ow">in</span> <span class="n">_claim_locations</span><span class="p">(</span><span class="n">holding_store</span><span class="p">,</span> <span class="n">claims</span><span class="p">,</span> <span class="n">own_prefix</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">claim_key</span> <span class="ow">in</span> <span class="p">[</span><span class="n">k</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">store</span><span class="p">)</span> <span class="k">if</span> <span class="n">_is_claim_key</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">prefixed</span><span class="p">)]:</span>
+            <span class="k">if</span> <span class="n">_is_young</span><span class="p">(</span><span class="n">_claim_time</span><span class="p">(</span><span class="n">claim_key</span><span class="p">,</span> <span class="n">prefixed</span><span class="p">),</span> <span class="n">now</span><span class="p">,</span> <span class="n">stale_after</span><span class="p">):</span>
+                <span class="k">continue</span>  <span class="c1"># possibly a release still in flight</span>
+            <span class="n">report_id</span> <span class="o">=</span> <span class="n">_report_id_of_claim_key</span><span class="p">(</span><span class="n">claim_key</span><span class="p">,</span> <span class="n">prefixed</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">_recover_one</span><span class="p">(</span><span class="n">report_id</span><span class="p">,</span> <span class="n">claim_key</span><span class="p">,</span> <span class="n">holding_store</span><span class="p">,</span> <span class="n">store</span><span class="p">):</span>
+                <span class="n">recovered</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">report_id</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">recovered</span></div>
 
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_claim_locations</span><span class="p">(</span><span class="n">holding_store</span><span class="p">,</span> <span class="n">claims</span><span class="p">,</span> <span class="n">own_prefix</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Where claims may be: the claims store, plus, beside a dedicated one,</span>
+<span class="sd">    ``claimed--`` keys an older heed left in holding (listed once per recovery)."""</span>
+    <span class="k">yield</span> <span class="n">claims</span><span class="p">,</span> <span class="n">own_prefix</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">own_prefix</span><span class="p">:</span>
+        <span class="k">yield</span> <span class="n">holding_store</span><span class="p">,</span> <span class="kc">True</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_is_young</span><span class="p">(</span><span class="n">claimed_at</span><span class="p">,</span> <span class="n">now</span><span class="p">,</span> <span class="n">stale_after</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Whether a claim made at ``claimed_at`` may belong to a release still running.</span>
+<span class="sd">    Claims without a time, and claims stamped further in the future than</span>
+<span class="sd">    ``stale_after`` (a worker whose clock runs ahead), are not."""</span>
+    <span class="k">if</span> <span class="n">stale_after</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">claimed_at</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">False</span>
+    <span class="k">return</span> <span class="nb">abs</span><span class="p">(</span><span class="n">now</span> <span class="o">-</span> <span class="n">claimed_at</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">stale_after</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_recover_one</span><span class="p">(</span><span class="n">report_id</span><span class="p">,</span> <span class="n">claim_key</span><span class="p">,</span> <span class="n">holding_store</span><span class="p">,</span> <span class="n">claims</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Return one claim's report to holding; whether it was returned."""</span>
+    <span class="k">if</span> <span class="n">_is_report</span><span class="p">(</span><span class="n">holding_store</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">report_id</span><span class="p">),</span> <span class="n">report_id</span><span class="p">):</span>
+        <span class="n">_drop_claim</span><span class="p">(</span><span class="n">claims</span><span class="p">,</span> <span class="n">claim_key</span><span class="p">)</span>  <span class="c1"># holding is intact: the claim is redundant</span>
+        <span class="k">return</span> <span class="kc">False</span>
+    <span class="n">raw</span> <span class="o">=</span> <span class="n">claims</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">claim_key</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">_is_report</span><span class="p">(</span><span class="n">raw</span><span class="p">,</span> <span class="n">report_id</span><span class="p">):</span>
+        <span class="k">return</span> <span class="kc">False</span>  <span class="c1"># torn or foreign: never let it replace anything</span>
+    <span class="n">_unclaim</span><span class="p">(</span><span class="n">report_id</span><span class="p">,</span> <span class="n">raw</span><span class="p">,</span> <span class="n">holding_store</span><span class="p">,</span> <span class="n">claims</span><span class="p">,</span> <span class="n">claim_key</span><span class="p">)</span>
+    <span class="k">return</span> <span class="kc">True</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_is_report</span><span class="p">(</span><span class="n">raw</span><span class="p">,</span> <span class="n">report_id</span><span class="p">):</span>
@@ -1054,19 +1116,58 @@ window.runMermaid = runMermaid;</script>
         <span class="k">return</span> <span class="kc">False</span>
 
 
-<span class="k">def</span><span class="w"> </span><span class="nf">_new_claim_key</span><span class="p">(</span><span class="n">report_id</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">own_prefix</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">"""A claim key no other release of ``report_id`` can produce."""</span>
-    <span class="n">key</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">report_id</span><span class="si">}{</span><span class="n">_CLAIM_SEP</span><span class="si">}{</span><span class="n">uuid4</span><span class="p">()</span><span class="o">.</span><span class="n">hex</span><span class="si">}</span><span class="s2">"</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_claims_of</span><span class="p">(</span><span class="n">holding_store</span><span class="p">,</span> <span class="n">claimed_store</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""``(claims store, whether claims carry the CLAIM_PREFIX in holding itself)``."""</span>
+    <span class="k">if</span> <span class="n">claimed_store</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">claimed_store</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">holding_store</span><span class="p">,</span> <span class="n">CLAIMS_ATTR</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">claimed_store</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">holding_store</span><span class="p">,</span> <span class="kc">True</span>
+    <span class="k">if</span> <span class="n">claimed_store</span> <span class="ow">is</span> <span class="n">holding_store</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"the claims store must not be the holding store itself"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">claimed_store</span><span class="p">,</span> <span class="kc">False</span>
+
+
+<span class="c1">#: Latest claim time a claim key can carry: ``_CLAIM_TOKEN`` allows 15 digits of ms.</span>
+<span class="n">_MAX_CLAIM_SECONDS</span> <span class="o">=</span> <span class="p">(</span><span class="mi">10</span><span class="o">**</span><span class="mi">15</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">/</span> <span class="mi">1000</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_checked_time</span><span class="p">(</span><span class="n">now</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""``now``, if it is a plausible time in seconds since the epoch."""</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">now</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">))</span> <span class="ow">and</span> <span class="n">math</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">now</span><span class="p">)):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"clock() must return seconds since the epoch, got </span><span class="si">{</span><span class="n">now</span><span class="si">!r}</span><span class="s2">"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">now</span> <span class="o">&lt;=</span> <span class="n">_MAX_CLAIM_SECONDS</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"clock() returned </span><span class="si">{</span><span class="n">now</span><span class="si">!r}</span><span class="s2">: expected seconds since the epoch (not ms or ns)"</span>
+        <span class="p">)</span>
+    <span class="k">return</span> <span class="n">now</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_new_claim_key</span><span class="p">(</span><span class="n">report_id</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">own_prefix</span><span class="p">,</span> <span class="n">now</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""A claim key no other release of ``report_id`` can make, stamped with ``now``."""</span>
+    <span class="n">key</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">report_id</span><span class="si">}{</span><span class="n">_CLAIM_SEP</span><span class="si">}{</span><span class="nb">int</span><span class="p">(</span><span class="n">_checked_time</span><span class="p">(</span><span class="n">now</span><span class="p">)</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">1000</span><span class="p">)</span><span class="si">}</span><span class="s2">-</span><span class="si">{</span><span class="n">uuid4</span><span class="p">()</span><span class="o">.</span><span class="n">hex</span><span class="si">}</span><span class="s2">"</span>
     <span class="k">return</span> <span class="n">CLAIM_PREFIX</span> <span class="o">+</span> <span class="n">key</span> <span class="k">if</span> <span class="n">own_prefix</span> <span class="k">else</span> <span class="n">key</span>
 
 
-<span class="k">def</span><span class="w"> </span><span class="nf">_is_claim_key</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">own_prefix</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_claim_token</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">own_prefix</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""The claim key's token match, or None if ``key`` is not a claim key."""</span>
     <span class="k">if</span> <span class="n">own_prefix</span><span class="p">:</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">key</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="n">CLAIM_PREFIX</span><span class="p">):</span>
-            <span class="k">return</span> <span class="kc">False</span>
+            <span class="k">return</span> <span class="kc">None</span>
         <span class="n">key</span> <span class="o">=</span> <span class="n">key</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">CLAIM_PREFIX</span><span class="p">)</span> <span class="p">:]</span>
     <span class="n">report_id</span><span class="p">,</span> <span class="n">sep</span><span class="p">,</span> <span class="n">token</span> <span class="o">=</span> <span class="n">key</span><span class="o">.</span><span class="n">rpartition</span><span class="p">(</span><span class="n">_CLAIM_SEP</span><span class="p">)</span>
-    <span class="k">return</span> <span class="nb">bool</span><span class="p">(</span><span class="n">sep</span> <span class="ow">and</span> <span class="n">report_id</span> <span class="ow">and</span> <span class="n">_CLAIM_TOKEN</span><span class="o">.</span><span class="n">fullmatch</span><span class="p">(</span><span class="n">token</span><span class="p">))</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">sep</span> <span class="ow">and</span> <span class="n">report_id</span><span class="p">):</span>
+        <span class="k">return</span> <span class="kc">None</span>
+    <span class="k">return</span> <span class="n">_CLAIM_TOKEN</span><span class="o">.</span><span class="n">fullmatch</span><span class="p">(</span><span class="n">token</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_is_claim_key</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">own_prefix</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">_claim_token</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">own_prefix</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_claim_time</span><span class="p">(</span><span class="n">claim_key</span><span class="p">,</span> <span class="n">own_prefix</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""When the claim was made (seconds since the epoch), or None if it predates #21."""</span>
+    <span class="n">ms</span> <span class="o">=</span> <span class="n">_claim_token</span><span class="p">(</span><span class="n">claim_key</span><span class="p">,</span> <span class="n">own_prefix</span><span class="p">)[</span><span class="s2">"ms"</span><span class="p">]</span>
+    <span class="k">return</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">ms</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="nb">int</span><span class="p">(</span><span class="n">ms</span><span class="p">)</span> <span class="o">/</span> <span class="mi">1000</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_report_id_of_claim_key</span><span class="p">(</span><span class="n">claim_key</span><span class="p">,</span> <span class="n">own_prefix</span><span class="p">):</span>

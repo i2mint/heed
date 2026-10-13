@@ -6,11 +6,25 @@ Stores are plain `MutableMapping``s, so the rest of heed never depends on a spec
 backend. Defaults are in-memory; pass a directory to persist to the filesystem, or
 inject any ``dol` store (S3, Mongo, …).
 
+### Module Attributes
+
+| [`CLAIMS_ATTR`](#heed.storage.CLAIMS_ATTR)   | the store its reports are claimed in while `heed.routing.release_held` sends them.   |
+|----------------------------------------------------------------|--------------------------------------------------------------------------------------|
+
 ### Functions
 
-| [`make_attachment_store`](#heed.storage.make_attachment_store)([rootdir, delete_func])   | A bytes store for attachments.   |
-|--------------------------------------------------------------------------------------------------|----------------------------------|
-| [`make_report_store`](#heed.storage.make_report_store)([rootdir, delete_func])       | A text store for report JSON.    |
+| [`make_attachment_store`](#heed.storage.make_attachment_store)([rootdir, delete_func])   | A bytes store for attachments.                                            |
+|--------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------|
+| [`make_holding_store`](#heed.storage.make_holding_store)([rootdir, delete_func])      | A report store for held reports, with a dedicated claims store beside it. |
+| [`make_report_store`](#heed.storage.make_report_store)([rootdir, delete_func])       | A text store for report JSON.                                             |
+
+### heed.storage.CLAIMS_ATTR *= 'heed_claims'*
+
+the store its
+reports are claimed in while `heed.routing.release_held` sends them.
+
+* **Type:**
+  Attribute a holding store made by `make_holding_store` carries
 
 ### heed.storage.make_attachment_store(rootdir=None, \*, delete_func=<built-in function remove>)
 
@@ -20,6 +34,27 @@ Deletion is permanent by default, for the reason given in `make_report_store`.
 
 * **Return type:**
   [`MutableMapping`](https://docs.python.org/3/library/collections.abc.html#collections.abc.MutableMapping)
+
+### heed.storage.make_holding_store(rootdir=None, \*, delete_func=<built-in function remove>)
+
+A report store for held reports, with a dedicated claims store beside it.
+
+`release_held` and `recover_claimed` find the claims store on the holding store
+(`heed_claims`), so a release lists only the reports being released right now,
+not every held report (issue #21), and nothing listing holding (a moderation view,
+`StoreSink.find_duplicates`) ever sees a claim. With `rootdir`, claims live in a
+sibling directory, `<rootdir>.claims` (a subdirectory would show up in the
+holding store’s recursive listing).
+
+* **Return type:**
+  [`MutableMapping`](https://docs.python.org/3/library/collections.abc.html#collections.abc.MutableMapping)
+
+```pycon
+>>> held = make_holding_store()
+>>> held["r1"] = "{}"
+>>> list(held), dict(held.heed_claims)
+(['r1'], {})
+```
 
 ### heed.storage.make_report_store(rootdir=None, \*, delete_func=<built-in function remove>)
 

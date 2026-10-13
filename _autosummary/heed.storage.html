@@ -404,18 +404,42 @@
 <p>Stores are plain <code class="docutils literal notranslate"><span class="pre">MutableMapping``s,</span> <span class="pre">so</span> <span class="pre">the</span> <span class="pre">rest</span> <span class="pre">of</span> <span class="pre">heed</span> <span class="pre">never</span> <span class="pre">depends</span> <span class="pre">on</span> <span class="pre">a</span> <span class="pre">specific</span>
 <span class="pre">backend.</span> <span class="pre">Defaults</span> <span class="pre">are</span> <span class="pre">in-memory;</span> <span class="pre">pass</span> <span class="pre">a</span> <span class="pre">directory</span> <span class="pre">to</span> <span class="pre">persist</span> <span class="pre">to</span> <span class="pre">the</span> <span class="pre">filesystem,</span> <span class="pre">or</span>
 <span class="pre">inject</span> <span class="pre">any</span> <span class="pre">``dol</span></code> store (S3, Mongo, …).</p>
+<p class="rubric">Module Attributes</p>
+<div class="pst-scrollable-table-container"><table class="autosummary longtable table">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#heed.storage.CLAIMS_ATTR" title="heed.storage.CLAIMS_ATTR"><code class="xref py py-obj docutils literal notranslate"><span class="pre">CLAIMS_ATTR</span></code></a></p></td>
+<td><p>the store its reports are claimed in while <code class="code docutils literal notranslate"><span class="pre">heed.routing.release_held</span></code> sends them.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
 <p class="rubric">Functions</p>
 <div class="pst-scrollable-table-container"><table class="autosummary longtable table">
 <tbody>
 <tr class="row-odd"><td><p><a class="reference internal" href="#heed.storage.make_attachment_store" title="heed.storage.make_attachment_store"><code class="xref py py-obj docutils literal notranslate"><span class="pre">make_attachment_store</span></code></a>([rootdir, delete_func])</p></td>
 <td><p>A bytes store for attachments.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#heed.storage.make_report_store" title="heed.storage.make_report_store"><code class="xref py py-obj docutils literal notranslate"><span class="pre">make_report_store</span></code></a>([rootdir, delete_func])</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#heed.storage.make_holding_store" title="heed.storage.make_holding_store"><code class="xref py py-obj docutils literal notranslate"><span class="pre">make_holding_store</span></code></a>([rootdir, delete_func])</p></td>
+<td><p>A report store for held reports, with a dedicated claims store beside it.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#heed.storage.make_report_store" title="heed.storage.make_report_store"><code class="xref py py-obj docutils literal notranslate"><span class="pre">make_report_store</span></code></a>([rootdir, delete_func])</p></td>
 <td><p>A text store for report JSON.</p></td>
 </tr>
 </tbody>
 </table>
 </div>
+<dl class="py data">
+<dt class="sig sig-object py" id="heed.storage.CLAIMS_ATTR">
+<span class="sig-prename descclassname"><span class="pre">heed.storage.</span></span><span class="sig-name descname"><span class="pre">CLAIMS_ATTR</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'heed_claims'</span></span><a class="headerlink" href="#heed.storage.CLAIMS_ATTR" title="Link to this definition">#</a></dt>
+<dd><p>the store its
+reports are claimed in while <code class="code docutils literal notranslate"><span class="pre">heed.routing.release_held</span></code> sends them.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Attribute a holding store made by <code class="code docutils literal notranslate"><span class="pre">make_holding_store</span></code> carries</p>
+</dd>
+</dl>
+</dd></dl>
+
 <dl class="py function">
 <dt class="sig sig-object py" id="heed.storage.make_attachment_store">
 <span class="sig-prename descclassname"><span class="pre">heed.storage.</span></span><span class="sig-name descname"><span class="pre">make_attachment_store</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">rootdir</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">delete_func</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;built-in</span> <span class="pre">function</span> <span class="pre">remove&gt;</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/storage.html#make_attachment_store"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.storage.make_attachment_store" title="Link to this definition">#</a></dt>
@@ -426,6 +450,29 @@
 <dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.MutableMapping" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">MutableMapping</span></code></a></span></p>
 </dd>
 </dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="heed.storage.make_holding_store">
+<span class="sig-prename descclassname"><span class="pre">heed.storage.</span></span><span class="sig-name descname"><span class="pre">make_holding_store</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">rootdir</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">delete_func</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;built-in</span> <span class="pre">function</span> <span class="pre">remove&gt;</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/storage.html#make_holding_store"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.storage.make_holding_store" title="Link to this definition">#</a></dt>
+<dd><p>A report store for held reports, with a dedicated claims store beside it.</p>
+<p><code class="docutils literal notranslate"><span class="pre">release_held</span></code> and <code class="docutils literal notranslate"><span class="pre">recover_claimed</span></code> find the claims store on the holding store
+(<code class="docutils literal notranslate"><span class="pre">heed_claims</span></code>), so a release lists only the reports being released right now,
+not every held report (issue #21), and nothing listing holding (a moderation view,
+<code class="docutils literal notranslate"><span class="pre">StoreSink.find_duplicates</span></code>) ever sees a claim. With <code class="docutils literal notranslate"><span class="pre">rootdir</span></code>, claims live in a
+sibling directory, <code class="docutils literal notranslate"><span class="pre">&lt;rootdir&gt;.claims</span></code> (a subdirectory would show up in the
+holding store’s recursive listing).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.MutableMapping" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">MutableMapping</span></code></a></span></p>
+</dd>
+</dl>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">held</span> <span class="o">=</span> <span class="n">make_holding_store</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">held</span><span class="p">[</span><span class="s2">"r1"</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"</span><span class="si">{}</span><span class="s2">"</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">list</span><span class="p">(</span><span class="n">held</span><span class="p">),</span> <span class="nb">dict</span><span class="p">(</span><span class="n">held</span><span class="o">.</span><span class="n">heed_claims</span><span class="p">)</span>
+<span class="go">(['r1'], {})</span>
+</pre></div>
+</div>
 </dd></dl>
 
 <dl class="py function">
@@ -491,7 +538,9 @@ report – and reports can carry personal data. Pass <code class="docutils liter
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.storage.CLAIMS_ATTR"><code class="docutils literal notranslate"><span class="pre">CLAIMS_ATTR</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.storage.make_attachment_store"><code class="docutils literal notranslate"><span class="pre">make_attachment_store()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.storage.make_holding_store"><code class="docutils literal notranslate"><span class="pre">make_holding_store()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.storage.make_report_store"><code class="docutils literal notranslate"><span class="pre">make_report_store()</span></code></a></li>
 </ul>
   </nav></div>

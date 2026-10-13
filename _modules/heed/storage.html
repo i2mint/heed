@@ -721,6 +721,10 @@ window.runMermaid = runMermaid;</script>
 <span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">MutableMapping</span>
 
+<span class="c1">#: Attribute a holding store made by `make_holding_store` carries: the store its</span>
+<span class="c1">#: reports are claimed in while `heed.routing.release_held` sends them.</span>
+<span class="n">CLAIMS_ATTR</span> <span class="o">=</span> <span class="s2">"heed_claims"</span>
+
 
 <div class="viewcode-block" id="make_report_store">
 <a class="viewcode-back" href="../../_autosummary/heed.storage.html#heed.make_report_store">[docs]</a>
@@ -755,6 +759,42 @@ window.runMermaid = runMermaid;</script>
     <span class="kn">from</span><span class="w"> </span><span class="nn">dol</span><span class="w"> </span><span class="kn">import</span> <span class="n">Files</span>
 
     <span class="k">return</span> <span class="n">Files</span><span class="p">(</span><span class="n">rootdir</span><span class="p">,</span> <span class="n">delete_func</span><span class="o">=</span><span class="n">delete_func</span><span class="p">)</span></div>
+
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">_HoldingDict</span><span class="p">(</span><span class="nb">dict</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""In-memory holding store carrying its own claims store (a dict takes no attrs)."""</span>
+
+
+<div class="viewcode-block" id="make_holding_store">
+<a class="viewcode-back" href="../../_autosummary/heed.storage.html#heed.make_holding_store">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">make_holding_store</span><span class="p">(</span>
+    <span class="n">rootdir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">delete_func</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="nb">str</span><span class="p">],</span> <span class="kc">None</span><span class="p">]</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">remove</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MutableMapping</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""A report store for held reports, with a dedicated claims store beside it.</span>
+
+<span class="sd">    ``release_held`` and ``recover_claimed`` find the claims store on the holding store</span>
+<span class="sd">    (``heed_claims``), so a release lists only the reports being released right now,</span>
+<span class="sd">    not every held report (issue #21), and nothing listing holding (a moderation view,</span>
+<span class="sd">    ``StoreSink.find_duplicates``) ever sees a claim. With ``rootdir``, claims live in a</span>
+<span class="sd">    sibling directory, ``&lt;rootdir&gt;.claims`` (a subdirectory would show up in the</span>
+<span class="sd">    holding store's recursive listing).</span>
+
+<span class="sd">    &gt;&gt;&gt; held = make_holding_store()</span>
+<span class="sd">    &gt;&gt;&gt; held["r1"] = "{}"</span>
+<span class="sd">    &gt;&gt;&gt; list(held), dict(held.heed_claims)</span>
+<span class="sd">    (['r1'], {})</span>
+<span class="sd">    """</span>
+    <span class="k">if</span> <span class="n">rootdir</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">store</span><span class="p">,</span> <span class="n">claims</span> <span class="o">=</span> <span class="n">_HoldingDict</span><span class="p">(),</span> <span class="p">{}</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">claims_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">normpath</span><span class="p">(</span><span class="n">rootdir</span><span class="p">)</span> <span class="o">+</span> <span class="s2">".claims"</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">rootdir</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">claims_dir</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">store</span> <span class="o">=</span> <span class="n">make_report_store</span><span class="p">(</span><span class="n">rootdir</span><span class="p">,</span> <span class="n">delete_func</span><span class="o">=</span><span class="n">delete_func</span><span class="p">)</span>
+        <span class="n">claims</span> <span class="o">=</span> <span class="n">make_report_store</span><span class="p">(</span><span class="n">claims_dir</span> <span class="o">+</span> <span class="n">os</span><span class="o">.</span><span class="n">sep</span><span class="p">,</span> <span class="n">delete_func</span><span class="o">=</span><span class="n">delete_func</span><span class="p">)</span>
+    <span class="nb">setattr</span><span class="p">(</span><span class="n">store</span><span class="p">,</span> <span class="n">CLAIMS_ATTR</span><span class="p">,</span> <span class="n">claims</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">store</span></div>
 
 </pre></div>
 
