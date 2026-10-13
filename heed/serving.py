@@ -1,18 +1,19 @@
 """Serve stored screenshots: a read-only route meant for its own origin (issue #19).
 
-heed stores sanitized screenshots in the attachment store (``images.py``); a GitHub issue
-can only show one through a URL (design.md §9). This module is that URL's server:
+heed stores sanitized screenshots in the attachment store (``images.py``); a GitHub
+issue can only show one through a URL (design.md §9). This module is that URL's server:
 
 - ``AttachmentSigner`` mints and checks signed URLs. Report ids are not secrets (the
-  submit response, the report JSON, logs and holding stores all carry them), so by default
-  a screenshot is served only with a valid HMAC signature, which only the backend can make
-  — typically when a sink embeds the screenshot in an issue. Held or rejected reports'
-  screenshots therefore have no URL at all.
+  submit response, the report JSON, logs and holding stores all carry them), so by
+  default a screenshot is served only with a valid HMAC signature, which only the
+  backend can make — typically when a sink embeds the screenshot in an issue. Held or
+  rejected reports' screenshots therefore have no URL at all.
 - ``make_attachment_router`` / ``make_attachment_app`` serve ``GET <path>/<ref>`` with
   ``attachment_headers`` on every response. Mount them on a dedicated origin (a
   subdomain such as ``files.example.com``), never the app's: ``allowed_hosts`` refuses
   any other ``Host``.
-- ``screenshot_url_resolver`` plugs the signer into ``GitHubIssuesSink(screenshot_url=)``.
+- ``screenshot_url_resolver`` plugs the signer into
+  ``GitHubIssuesSink(screenshot_url=)``.
 
 >>> from fastapi.testclient import TestClient
 >>> from heed.images import _tiny_png
@@ -51,8 +52,9 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-#: Refs heed itself writes: ``{uuid4 hex}.{image extension}`` (see ``process_submission``).
-#: Anything else is refused before the store is touched (no path tricks into a file store).
+#: Refs heed itself writes: ``{uuid4 hex}.{image extension}`` (``process_submission``).
+#: Anything else is refused before the store is touched (no path tricks into a file
+#: store).
 DEFAULT_REF_PATTERN = re.compile(
     r"[0-9a-f]{32}\.(?:%s)" % "|".join(map(re.escape, IMAGE_EXTENSIONS.values()))
 )
@@ -69,7 +71,8 @@ def _key_bytes(key: str | bytes) -> bytes:
     if len(key) < MIN_SIGNING_KEY_BYTES:
         raise ValueError(
             f"an attachment signing key needs at least {MIN_SIGNING_KEY_BYTES} bytes; "
-            "make one with: python -c 'import secrets; print(secrets.token_urlsafe(32))'"
+            "make one with: "
+            "python -c 'import secrets; print(secrets.token_urlsafe(32))'"
         )
     return key
 
@@ -77,16 +80,17 @@ def _key_bytes(key: str | bytes) -> bytes:
 class AttachmentSigner:
     """Mint and check signed attachment URLs (HMAC-SHA256 over the ref and expiry).
 
-    ``ttl_seconds=None`` (the default) signs URLs that never expire: a GitHub issue keeps
-    showing its screenshot, and access is revoked by deleting the attachment or rotating
-    the key. A ttl makes URLs expire, which suits links handed to people rather than
-    embedded in issues. ``previous_keys`` still verify (but never sign), for rotation.
+    ``ttl_seconds=None`` (the default) signs URLs that never expire: a GitHub issue
+    keeps showing its screenshot, and access is revoked by deleting the attachment or
+    rotating the key. A ttl makes URLs expire, which suits links handed to people rather
+    than embedded in issues. ``previous_keys`` still verify (but never sign), for rotation.
 
     >>> s = AttachmentSigner("k" * 32, ttl_seconds=60, clock=lambda: 1000)
     >>> q = s.sign("ab.png")
     >>> q["exp"], s.verify("ab.png", **q), s.verify("other.png", **q)
     ('1060', True, False)
-    >>> AttachmentSigner("k" * 32, ttl_seconds=60, clock=lambda: 2000).verify("ab.png", **q)
+    >>> later = AttachmentSigner("k" * 32, ttl_seconds=60, clock=lambda: 2000)
+    >>> later.verify("ab.png", **q)
     False
     """
 
@@ -126,12 +130,18 @@ class AttachmentSigner:
         return base64.urlsafe_b64encode(digest).rstrip(b"=").decode()
 
     def sign(self, ref: str) -> dict[str, str]:
-        """The query parameters that authorise ``ref``: ``sig``, and ``exp`` with a ttl."""
-        exp = "" if self.ttl_seconds is None else str(int(self._clock() + self.ttl_seconds))
+        """The query parameters authorising ``ref``: ``sig``, and ``exp`` with a ttl."""
+        exp = (
+            ""
+            if self.ttl_seconds is None
+            else str(int(self._clock() + self.ttl_seconds))
+        )
         params = {"exp": exp} if exp else {}
         return {**params, "sig": self._mac(self._key, ref, exp)}
 
-    def verify(self, ref: str, *, sig: str | None = None, exp: str | None = None) -> bool:
+    def verify(
+        self, ref: str, *, sig: str | None = None, exp: str | None = None
+    ) -> bool:
         """Whether ``sig`` (and ``exp``, if any) authorise ``ref`` right now."""
         if not sig or not _SIG.fullmatch(sig):
             return False
@@ -204,7 +214,8 @@ def make_attachment_router(
     Args:
         attachment_store: Where ``process_submission`` put the screenshots.
         config: Defaults for ``signer`` (``attachment_signing_key``,
-            ``attachment_url_ttl_seconds``) and ``allowed_hosts`` (``attachment_hosts``).
+            ``attachment_url_ttl_seconds``) and ``allowed_hosts``
+            (``attachment_hosts``).
         signer: Required unless ``allow_unsigned``: report ids are not secret.
         allow_unsigned: Serve any ref without a signature (a ref is then the
             capability). Only for stores whose every screenshot may be public.
@@ -228,7 +239,8 @@ def make_attachment_router(
         allowed_hosts = cfg.attachment_hosts
     if isinstance(allowed_hosts, str):
         raise TypeError(
-            f"allowed_hosts must be a list of hostnames, not a string: {allowed_hosts!r}"
+            "allowed_hosts must be a list of hostnames, not a string: "
+            f"{allowed_hosts!r}"
         )
     hosts = None if allowed_hosts is None else {h.lower() for h in allowed_hosts}
     if hosts is None:
@@ -264,7 +276,9 @@ def make_attachment_router(
         media_type = sniff_image_type(data)
         if media_type != _MEDIA_TYPE_OF_EXTENSION.get(ref.rsplit(".", 1)[-1]):
             media_type = "application/octet-stream"
-        headers = attachment_headers(media_type, filename=ref, cross_origin=cross_origin)
+        headers = attachment_headers(
+            media_type, filename=ref, cross_origin=cross_origin
+        )
         return Response(content=data, headers=headers)
 
     return router

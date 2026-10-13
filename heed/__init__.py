@@ -71,6 +71,12 @@ from heed.security import (
     make_bot_verifier,
     make_rate_limiter,
 )
+from heed.serving import (
+    AttachmentSigner,
+    make_attachment_app,
+    make_attachment_router,
+    screenshot_url_resolver,
+)
 from heed.sinks import (
     BaseSink,
     GitHubIssuesSink,
@@ -78,12 +84,6 @@ from heed.sinks import (
     SinkResult,
     StoreSink,
     github_sink_from_token,
-)
-from heed.serving import (
-    AttachmentSigner,
-    make_attachment_app,
-    make_attachment_router,
-    screenshot_url_resolver,
 )
 from heed.storage import make_attachment_store, make_report_store
 
