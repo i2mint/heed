@@ -18,7 +18,13 @@ The router rejects abuse cheapest-first, so a flood costs as little as possible:
 10. Model validation (`heed/base.py`): length limits on every string and list, `page_url` must be an absolute `http(s)` URL, control and bidi-override characters are stripped, `anon_id` is a short opaque token, `env` must be a JSON object. Errors never echo the submitted input back.
 11. Screenshot: size cap, then magic-byte sniffing; only PNG, JPEG and WebP are stored, under the sniffed type, whatever the client claimed.
 
-The sink is chosen server-side; the browser never names a repository or board.
+The sink is chosen server-side; the browser never names a repository or board (see *Routing and moderation* below).
+
+## Routing and moderation
+
+**Site resolution.** One backend can serve several sites. Pass `resolve_sink` to `make_router`: it maps the validated `Origin` to that site's sink, and an origin that resolves to no sink is refused (`403 unknown site`) before the body is read. `sinks_by_origin({"https://a.example": sink_a, ...}, default=None)` builds one from a mapping. Form fields such as `repo` or `target` are ignored: the browser cannot steer a report into another tracker.
+
+**Moderation / holding.** Pass `moderator` (a function `Report -> Verdict`) together with `holding_sink`. `accept` routes to the site's sink, `hold` parks the report in the holding sink with status `held` until someone calls `release_held(report_id, holding_store=..., sink=...)`, and `reject` drops it while the submitter sees an ordinary success. Built-ins: `accept_all` (the default), `hold_all` (full pre-moderation), `make_heuristic_moderator(max_links=3, blocked_terms=[...])`, and `chain_moderators(...)` (the most severe verdict wins). The response carries `"status": "held"` for a held report so the widget can say it awaits review.
 
 ## Knobs
 
