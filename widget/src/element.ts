@@ -32,6 +32,7 @@ import { CONTRACT } from "./contract.gen.js";
 import { MESSAGES, type SubmitOutcome, sendReport } from "./submit.js";
 import { captureWithin, screenshotStrategy } from "./capture.js";
 import { applyStyles } from "./styles.js";
+import { type BotGate, createBotGate } from "./botgate.js";
 
 export const TAG = "heed-feedback";
 
@@ -80,6 +81,7 @@ interface Ui {
   body: HTMLTextAreaElement;
   honeypot: HTMLInputElement;
   note: HTMLParagraphElement;
+  gate: HTMLDivElement;
   shotRow: HTMLDivElement;
   shotBox: HTMLInputElement;
   shotState: HTMLParagraphElement;
@@ -106,6 +108,7 @@ export class HeedFeedbackElement extends Base {
   #ui: Ui | null = null;
   #sending = false;
   #shot: Shot | null = null;
+  #gate: { key: string; gate: BotGate | null } | null = null;
 
   /** The effective options: defaults, then attributes, then `configure()`/properties. */
   get options(): HeedOptions {
@@ -147,6 +150,7 @@ export class HeedFeedbackElement extends Base {
   }
 
   disconnectedCallback(): void {
+    this.#dropGate();
     // A modal dialog that leaves the document stops being modal but stays "open";
     // close it so the next open() shows it properly again.
     this.close();
@@ -171,6 +175,7 @@ export class HeedFeedbackElement extends Base {
     if (!ui.done.hidden) this.#showForm();
     ui.dialog.showModal();
     ui.title.focus();
+    this.#warmGate();
     this.#startScreenshot();
     this.#emit("heed:open", {});
   }
@@ -210,6 +215,7 @@ export class HeedFeedbackElement extends Base {
     const shotBox = h(doc, "input", { type: "checkbox", checked: true });
     const shotState = h(doc, "p", { class: "note", role: "status" });
     const preview = h(doc, "img", { class: "preview", alt: "Screenshot to be sent", hidden: true, part: "preview" });
+    const gate = h(doc, "div", { class: "gate", part: "gate" });
     const shotRow = h(doc, "div", { class: "shot" }, h(doc, "label", { class: "check" }, shotBox, MESSAGES.shotLabel), shotState, preview);
     const form = h(
       doc,
@@ -221,6 +227,7 @@ export class HeedFeedbackElement extends Base {
       h(doc, "div", { class: "hp", "aria-hidden": "true" }, h(doc, "label", {}, "Leave this field empty", honeypot)),
       note,
       shotRow,
+      gate,
       h(doc, "div", { class: "messages" }, status, error),
       h(doc, "div", { class: "actions" }, cancel, submit),
     );
@@ -242,7 +249,7 @@ export class HeedFeedbackElement extends Base {
     title.addEventListener("input", () => {
       if (error.textContent) this.#setStatus("", false);
     });
-    return { launcher, dialog, heading, form, categoryLabel, category, title, body, honeypot, note, shotRow, shotBox, shotState, preview, status, error, submit, doneClose, done, doneMessage, doneLink };
+    return { launcher, dialog, heading, form, categoryLabel, category, title, body, honeypot, note, gate, shotRow, shotBox, shotState, preview, status, error, submit, doneClose, done, doneMessage, doneLink };
   }
 
   /** Bring the rendered UI in line with the current options. */
@@ -305,11 +312,12 @@ export class HeedFeedbackElement extends Base {
         honeypot: ui.honeypot.value,
         screenshot,
       };
-      outcome = await sendReport(input, o);
+      const sending = this.#withGate(o);
+      outcome = await sendReport(input, sending);
       if (!outcome.ok && outcome.kind === "too_large" && screenshot) {
         // The server's cap is lower than ours: the words matter more than the picture.
         droppedShot = true;
-        outcome = await sendReport({ ...input, screenshot: null }, o);
+        outcome = await sendReport({ ...input, screenshot: null }, sending);
       }
     } finally {
       this.#sending = false;
@@ -349,6 +357,47 @@ export class HeedFeedbackElement extends Base {
     this.#setStatus(MESSAGES.shotFinishing, false);
     await shot.settled;
     return shot.shown && ui.shotBox.checked && this.#shot === shot ? "review" : null;
+  }
+
+  /**
+   * The built-in bot gate for the current options (null when off, misconfigured, or
+   * overridden by an explicit `botToken`). Rebuilt when its options change.
+   */
+  #currentGate(o: HeedOptions): BotGate | null {
+    const ui = this.#ui;
+    if (!ui || !o.botGate || o.botToken) return this.#dropGate();
+    const key = JSON.stringify([o.botGate, o.botSitekey, o.botGateScript]);
+    if (this.#gate?.key !== key) {
+      this.#dropGate();
+      const win = this.ownerDocument.defaultView ?? window;
+      this.#gate = { key, gate: createBotGate(win, ui.gate, { provider: o.botGate, sitekey: o.botSitekey, script: o.botGateScript || undefined }) };
+    }
+    return this.#gate!.gate;
+  }
+
+  #dropGate(): null {
+    this.#gate?.gate?.destroy();
+    this.#gate = null;
+    return null;
+  }
+
+  /** Load the challenge ahead of the first send; a failure shows up as a failed send. */
+  #warmGate(): void {
+    this.#currentGate(this.options)?.warm().catch((e) => console.warn("heed: the bot gate could not start", e));
+  }
+
+  #withGate(o: HeedOptions): HeedOptions {
+    const gate = this.#currentGate(o);
+    if (!gate) return o;
+    const ui = this.#ui;
+    return {
+      ...o,
+      botToken: () => {
+        // An interactive challenge waits on the visitor: say so instead of "Sending…".
+        if (ui) this.#setStatus(MESSAGES.gateWaiting, false);
+        return gate.token().finally(() => ui && this.#setStatus(MESSAGES.sending, false));
+      },
+    };
   }
 
   /** Capture the page behind the dialog, in the background; the visitor sees a preview. */

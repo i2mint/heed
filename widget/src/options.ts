@@ -58,6 +58,12 @@ export interface HeedOptions {
   screenshotTimeoutMs: number;
   /** No screenshot of pages with more elements than this (cloning them would freeze the page). */
   screenshotMaxNodes: number;
+  /** Built-in challenge to run before each send: "" (off), or a provider in GATES ("turnstile"). `botToken` overrides it. */
+  botGate: string;
+  /** The challenge provider's public site key (the secret stays on the server). */
+  botSitekey: string;
+  /** Overrides the provider's script URL (a self-hosted proxy, or a stand-in in tests); code-only. */
+  botGateScript: string;
   /** Bot-gate token provider. Function options are set as properties or through `init`, never as attributes. */
   botToken: BotTokenProvider | null;
   /** Extra environment provider. */
@@ -123,6 +129,9 @@ export const OPTION_SPECS: Specs = {
   maskSelector: { default: "[data-heed-mask]", attr: "mask-selector", parse: text },
   screenshotTimeoutMs: { default: 10_000, attr: "screenshot-timeout-ms", parse: positiveInt },
   screenshotMaxNodes: { default: 5_000, attr: "screenshot-max-nodes", parse: positiveInt },
+  botGate: { default: "", attr: "bot-gate", parse: (s) => s.toLowerCase() },
+  botSitekey: { default: "", attr: "bot-sitekey", parse: text },
+  botGateScript: { default: "" },
   botToken: { default: null },
   extra: { default: null },
   takeScreenshot: { default: null },

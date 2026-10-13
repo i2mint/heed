@@ -21,8 +21,8 @@ import { licence } from "./licence.mjs";
 const here = dirname(fileURLToPath(import.meta.url));
 const OUT_DIR = join(here, "..", "heed", "static", "widget");
 const pkg = JSON.parse(readFileSync(join(here, "package.json"), "utf8"));
-// Gzipped-size budgets in bytes, per entry.
-const BUDGETS = { raster: 14_000, widget: 10_000, loader: 1_300 };
+// Gzipped-size budgets in bytes, per entry (widget: 10_000 plus the opt-in bot-gate adapter, heed#37).
+const BUDGETS = { raster: 14_000, widget: 11_000, loader: 1_300 };
 const RETAIN_VERSIONS = 5;
 // Built in order: the bundle embeds the rasterizer's hashed name and SRI hash, the
 // loader the bundle's.
