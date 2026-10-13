@@ -147,9 +147,11 @@ function maskRects(doc: Document, o: CaptureOptions, width: number, height: numb
   return rects;
 }
 
+const FORM_CONTENT = new Set(["select", "optgroup", "option", "textarea", "datalist"]);
+
 /** A 1×1 black PNG: what a masked image, canvas or video becomes. */
 const BLACK_PIXEL =
-  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
+  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGNgYGAAAAAEAAH2FzhVAAAAAElFTkSuQmCC";
 
 /**
  * Whether the browser draws this node at all. Light-DOM children of a closed shadow
@@ -157,6 +159,8 @@ const BLACK_PIXEL =
  * would be drawn by a clone that cannot see the shadow root.
  */
 function rendered(node: Node): boolean {
+  // Form controls draw their options and text without boxes of their own.
+  if (node.parentElement && FORM_CONTENT.has(node.parentElement.localName)) return true;
   if (isEl(node)) {
     const el = node as Element & { checkVisibility?: () => boolean };
     if (!el.checkVisibility || el.checkVisibility()) return true;
@@ -274,11 +278,17 @@ async function capture(win: Window, o: CaptureOptions): Promise<Blob | null> {
   const scroll = { x: win.scrollX, y: win.scrollY };
   const scale = Math.min(win.devicePixelRatio || 1, 2, Math.sqrt(Math.min(o.maxPixels, 8_000_000) / (width * height)));
   const rects = maskRects(doc, o, width, height);
+  // The page's own background (set on body or html), so dark pages stay readable.
+  const background =
+    [doc.body, doc.documentElement]
+      .map((el) => (el ? win.getComputedStyle(el).backgroundColor : ""))
+      .find((c) => c && c !== "transparent" && !/rgba\([^)]*,\s*0\)$/.test(c)) ?? "#fff";
   const scrubber = pairingScrubber(o);
   const canvas = await domToCanvas(doc.documentElement, {
     width,
     height,
     scale,
+    backgroundColor: background,
     filter: (node) => scrubber.filter(node),
     onCloneEachNode: (clone) => scrubber.onCloneEachNode(clone),
     onCloneNode: (root) => {
