@@ -87,13 +87,14 @@ Every option has a default; set it as an element attribute, as a `data-*` attrib
 | `botTokenField` (`bot-token-field`) | `bot_token` | Must match the server's `HEED_BOT_TOKEN_FIELD`. |
 | `honeypotField` (`honeypot-field`) | `hp_website` | Must match the server's `HEED_HONEYPOT_FIELD`; empty for none. |
 | `screenshot` (`screenshot`) | `true` | Offer a screenshot of the visible page (the visitor sees a preview and can untick it). |
-| `maskInputs` (`mask-inputs`) | `true` | In the screenshot, text fields show bullets; selects, file inputs and editable regions are blacked out. Password fields always show bullets. |
+| `maskInputs` (`mask-inputs`) | `true` | In the screenshot, black out every field a visitor types into, selects, editable regions and iframes. Password-like fields always are. |
 | `maskSelector` (`mask-selector`) | `[data-heed-mask]` | Elements blacked out in the screenshot. |
 | `screenshotTimeoutMs` (`screenshot-timeout-ms`) | `10000` | Give up on the screenshot after this long; the report is sent without it. |
+| `screenshotMaxNodes` (`screenshot-max-nodes`) | `5000` | No screenshot of pages with more elements than this (cloning them would freeze the tab). |
 | `anonId` (`anon-id`) | none | An opaque id your app chooses to group one visitor's reports. The widget never invents or stores one. |
 | `botToken` | none | `() => token` (or a promise of one): the bot-gate seam. Return a Turnstile/hCaptcha token when the backend's bot gate is on. |
 | `extra` | none | `() => ({key: "value"})`: extra facts sent in `env.extra` (app version, flags…), trimmed to the server's limits. |
-| `takeScreenshot` | built-in | `(window, {maskInputs, maskSelector, maxBytes, maxPixels}) => Promise<Blob \| null>`: replace the screenshot strategy (an app that bundles heed itself, or its own capture). |
+| `takeScreenshot` | built-in | `(window, {maskInputs, maskSelector, maxNodes, maxBytes, maxPixels}) => Promise<Blob \| null>`: replace the screenshot strategy (an app that bundles heed itself, or its own capture). |
 
 ```js
 const el = document.querySelector("heed-feedback");
@@ -110,15 +111,21 @@ The title, details and category the visitor typed; the page URL (without query a
 
 ## Screenshots
 
-When the dialog opens, the widget loads its rasterizer (`heed-raster-<hash>.js`, about 10 kB gzipped, fetched only then and pinned by SRI from the bundle) and re-renders the part of the page the visitor sees, leaving the widget itself out. The visitor sees a preview and can untick it. The capture runs in the background; Send waits for it (up to `screenshotTimeoutMs`), and any failure just means the report goes without one.
+When the dialog opens, the widget loads its rasterizer (`heed-raster-<hash>.js`, about 11 kB gzipped, fetched only then and pinned by SRI from the bundle) and re-renders the part of the page the visitor sees, leaving the widget itself out. The capture runs in the background and the visitor sees a preview with an "Include a screenshot" checkbox. **Only a screenshot the visitor has been shown is ever sent**: pressing Send while it is still being taken finishes it, shows it, and asks them to check it and press Send again; if the preview cannot be displayed (a CSP without `img-src blob:`), it is not sent. Any failure means the report goes without one.
 
-Privacy is applied to the cloned page, before anything is drawn, so masked content never reaches the image: password fields always show bullets; with `maskInputs` (the default) all text fields show bullets and selects, file inputs and editable regions are blacked out. Mark anything else sensitive with `data-heed-mask` (blacked out) or `data-heed-ignore` (left out entirely, e.g. a chat widget):
+Privacy is enforced twice before the image leaves the page. First, the cloned page is scrubbed before it is drawn: field values and the contents of masked elements are removed, decided on the live page (so selectors, input types and editability mean what they mean to the browser). Second, black boxes are painted over the final image wherever the live page has masked content, including children positioned or overflowing outside their element. What is masked:
+
+- password-like fields, always (`type=password`, or `autocomplete` `current-password`, `new-password`, `one-time-code`, `cc-*`);
+- with `maskInputs` (the default): every field a visitor types into, selects, editable regions, and every iframe or embed;
+- whatever `maskSelector` matches (`[data-heed-mask]` by default):
 
 ```html
 <div class="account-balance" data-heed-mask>…</div>
 ```
 
-Limits to know: it is a DOM re-rendering, not true pixels, so cross-origin iframes, videos, tainted canvases and some CSS come out blank or approximate. It needs a page whose Content-Security-Policy allows inline styles and does not enforce Trusted Types; on a stricter page the widget detects it once, logs a console warning, and sends reports without a screenshot (set `screenshot="false"` / `data-screenshot="false"` to skip even the check). The image is at most 8 megapixels, PNG, falling back to JPEG to stay under the server's size cap.
+Mark an element `data-heed-ignore` to leave it out entirely (a chat widget, say).
+
+Limits to know: it is a DOM re-rendering, not true pixels, so videos, cross-origin iframes, tainted canvases and some CSS come out blank or approximate. Cloning a page costs main-thread time in proportion to its size, so pages with more than `screenshotMaxNodes` elements (5000) get no screenshot rather than a frozen tab. It needs a page whose Content-Security-Policy allows inline styles and `img-src data: blob:` and does not enforce Trusted Types; on a stricter page the widget detects it once before downloading anything (the inline-style probe may itself produce one CSP violation report), logs a console warning, and sends reports without a screenshot (`screenshot="false"` skips even the check). The image is at most 8 megapixels, PNG, falling back to JPEG, and kept under 60% of the server's size cap; if the server still refuses it as too large, the report is re-sent without it.
 
 ## Theming
 

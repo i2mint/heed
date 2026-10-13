@@ -432,7 +432,9 @@ def test_an_element_with_id_heed_does_not_stop_the_embed(browser):
         assert problems == []
 
 
-def _shot_page(backend: str, *, strict: bool = False) -> str:
+def _shot_page(
+    backend: str, *, strict: bool = False, extra: str = "", loader_attrs: str = ""
+) -> str:
     """A scrolled page with a fixed header, a masked block and a filled-in field.
 
     Without ``strict`` its CSP is what screenshots need (inline styles allowed, images
@@ -447,14 +449,15 @@ def _shot_page(backend: str, *, strict: bool = False) -> str:
         '<div class="hdr">header</div>'
         '<div class="secret" data-heed-mask>4111 1111</div>'
         '<input id="email" value="someone@example.com">'
+        f"{extra}"
         '<div class="tall"></div>'
-        f'<script async src="{backend}/heed/widget/heed.js"></script>'
+        f'<script async src="{backend}/heed/widget/heed.js" {loader_attrs}></script>'
     )
     if strict:
         return _page(backend, content)
     csp = (
-        f"default-src 'none'; script-src {backend}; connect-src {backend}; "
-        "style-src 'unsafe-inline'; img-src data: blob:"
+        f"default-src 'none'; script-src {backend} 'nonce-{NONCE}'; "
+        f"connect-src {backend}; style-src 'unsafe-inline'; img-src data: blob:"
     )
     return f"""<!doctype html><html><head><meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="{csp}"><title>shots</title></head>
@@ -519,3 +522,93 @@ def test_a_csp_too_strict_for_screenshots_still_sends_the_report(browser):
         (saved,) = [json.loads(v) for v in store.values()]
         assert saved["attachments"] == []
         assert any("blocks screenshots" in w for w in tab.heed_warnings)
+
+
+# Every way a secret has been seen to escape masking; each secret is red text, and the
+# stored screenshot must contain no red at all.
+_LEAKS = (
+    "<style>.red{color:#f00;font-size:30px}</style>"
+    '<div style="position:absolute;top:1000px;left:20px">'
+    '<input id="odd" type="foo" class="red">'
+    '<input id="spaced" type="text " class="red">'
+    '<input id="mail" class="red" value="someone@example.com">'
+    '<textarea class="red">prefilled secret</textarea>'
+    '<div data-heed-mask style="height:20px;width:200px;position:relative">'
+    '<span class="red" style="position:absolute;top:30px">escaped child</span></div>'
+    '<div data-heed-mask class="red" style="height:10px;width:400px">overflowing text '
+    "that goes on</div>"
+    '<div data-heed-mask style="display:contents"><span class="red">contents</span>'
+    "</div>"
+    '<div class="pii red">only matched in the live page</div>'
+    '<svg width="300" height="40"><text data-heed-mask x="0" y="30" fill="#f00" '
+    'font-size="30">svg secret</text></svg>'
+    '<div contenteditable class="red">editable</div>'
+    '<iframe id="editor" srcdoc="<body style=color:#f00;font-size:30px>x</body>">'
+    "</iframe>"
+    "</div>"
+    f'<script nonce="{NONCE}">'
+    "document.getElementById('odd').value = 'SECRET-A';"
+    "document.getElementById('spaced').value = 'SECRET-B';"
+    "const f = document.getElementById('editor');"
+    "f.addEventListener('load', () => { f.contentDocument.designMode = 'on';"
+    " f.contentDocument.body.textContent = 'rich text secret'; });"
+    "</script>"
+)
+
+
+def _red_pixels(png: bytes) -> int:
+    from io import BytesIO
+
+    from PIL import Image
+
+    image = Image.open(BytesIO(png)).convert("RGB")
+    return sum(
+        1 for r, g, b in image.get_flattened_data() if r > 180 and g < 90 and b < 90
+    )
+
+
+def _shot_report(browser, page, scroll_to=950):
+    with _site(browser, page=page) as (tab, problems, store, _origin):
+        tab.evaluate(f"window.scrollTo(0, {scroll_to})")
+        tab.get_by_role("button", name="Feedback").click()
+        tab.get_by_role("img", name="Screenshot to be sent").wait_for(timeout=20_000)
+        tab.get_by_label("Title").fill("leak hunt")
+        tab.get_by_role("button", name="Send").click()
+        tab.get_by_text("Your report was sent").wait_for()
+        (saved,) = [json.loads(v) for v in store.values()]
+        (attachment,) = saved["attachments"]
+        return store.attachments[attachment["ref"]], problems
+
+
+def test_no_secret_reaches_the_screenshot(browser):
+    pytest.importorskip("PIL")
+
+    def page(backend):
+        return _shot_page(
+            backend,
+            extra=_LEAKS,
+            loader_attrs='data-mask-selector=":root .pii, [data-heed-mask]"',
+        )
+
+    png, problems = _shot_report(browser, page)
+    assert _red_pixels(png) == 0
+    assert problems == []
+
+
+def test_password_like_fields_are_masked_even_with_mask_inputs_off(browser):
+    pytest.importorskip("PIL")
+    fields = (
+        '<div style="position:absolute;top:1000px;left:20px">'
+        '<input class="red" type="text" autocomplete="current-password" '
+        'value="shown-password" style="color:#f00;font-size:30px">'
+        '<input class="red" autocomplete="cc-number" value="4111111111111111" '
+        'style="color:#f00;font-size:30px"></div>'
+    )
+
+    def page(backend):
+        return _shot_page(
+            backend, extra=fields, loader_attrs='data-mask-inputs="false"'
+        )
+
+    png, _problems = _shot_report(browser, page)
+    assert _red_pixels(png) == 0

@@ -17,19 +17,49 @@ declare const __HEED_RASTER_INTEGRITY__: string;
 type TT = { createPolicy(n: string, p: object): { createScriptURL(u: string): unknown } };
 type HeedGlobals = Window & {
   __heedRaster?: Raster;
-  __heedTT?: { p: { createScriptURL(u: string): unknown } | null; a: Set<string> };
+  __heedTT?: { createScriptURL(u: string): unknown } | null;
   trustedTypes?: TT;
 };
 
-const ownScript = typeof document !== "undefined" ? (document.currentScript as HTMLScriptElement | null) : null;
+/** This bundle's own `<script>`; null when an app bundled heed into its own code. */
+const ownScript = (() => {
+  const s = typeof document !== "undefined" ? (document.currentScript as HTMLScriptElement | null) : null;
+  return s && /\/heed-widget(-[0-9a-f]{10})?\.js([?#]|$)/.test(s.src) ? s : null;
+})();
 let raster: Promise<Raster> | null = null;
+let csp: boolean | undefined;
 
-/** Load `heed-raster-<hash>.js` once (null when this bundle has no script URL to resolve it against). */
+/**
+ * Whether this page's CSP lets the rasterizer work: it builds `<style>` elements and
+ * markup strings, so it needs inline styles and no Trusted Types enforcement.
+ * Probed once, before anything is downloaded; the style probe can itself produce one
+ * CSP violation report on a strict page.
+ */
+export function screenshotsAllowed(doc: Document): boolean {
+  if (csp !== undefined) return csp;
+  csp = true;
+  try {
+    doc.createElement("template").innerHTML = "<b></b>";
+  } catch {
+    csp = false; // Trusted Types enforced
+  }
+  if (csp) {
+    const style = doc.createElement("style");
+    style.textContent = "heed-probe{}";
+    (doc.head || doc.documentElement).append(style);
+    csp = !!style.sheet;
+    style.remove();
+  }
+  if (!csp) console.warn("heed: this page's Content-Security-Policy blocks screenshots (they need inline styles and no Trusted Types enforcement)");
+  return csp;
+}
+
+/** Load `heed-raster-<hash>.js` once, next to this bundle, pinned by SRI. */
 export function loadRaster(win: Window = window): Promise<Raster> {
   const w = win as HeedGlobals;
   if (w.__heedRaster) return Promise.resolve(w.__heedRaster);
   if (raster) return raster;
-  if (!ownScript?.src) return Promise.reject(new Error("heed: cannot locate the rasterizer (no bundle script URL)"));
+  if (!ownScript) return Promise.reject(new Error("heed: cannot locate the rasterizer; pass takeScreenshot"));
   const url = new URL(__HEED_RASTER__, ownScript.src).href;
   raster = new Promise<Raster>((resolve, reject) => {
     const doc = win.document;
@@ -47,25 +77,29 @@ export function loadRaster(win: Window = window): Promise<Raster> {
   return raster;
 }
 
-/** A Trusted Types-safe script URL: through the loader's `heed` policy, or one of our own. */
+/** A Trusted Types-safe script URL: through the loader's `heed` policy, or our own. */
 function scriptUrl(w: HeedGlobals, url: string): string {
-  let tt = w.__heedTT;
-  if (!tt) {
-    const allowed = new Set<string>();
-    let policy = null;
+  if (w.__heedTT === undefined) {
+    const dir = new URL(".", url).href;
+    const own = (u: string) => (u.startsWith(dir) && /^heed-(widget|raster)-[0-9a-f]{10}\.js$/.test(u.slice(dir.length)) ? u : "");
     try {
-      policy = w.trustedTypes?.createPolicy("heed", { createScriptURL: (u: string) => (allowed.has(u) ? u : "") }) ?? null;
+      w.__heedTT = w.trustedTypes?.createPolicy("heed", { createScriptURL: own }) ?? null;
     } catch {
-      // the page's CSP does not allow the policy; the assignment below then fails
+      w.__heedTT = null; // the page's CSP does not allow the policy; screenshotsAllowed said no anyway
     }
-    tt = w.__heedTT = { p: policy, a: allowed };
   }
-  tt.a.add(url);
-  return (tt.p ? tt.p.createScriptURL(url) : url) as string;
+  return (w.__heedTT ? w.__heedTT.createScriptURL(url) : url) as string;
 }
 
 /** The built-in strategy: the lazily loaded rasterizer. */
-export const builtinScreenshot: ScreenshotTaker = async (win, options) => (await loadRaster(win)).capture(win, options);
+export const builtinScreenshot: ScreenshotTaker = async (win, options) =>
+  screenshotsAllowed(win.document) ? (await loadRaster(win)).capture(win, options) : null;
+
+/**
+ * The widget stays well under the server's cap: the server re-encodes JPEGs at a
+ * higher quality, which can make them grow.
+ */
+export const MAX_SCREENSHOT_BYTES = Math.floor(CONTRACT.limits.screenshot_bytes * 0.6);
 
 /** Run `take` within `timeoutMs`; any failure or timeout gives null, never an exception. */
 export async function captureWithin(
@@ -79,14 +113,14 @@ export async function captureWithin(
   try {
     const shot = take(win, {
       ...options,
-      maxBytes: CONTRACT.limits.screenshot_bytes,
+      maxBytes: MAX_SCREENSHOT_BYTES,
       maxPixels: CONTRACT.limits.screenshot_pixels,
     }).catch((e) => {
       console.warn("heed: no screenshot", e);
       return null;
     });
     const blob = await Promise.race([shot, deadline]);
-    return blob instanceof Blob && blob.size > 0 && blob.size <= CONTRACT.limits.screenshot_bytes ? blob : null;
+    return blob instanceof Blob && blob.size > 0 && blob.size <= MAX_SCREENSHOT_BYTES ? blob : null;
   } catch (e) {
     console.warn("heed: no screenshot", e);
     return null;

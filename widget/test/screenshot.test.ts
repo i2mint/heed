@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import "../src/index";
 import { HeedFeedbackElement, TAG } from "../src/element";
-import { captureWithin } from "../src/capture";
+import { MAX_SCREENSHOT_BYTES, captureWithin } from "../src/capture";
 import { CONTRACT } from "../src/contract.gen";
 
 const png = () => new Blob([new Uint8Array([137, 80, 78, 71])], { type: "image/png" });
@@ -17,6 +17,12 @@ function mount(take: unknown, attrs: Record<string, string> = {}) {
   el.configure({ takeScreenshot: take });
   document.body.append(el);
   return el;
+}
+/** jsdom loads no images: play the browser's part once the preview has a src. */
+async function previewShown(el: HeedFeedbackElement, event: "load" | "error" = "load") {
+  await vi.waitFor(() => expect($<HTMLImageElement>(el, ".preview").getAttribute("src")).toBeTruthy());
+  $(el, ".preview").dispatchEvent(new Event(event));
+  await tick();
 }
 async function send(el: HeedFeedbackElement, title = "t") {
   $<HTMLInputElement>(el, "input[name=title]").value = title;
@@ -38,13 +44,15 @@ describe("screenshot", () => {
     const el = mount(take);
     el.open();
     expect($(el, ".shot").textContent).toMatch(/Taking a screenshot/);
-    await vi.waitFor(() => expect($<HTMLImageElement>(el, ".preview").hidden).toBe(false));
+    await previewShown(el);
     expect(take).toHaveBeenCalledWith(window, {
       maskInputs: true,
       maskSelector: "[data-heed-mask]",
-      maxBytes: CONTRACT.limits.screenshot_bytes,
+      maxNodes: 5000,
+      maxBytes: MAX_SCREENSHOT_BYTES,
       maxPixels: CONTRACT.limits.screenshot_pixels,
     });
+    expect(MAX_SCREENSHOT_BYTES).toBeLessThan(CONTRACT.limits.screenshot_bytes);
     await send(el);
     const file = sentBody(fetch).get("screenshot") as File;
     expect(file.name).toBe("screenshot.png");
@@ -56,18 +64,51 @@ describe("screenshot", () => {
     vi.stubGlobal("fetch", fetch);
     const el = mount(async () => png());
     el.open();
+    await previewShown(el);
     $<HTMLInputElement>(el, ".shot input").checked = false;
     await send(el);
     expect(sentBody(fetch).has("screenshot")).toBe(false);
   });
 
-  it("waits for a capture still running at submit", async () => {
+  it("never sends a screenshot the visitor has not seen: a Send during capture asks to review", async () => {
     const fetch = ok();
     vi.stubGlobal("fetch", fetch);
     const el = mount(() => tick(80).then(png));
     el.open();
-    await send(el);
+    $<HTMLInputElement>(el, "input[name=title]").value = "quick";
+    $<HTMLFormElement>(el, "form").requestSubmit();
+    await previewShown(el);
+    await vi.waitFor(() => expect($(el, ".status").textContent).toMatch(/Check the screenshot/));
+    expect(fetch).not.toHaveBeenCalled();
+    await send(el, "quick");
     expect(sentBody(fetch).has("screenshot")).toBe(true);
+  });
+
+  it("is not sent when its preview cannot be shown", async () => {
+    const fetch = ok();
+    vi.stubGlobal("fetch", fetch);
+    const el = mount(async () => png());
+    el.open();
+    await previewShown(el, "error");
+    expect($(el, ".shot").textContent).toMatch(/will not be sent/);
+    expect($<HTMLInputElement>(el, ".shot input").checked).toBe(false);
+    await send(el);
+    expect(sentBody(fetch).has("screenshot")).toBe(false);
+  });
+
+  it("retries without the screenshot when the server says it is too large", async () => {
+    const fetch = vi.fn(async (_u: string, init: RequestInit) =>
+      (init.body as FormData).has("screenshot")
+        ? new Response(JSON.stringify({ detail: "screenshot too large" }), { status: 413 })
+        : new Response(JSON.stringify({ id: "x", ok: true, status: "received" })),
+    );
+    vi.stubGlobal("fetch", fetch);
+    const el = mount(async () => png());
+    el.open();
+    await previewShown(el);
+    await send(el);
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect($(el, ".done").textContent).toMatch(/too large and was left out/);
   });
 
   it("sends without a screenshot when capture fails or takes too long", async () => {
@@ -97,16 +138,17 @@ describe("screenshot", () => {
 
   it("passes the masking options through", async () => {
     const take = vi.fn(async () => null);
-    const el = mount(take, { "mask-inputs": "false", "mask-selector": ".secret" });
+    const el = mount(take, { "mask-inputs": "false", "mask-selector": ".secret", "screenshot-max-nodes": "99" });
     el.open();
     await vi.waitFor(() => expect(take).toHaveBeenCalled());
-    expect((take.mock.calls[0] as unknown[])[1]).toMatchObject({ maskInputs: false, maskSelector: ".secret" });
+    expect((take.mock.calls[0] as unknown[])[1]).toMatchObject({ maskInputs: false, maskSelector: ".secret", maxNodes: 99 });
   });
 
   it("drops an oversized or empty result", async () => {
-    const big = new Blob([new Uint8Array(CONTRACT.limits.screenshot_bytes + 1)], { type: "image/png" });
-    expect(await captureWithin(async () => big, window, { maskInputs: true, maskSelector: "" }, 1000)).toBeNull();
-    expect(await captureWithin(async () => new Blob([]), window, { maskInputs: true, maskSelector: "" }, 1000)).toBeNull();
+    const opts = { maskInputs: true, maskSelector: "", maxNodes: 5000 };
+    const big = new Blob([new Uint8Array(MAX_SCREENSHOT_BYTES + 1)], { type: "image/png" });
+    expect(await captureWithin(async () => big, window, opts, 1000)).toBeNull();
+    expect(await captureWithin(async () => new Blob([]), window, opts, 1000)).toBeNull();
   });
 
   it("re-captures on every open and resets after sending", async () => {
@@ -117,6 +159,7 @@ describe("screenshot", () => {
     el.close();
     el.open();
     await vi.waitFor(() => expect(take).toHaveBeenCalledTimes(2));
+    await previewShown(el);
     await send(el);
     expect($<HTMLImageElement>(el, ".preview").hidden).toBe(true);
   });

@@ -18,7 +18,10 @@ export type PageUrlMode = "path" | "full";
 /** Supplies a bot-gate token (Turnstile, hCaptcha…) at submit time; the seam for heed#5's gate. */
 export type BotTokenProvider = () => string | null | undefined | Promise<string | null | undefined>;
 /** Takes the screenshot; replaces the built-in rasterizer (tests, or apps that bundle heed). */
-export type ScreenshotTaker = (win: Window, options: { maskInputs: boolean; maskSelector: string; maxBytes: number; maxPixels: number }) => Promise<Blob | null>;
+export type ScreenshotTaker = (
+  win: Window,
+  options: { maskInputs: boolean; maskSelector: string; maxNodes: number; maxBytes: number; maxPixels: number },
+) => Promise<Blob | null>;
 /** Extra environment facts to attach (app version, feature flags…), string → string. */
 export type ExtraProvider = () => Record<string, string>;
 
@@ -47,12 +50,14 @@ export interface HeedOptions {
   anonId: string;
   /** Offer a screenshot of the page (the visitor sees it and can untick it). */
   screenshot: boolean;
-  /** Show bullets for every text field and black out selects and editable regions in the screenshot (password fields always are). */
+  /** Black out every field a visitor types into, selects, editable regions and iframes in the screenshot (password-like fields always are). */
   maskInputs: boolean;
   /** Elements to black out in the screenshot. */
   maskSelector: string;
   /** Give up on the screenshot after this many milliseconds (the report is then sent without it). */
   screenshotTimeoutMs: number;
+  /** No screenshot of pages with more elements than this (cloning them would freeze the page). */
+  screenshotMaxNodes: number;
   /** Bot-gate token provider. Function options are set as properties or through `init`, never as attributes. */
   botToken: BotTokenProvider | null;
   /** Extra environment provider. */
@@ -117,6 +122,7 @@ export const OPTION_SPECS: Specs = {
   maskInputs: { default: true, attr: "mask-inputs", parse: parseBool },
   maskSelector: { default: "[data-heed-mask]", attr: "mask-selector", parse: text },
   screenshotTimeoutMs: { default: 10_000, attr: "screenshot-timeout-ms", parse: positiveInt },
+  screenshotMaxNodes: { default: 5_000, attr: "screenshot-max-nodes", parse: positiveInt },
   botToken: { default: null },
   extra: { default: null },
   takeScreenshot: { default: null },

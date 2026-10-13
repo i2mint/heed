@@ -58,10 +58,13 @@ export const MESSAGES = {
   timeout: "The feedback service took too long to answer. Please try again.",
   retryIn: (s: number) => `You can try again in ${s} seconds.`,
   note: "Sent with your report: this page's address (without its query) and your browser details.",
-  noteShot: "Sent with your report: this page's address (without its query), your browser details, and the screenshot below if ticked. Typed text is masked in it.",
+  noteShot: "Sent with your report: this page's address (without its query), your browser details, and the screenshot below if ticked. Form fields are blacked out in it.",
   shotLabel: "Include a screenshot of this page",
   shotTaking: "Taking a screenshot…",
   shotFinishing: "Finishing the screenshot…",
+  shotReview: "Check the screenshot below (untick it to leave it out), then press Send.",
+  shotNoPreview: "The screenshot cannot be shown on this page, so it will not be sent.",
+  shotDropped: "The screenshot was too large and was left out.",
   shotFailed: "No screenshot could be taken; the report will be sent without one.",
 } as const;
 
