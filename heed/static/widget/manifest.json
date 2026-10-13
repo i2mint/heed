@@ -1,14 +1,19 @@
 {
   "version": "0.1.0",
   "entries": {
-    "widget": "heed-widget-8851b959fa.js"
+    "widget": "heed-widget-e4996bbac6.js"
   },
   "files": {
-    "heed-widget-8851b959fa.js": {
-      "integrity": "sha384-7KKf2EiDU6y94rVUAH50qNB8GiiZvlIz0fDnz70oI//NEEcw6FFjw1cu3BTUApvd",
+    "heed-widget-e4996bbac6.js": {
+      "integrity": "sha384-2Xz7Y8z7mdU9KLnFUtj3aO9Adw4tT7bo+FsV2s0uIOZfoieRymykJg0GYu2kAiUL",
       "immutable": true,
-      "bytes": 15113,
-      "gzip_bytes": 6040
+      "bytes": 16212,
+      "gzip_bytes": 6484
+    },
+    "heed-widget.js": {
+      "immutable": false,
+      "bytes": 16212,
+      "gzip_bytes": 6484
     }
   }
 }

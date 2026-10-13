@@ -99,4 +99,14 @@ describe("sendReport", () => {
     const hang = vi.fn((_u: string, init: RequestInit) => new Promise<Response>((_, reject) => init.signal!.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")))));
     expect(await sendReport(input(), opts({ timeoutMs: 10 }), hang as unknown as typeof fetch)).toEqual({ ok: false, kind: "timeout", retryAfterSeconds: null });
   });
+  it("times out on a server that stalls after its headers", async () => {
+    const stalled = vi.fn(async () => new Response(new ReadableStream({ start() {} }), { status: 200 }));
+    expect(await sendReport(input(), opts({ timeoutMs: 20 }), stalled)).toEqual({ ok: false, kind: "timeout", retryAfterSeconds: null });
+  });
+  it("times out on a bot-token provider that never answers, without sending", async () => {
+    const fetch = reply(200, {});
+    const out = await sendReport(input(), opts({ timeoutMs: 20, botToken: () => new Promise<string>(() => {}) }), fetch);
+    expect(out).toEqual({ ok: false, kind: "timeout", retryAfterSeconds: null });
+    expect(fetch).not.toHaveBeenCalled();
+  });
 });

@@ -69,7 +69,9 @@ interface Ui {
   body: HTMLTextAreaElement;
   honeypot: HTMLInputElement;
   status: HTMLParagraphElement;
+  error: HTMLParagraphElement;
   submit: HTMLButtonElement;
+  doneClose: HTMLButtonElement;
   done: HTMLDivElement;
   doneMessage: HTMLParagraphElement;
   doneLink: HTMLAnchorElement;
@@ -110,8 +112,23 @@ export class HeedFeedbackElement extends HTMLElement {
   }
 
   connectedCallback(): void {
+    // A page may set botToken/extra before this script upgraded the element; those
+    // landed as plain own properties that shadow the setters. Re-apply them.
+    for (const prop of ["botToken", "extra"] as const) {
+      if (Object.prototype.hasOwnProperty.call(this, prop)) {
+        const value = (this as unknown as Record<string, unknown>)[prop];
+        delete (this as unknown as Record<string, unknown>)[prop];
+        (this as unknown as Record<string, unknown>)[prop] = value;
+      }
+    }
     this.#ui ??= this.#build();
     this.#sync();
+  }
+
+  disconnectedCallback(): void {
+    // A modal dialog that leaves the document stops being modal but stays "open";
+    // close it so the next open() shows it properly again.
+    this.close();
   }
 
   attributeChangedCallback(): void {
@@ -120,9 +137,16 @@ export class HeedFeedbackElement extends HTMLElement {
 
   /** Open the feedback dialog (a no-op when already open). */
   open(): void {
+    if (!this.isConnected) {
+      console.warn("heed: open() needs the <heed-feedback> element to be in the document");
+      return;
+    }
     const ui = (this.#ui ??= this.#build());
     this.#sync();
-    if (ui.dialog.open) return;
+    if (ui.dialog.open) {
+      if (isModal(ui.dialog)) return;
+      ui.dialog.close();
+    }
     if (!ui.done.hidden) this.#showForm();
     ui.dialog.showModal();
     ui.title.focus();
@@ -146,8 +170,18 @@ export class HeedFeedbackElement extends HTMLElement {
     const categoryLabel = h(doc, "label", {}, "What is it about?", category);
     const title = h(doc, "input", { name: "title", type: "text", required: true, autocomplete: "off" });
     const body = h(doc, "textarea", { name: "body", placeholder: "What happened, and what did you expect?" });
-    const honeypot = h(doc, "input", { type: "text", tabindex: "-1", autocomplete: "off" });
+    // Hints that keep password managers and autofill out of the trap field.
+    const honeypot = h(doc, "input", {
+      type: "text",
+      tabindex: "-1",
+      autocomplete: "off",
+      "data-1p-ignore": true,
+      "data-lpignore": "true",
+      "data-bwignore": true,
+      "data-form-type": "other",
+    });
     const status = h(doc, "p", { class: "status", role: "status", "aria-live": "polite" });
+    const error = h(doc, "p", { class: "status error", role: "alert" });
     const submit = h(doc, "button", { type: "submit", class: "primary", part: "submit" }, "Send");
     const cancel = h(doc, "button", { type: "button", value: "cancel" }, "Cancel");
     const form = h(
@@ -157,9 +191,9 @@ export class HeedFeedbackElement extends HTMLElement {
       categoryLabel,
       h(doc, "label", {}, "Title", title),
       h(doc, "label", {}, "Details", body),
-      h(doc, "div", { class: "hp", "aria-hidden": "true" }, h(doc, "label", {}, "Website", honeypot)),
+      h(doc, "div", { class: "hp", "aria-hidden": "true" }, h(doc, "label", {}, "Leave this field empty", honeypot)),
       h(doc, "p", { class: "note" }, "Sent with your report: this page's address (without its query) and your browser details."),
-      status,
+      h(doc, "div", { class: "messages" }, status, error),
       h(doc, "div", { class: "actions" }, cancel, submit),
     );
     const doneMessage = h(doc, "p", { role: "status" });
@@ -178,9 +212,9 @@ export class HeedFeedbackElement extends HTMLElement {
       void this.#submit();
     });
     title.addEventListener("input", () => {
-      if (status.classList.contains("error")) this.#setStatus("", false);
+      if (error.textContent) this.#setStatus("", false);
     });
-    return { launcher, dialog, heading, form, categoryLabel, category, title, body, honeypot, status, submit, done, doneMessage, doneLink };
+    return { launcher, dialog, heading, form, categoryLabel, category, title, body, honeypot, status, error, submit, doneClose, done, doneMessage, doneLink };
   }
 
   /** Bring the rendered UI in line with the current options. */
@@ -251,6 +285,7 @@ export class HeedFeedbackElement extends HTMLElement {
       ui.form.hidden = true;
       ui.done.hidden = false;
       this.#setStatus("", false);
+      ui.doneClose.focus();
       this.#emit("heed:submitted", { id: outcome.id, status: outcome.status, url: outcome.url });
     } else {
       const retry = outcome.retryAfterSeconds ? ` ${MESSAGES.retryIn(outcome.retryAfterSeconds)}` : "";
@@ -265,15 +300,23 @@ export class HeedFeedbackElement extends HTMLElement {
     this.#ui.done.hidden = true;
   }
 
+  /** Progress goes to a polite status region, failures to an alert region. */
   #setStatus(message: string, isError: boolean): void {
     if (!this.#ui) return;
-    this.#ui.status.textContent = message;
-    this.#ui.status.classList.toggle("error", isError);
-    this.#ui.status.setAttribute("role", isError ? "alert" : "status");
+    this.#ui.status.textContent = isError ? "" : message;
+    this.#ui.error.textContent = isError ? message : "";
   }
 
   #emit(type: string, detail: unknown): void {
     this.dispatchEvent(new CustomEvent(type, { detail, bubbles: true, composed: true }));
+  }
+}
+
+function isModal(dialog: HTMLDialogElement): boolean {
+  try {
+    return dialog.matches(":modal");
+  } catch {
+    return true; // a browser without :modal: trust the open flag
   }
 }
 

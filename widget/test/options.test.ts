@@ -35,4 +35,14 @@ describe("options", () => {
     expect(warn).toHaveBeenCalledTimes(3);
     warn.mockRestore();
   });
+  it("drops an anon-id the server would refuse", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const el = document.createElement("div");
+    el.setAttribute("anon-id", "me@x.com");
+    expect(optionsFromAttributes(el)).toEqual({});
+    el.setAttribute("anon-id", "visitor_42:a.b-c");
+    expect(optionsFromAttributes(el)).toEqual({ anonId: "visitor_42:a.b-c" });
+    expect(cleanOptions({ anonId: "x".repeat(500) })).toEqual({});
+    warn.mockRestore();
+  });
 });

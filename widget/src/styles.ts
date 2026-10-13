@@ -67,7 +67,9 @@ input, select, textarea {
 select option { color: #111827; background: #fff; }
 textarea { min-height: 110px; resize: vertical; }
 .note { margin: 0; color: var(--_muted); font-size: 12.5px; }
-.status { margin: 0; min-height: 1.45em; }
+.messages { display: grid; gap: 4px; }
+.messages:has(.status:empty + .status:empty) { display: none; }
+.status { margin: 0; }
 .status.error { color: var(--_error); }
 .actions { display: flex; justify-content: flex-end; gap: 8px; }
 .actions button {

@@ -7,6 +7,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from heed import HeedConfig, StoreSink, make_app, make_widget_router, widget_contract
+from heed.base import MAX_BODY_CHARS
 from heed.config import HeedConfig as _Cfg
 from heed.ingest import _TEXT_FIELDS
 from heed.widget import (
@@ -48,6 +49,8 @@ def test_built_widget_is_shipped_with_its_manifest():
     meta = manifest["files"][name]
     assert meta["integrity"].startswith("sha384-")
     assert meta["gzip_bytes"] <= 8_000
+    stable = manifest["files"]["heed-widget.js"]
+    assert stable["immutable"] is False and "integrity" not in stable
 
 
 def _client(**kwargs) -> TestClient:
@@ -66,6 +69,9 @@ def test_serves_manifest_files_with_cross_origin_headers():
     assert r.headers["x-content-type-options"] == "nosniff"
     assert r.headers["cache-control"] == IMMUTABLE_CACHE_CONTROL
     assert b"heed-feedback" in r.content
+    stable = _client().get("/heed/widget/heed-widget.js")
+    assert stable.content == r.content
+    assert stable.headers["cache-control"] == "public, max-age=300"
 
 
 def test_serves_nothing_outside_the_manifest(tmp_path):
@@ -114,3 +120,16 @@ def test_cors_exposes_retry_after_to_the_widget():
     r = client.post("/heed/report", **post)
     assert r.status_code == 429
     assert "Retry-After" in r.headers["access-control-expose-headers"]
+
+
+def test_browser_line_breaks_count_once_against_the_body_limit():
+    """Browsers send a textarea's line breaks as CRLF; a body at the limit must pass."""
+    app = make_app(StoreSink(store := {}), config=HeedConfig(allowed_origins=None))
+    body = ("ab\r\n" * (MAX_BODY_CHARS // 3))[: MAX_BODY_CHARS + MAX_BODY_CHARS // 3]
+    assert len(body.replace("\r\n", "\n")) <= MAX_BODY_CHARS < len(body)
+    r = TestClient(app).post(
+        "/heed/report", files={"title": (None, "t"), "body": (None, body)}
+    )
+    assert r.status_code == 200, r.text
+    (saved,) = [json.loads(v) for v in store.values()]
+    assert "\r" not in saved["body"]

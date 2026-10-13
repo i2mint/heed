@@ -1,6 +1,8 @@
 // Build the widget into heed/static/widget/, the folder the Python package ships and
-// heed.widget.make_widget_router serves. Output names carry a content hash, so they
-// can be cached forever; manifest.json lists every file with its SRI hash and size.
+// heed.widget.make_widget_router serves. Each entry is written twice: under a
+// content-hashed name, cached forever and meant for pinning with SRI, and under a
+// stable name (`<stem>.js`, short cache) that keeps working across heed upgrades.
+// manifest.json lists every file with its SRI hash and size.
 // Fails when a file outgrows its gzip budget: the widget loads on other people's sites.
 import { build } from "esbuild";
 import { createHash } from "node:crypto";
@@ -47,6 +49,9 @@ for (const [entry, { src, stem }] of Object.entries(ENTRIES)) {
     bytes: code.length,
     gzip_bytes: gz,
   };
+  outputs[`${stem}.js`] = code;
+  // No integrity for the stable name: its content changes with every upgrade.
+  manifest.files[`${stem}.js`] = { immutable: false, bytes: code.length, gzip_bytes: gz };
   console.log(`${name}: ${code.length} B, ${gz} B gzipped (budget ${BUDGETS[entry]})`);
   if (gz > BUDGETS[entry]) overBudget = true;
 }

@@ -78,27 +78,44 @@ function screenshotName(type: string): string {
   return `screenshot.${ext}`;
 }
 
-/** POST the report. `fetchImpl` is injectable for tests. Never throws. */
+/**
+ * POST the report. Never throws. `options.timeoutMs` bounds the whole attempt:
+ * getting the bot token, the request, and reading the answer.
+ * `fetchImpl` is injectable for tests.
+ */
 export async function sendReport(
   input: SubmitInput,
   options: HeedOptions,
   fetchImpl: typeof fetch = fetch,
 ): Promise<SubmitOutcome> {
+  const controller = new AbortController();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<SubmitOutcome>((resolve) => {
+    timer = setTimeout(() => {
+      controller.abort();
+      resolve(failure("timeout"));
+    }, options.timeoutMs);
+  });
+  try {
+    return await Promise.race([attempt(input, options, fetchImpl, controller.signal), deadline]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+const failure = (kind: ErrorKind, retryAfterSeconds: number | null = null): SubmitOutcome => ({ ok: false, kind, retryAfterSeconds });
+
+async function attempt(input: SubmitInput, options: HeedOptions, fetchImpl: typeof fetch, signal: AbortSignal): Promise<SubmitOutcome> {
   let botToken: string | null = null;
   if (options.botToken) {
     try {
       botToken = (await options.botToken()) || null;
     } catch (e) {
       console.warn("heed: the bot-token provider failed", e);
-      return { ok: false, kind: "bot", retryAfterSeconds: null };
+      return failure("bot");
     }
   }
-  const controller = new AbortController();
-  let timedOut = false;
-  const timer = setTimeout(() => {
-    timedOut = true;
-    controller.abort();
-  }, options.timeoutMs);
+  if (signal.aborted) return failure("timeout");
   let response: Response;
   try {
     response = await fetchImpl(options.endpoint, {
@@ -106,12 +123,17 @@ export async function sendReport(
       body: buildFormData(input, options, botToken),
       mode: "cors",
       credentials: options.withCredentials ? "include" : "omit",
-      signal: controller.signal,
+      signal,
     });
   } catch {
-    return { ok: false, kind: timedOut ? "timeout" : "network", retryAfterSeconds: null };
-  } finally {
-    clearTimeout(timer);
+    if (signal.aborted) return failure("timeout");
+    // A backend that refuses the page's origin answers without CORS headers, which the
+    // browser reports exactly like a network failure: tell the site owner how to check.
+    console.warn(
+      `heed: could not reach ${options.endpoint}. If the backend is up, check that this page's origin ` +
+        `(${globalThis.location?.origin}) is in its allowed_origins.`,
+    );
+    return failure("network");
   }
   return readOutcome(response);
 }
@@ -120,7 +142,7 @@ async function readOutcome(response: Response): Promise<SubmitOutcome> {
   const body = await response.json().catch(() => null);
   if (response.ok) {
     if (!body || body.ok === false || typeof body.id !== "string") {
-      return { ok: false, kind: "unavailable", retryAfterSeconds: null };
+      return failure("unavailable");
     }
     return {
       ok: true,
@@ -129,7 +151,7 @@ async function readOutcome(response: Response): Promise<SubmitOutcome> {
       url: safeLink(body.url),
     };
   }
-  return { ok: false, kind: errorKind(response.status, body?.detail), retryAfterSeconds: retryAfter(response) };
+  return failure(errorKind(response.status, body?.detail), retryAfter(response));
 }
 
 function errorKind(status: number, detail: unknown): ErrorKind {

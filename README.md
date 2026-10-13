@@ -68,14 +68,14 @@ For production, set `allowed_origins`, `trusted_proxies` (behind a reverse proxy
 
 ## Embedding the widget
 
-The backend serves the widget too, so a site adds two tags (the bundle's hashed name and its `integrity` value are in `heed/static/widget/manifest.json`):
+The backend serves the widget too, so a site adds two tags:
 
 ```html
-<script src="https://feedback.example/heed/widget/heed-widget-<hash>.js" integrity="sha384-…" crossorigin="anonymous" defer></script>
+<script src="https://feedback.example/heed/widget/heed-widget.js" defer></script>
 <heed-feedback endpoint="https://feedback.example/heed/report"></heed-feedback>
 ```
 
-Options, events, theming and CSP notes: [`widget/README.md`](widget/README.md).
+Pinning a build with SRI, options, events, theming and CSP notes: [`widget/README.md`](widget/README.md).
 
 ## Documents
 

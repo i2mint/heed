@@ -221,3 +221,23 @@ def test_bot_gate_token_comes_from_the_embedders_provider(browser):
         page.get_by_role("button", name="Send").click()
         page.get_by_text("Your report was sent").wait_for()
         assert verifier.seen == [None, "human"] and len(store) == 1
+
+
+def test_focus_and_modality_survive_success_and_reparenting(browser):
+    with _site(browser) as (page, problems, _store, _origin):
+        _send(page, "focus check")
+        page.get_by_text("Your report was sent").wait_for()
+        assert page.get_by_role("button", name="Close").evaluate(
+            "el => el.getRootNode().activeElement === el"
+        )
+        page.get_by_role("button", name="Close").click()
+        # Move the element while its dialog is open (as frameworks sometimes do).
+        page.locator("heed-feedback").evaluate(
+            "el => { el.open(); document.body.prepend(el); el.open(); }"
+        )
+        assert page.locator("heed-feedback").evaluate(
+            "el => el.shadowRoot.querySelector('dialog').matches(':modal')"
+        )
+        page.keyboard.press("Escape")
+        assert not page.get_by_role("dialog").is_visible()
+        assert problems == []

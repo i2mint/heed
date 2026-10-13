@@ -87,6 +87,7 @@ def widget_contract(config: Optional[HeedConfig] = None) -> dict[str, Any]:
             "field_bytes": cfg.max_field_bytes,
             "screenshot_bytes": cfg.max_screenshot_bytes,
         },
+        "patterns": {"anon_id": base.ANON_ID_PATTERN},
         "statuses": {"received": base.Status.received.value, "held": "held"},
     }
 

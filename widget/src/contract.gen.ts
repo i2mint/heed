@@ -29,6 +29,9 @@ export const CONTRACT = {
     "field_bytes": 100000,
     "screenshot_bytes": 5000000
   },
+  "patterns": {
+    "anon_id": "^[A-Za-z0-9_.:-]+$"
+  },
   "statuses": {
     "received": "received",
     "held": "held"

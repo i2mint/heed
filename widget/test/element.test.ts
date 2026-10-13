@@ -69,7 +69,7 @@ describe("<heed-feedback>", () => {
     $<HTMLFormElement>(el, "form").requestSubmit();
     await new Promise((r) => setTimeout(r, 0));
     expect(fetch).not.toHaveBeenCalled();
-    expect($(el, ".status").textContent).toMatch(/title/);
+    expect($(el, ".error").textContent).toMatch(/title/);
   });
 
   it("sends a report and shows the thank-you view", async () => {
@@ -100,8 +100,8 @@ describe("<heed-feedback>", () => {
     el.open();
     fill(el, "Keep me", "and me");
     await submit(el);
-    expect($(el, ".status").textContent).toMatch(/60 seconds/);
-    expect($(el, ".status").getAttribute("role")).toBe("alert");
+    expect($(el, ".error").textContent).toMatch(/60 seconds/);
+    expect($(el, ".error").getAttribute("role")).toBe("alert");
     expect($<HTMLInputElement>(el, "input[name=title]").value).toBe("Keep me");
     expect($<HTMLTextAreaElement>(el, "textarea").value).toBe("and me");
     expect(errors).toHaveBeenCalledWith({ kind: "rate_limited" });
@@ -140,6 +140,35 @@ describe("<heed-feedback>", () => {
     fill(el, "t");
     $<HTMLFormElement>(el, "form").requestSubmit();
     await new Promise((r) => setTimeout(r, 0));
-    expect($(el, ".status").textContent).toMatch(/not set up/);
+    expect($(el, ".error").textContent).toMatch(/not set up/);
+  });
+  it("keeps botToken/extra set before the element was upgraded", async () => {
+    const fetch = vi.fn(async () => new Response(JSON.stringify({ id: "x", ok: true, status: "received" })));
+    vi.stubGlobal("fetch", fetch);
+    const early = document.createElement("heed-early") as HeedFeedbackElement;
+    early.setAttribute("endpoint", "/r");
+    (early as unknown as { botToken: unknown }).botToken = () => "early-token";
+    document.body.append(early);
+    customElements.define("heed-early", class extends HeedFeedbackElement {});
+    early.open();
+    fill(early, "t");
+    await submit(early);
+    const body = (fetch.mock.calls[0] as unknown as [string, RequestInit])[1].body as FormData;
+    expect(body.get("bot_token")).toBe("early-token");
+  });
+
+  it("warns instead of throwing when opened outside the document", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const el = document.createElement(TAG) as HeedFeedbackElement;
+    expect(() => el.open()).not.toThrow();
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
+  it("closes its dialog when removed from the document", () => {
+    const el = mount();
+    el.open();
+    el.remove();
+    expect($<HTMLDialogElement>(el, "dialog").open).toBe(false);
   });
 });

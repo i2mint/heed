@@ -4,12 +4,18 @@ The embeddable half of heed: a `<heed-feedback>` Web Component that lets any vis
 
 ## Embed it
 
-The heed backend serves the built widget itself (`make_app` does by default; with your own app, `include_router(make_widget_router(), prefix="/heed")`). The bundle's file name carries a content hash; read it from `heed/static/widget/manifest.json` (`entries.widget`), along with its `integrity` value:
+The heed backend serves the built widget itself (`make_app` does by default; with your own app, `include_router(make_widget_router(), prefix="/heed")`):
+
+```html
+<script src="https://feedback.example/heed/widget/heed-widget.js" defer></script>
+<heed-feedback endpoint="https://feedback.example/heed/report"></heed-feedback>
+```
+
+`heed-widget.js` is a stable name that always serves the current build (cached for five minutes). To pin one build with Subresource Integrity, use its content-hashed name and `integrity` value from `heed/static/widget/manifest.json` (`entries.widget`); a pinned name stops existing when heed is upgraded, so re-pin then:
 
 ```html
 <script src="https://feedback.example/heed/widget/heed-widget-<hash>.js"
         integrity="sha384-…" crossorigin="anonymous" defer></script>
-<heed-feedback endpoint="https://feedback.example/heed/report"></heed-feedback>
 ```
 
 That is all: a "Feedback" button appears in the bottom-right corner. The backend must list the embedding site in `allowed_origins` (see `misc/docs/embedding-security.md`).

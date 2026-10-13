@@ -71,6 +71,11 @@ const positiveInt: Parse<number> = (s) => {
   const n = Number(s);
   return Number.isInteger(n) && n > 0 ? n : undefined;
 };
+const anonId: Parse<string> = (s) => {
+  if (s === "" || (s.length <= CONTRACT.limits.anon_id_chars && new RegExp(CONTRACT.patterns.anon_id).test(s))) return s;
+  console.warn(`heed: ignoring anon-id ${JSON.stringify(s)}: the server accepts only ${CONTRACT.patterns.anon_id}`);
+  return undefined;
+};
 const categories: Parse<Category[]> = (s) => {
   const known = CONTRACT.categories as readonly string[];
   const picked = s
@@ -90,7 +95,7 @@ export const OPTION_SPECS: Specs = {
   timeoutMs: { default: 30_000, attr: "timeout-ms", parse: positiveInt },
   botTokenField: { default: CONTRACT.fields.bot_token, attr: "bot-token-field", parse: text },
   honeypotField: { default: CONTRACT.fields.honeypot ?? "", attr: "honeypot-field", parse: text },
-  anonId: { default: "", attr: "anon-id", parse: text },
+  anonId: { default: "", attr: "anon-id", parse: anonId },
   botToken: { default: null },
   extra: { default: null },
 };

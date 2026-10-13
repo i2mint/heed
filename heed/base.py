@@ -16,7 +16,13 @@ from typing import Annotated
 from urllib.parse import urlsplit
 from uuid import uuid4
 
-from pydantic import AfterValidator, BaseModel, Field, StringConstraints
+from pydantic import (
+    AfterValidator,
+    BaseModel,
+    BeforeValidator,
+    Field,
+    StringConstraints,
+)
 
 # --- Field limits (SSOT). The ingest endpoint is public, so every string and list a
 # client can send is bounded here; the router adds byte-level caps on top (config.py).
@@ -27,6 +33,7 @@ MAX_SHORT_CHARS = 500  # user agent, browser, os, locale, ...
 MAX_EXTRA_ITEMS = 32
 MAX_EXTRA_KEY_CHARS = 64
 MAX_ANON_ID_CHARS = 128
+ANON_ID_PATTERN = r"^[A-Za-z0-9_.:-]+$"
 MAX_LOG_ENTRIES = 200
 MAX_LOG_MESSAGE_CHARS = 2_000
 
@@ -45,6 +52,20 @@ def strip_control_chars(text: str) -> str:
     'ab\tcd'
     """
     return _CONTROL_CHARS.sub("", text)
+
+
+def normalize_newlines(text):
+    r"""Turn CRLF and lone CR into LF, so a line break counts as one character.
+
+    Browsers send every line break of a form field as CRLF; without this, a body at
+    the length limit would be refused for its line breaks.
+
+    >>> normalize_newlines("a\r\nb\rc")
+    'a\nb\nc'
+    """
+    if isinstance(text, str):
+        return text.replace("\r\n", "\n").replace("\r", "\n")
+    return text
 
 
 def _clean_text(text: str) -> str:
@@ -78,6 +99,7 @@ Title = Annotated[
 ]
 BodyText = Annotated[
     str,
+    BeforeValidator(normalize_newlines),
     AfterValidator(strip_control_chars),
     StringConstraints(max_length=MAX_BODY_CHARS),
 ]
@@ -92,13 +114,14 @@ ExtraKey = Annotated[
 ]
 LogMessage = Annotated[
     str,
+    BeforeValidator(normalize_newlines),
     AfterValidator(strip_control_chars),
     StringConstraints(max_length=MAX_LOG_MESSAGE_CHARS),
 ]
 AnonId = Annotated[
     str,
     StringConstraints(
-        min_length=1, max_length=MAX_ANON_ID_CHARS, pattern=r"^[A-Za-z0-9_.:-]+$"
+        min_length=1, max_length=MAX_ANON_ID_CHARS, pattern=ANON_ID_PATTERN
     ),
 ]
 

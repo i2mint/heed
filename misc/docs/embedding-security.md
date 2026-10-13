@@ -112,6 +112,8 @@ Content-Security-Policy:
 - `img-src data: blob:` lets the widget preview the screenshot it captured.
 - The widget ([i2mint/heed#6](https://github.com/i2mint/heed/issues/6)) renders in a Shadow DOM with constructed stylesheets and builds its DOM without `innerHTML`, so it needs no `'unsafe-inline'` in `style-src`, no `'unsafe-eval'`, and runs under `require-trusted-types-for 'script'`. `tests/test_widget_browser.py` checks this in Chromium with `style-src 'none'`; treat any widget build that needs more as a bug.
 
+- The widget sends through the page's own `fetch`, so a script on the page that wraps `fetch` (analytics, error tracking) can see a report's text. Shadow DOM is isolation, not a security boundary: the embedding page is trusted with what its visitors type into the widget.
+
 With the bot gate on, add the provider:
 
 | Provider | `script-src` | `frame-src` | `connect-src` |
