@@ -103,10 +103,10 @@ describe("sendReport", () => {
     const stalled = vi.fn(async () => new Response(new ReadableStream({ start() {} }), { status: 200 }));
     expect(await sendReport(input(), opts({ timeoutMs: 20 }), stalled)).toEqual({ ok: false, kind: "timeout", retryAfterSeconds: null });
   });
-  it("times out on a bot-token provider that never answers, without sending", async () => {
+  it("reports a bot-token provider that never answers as the bot error, not a slow server, without sending", async () => {
     const fetch = reply(200, {});
     const out = await sendReport(input(), opts({ timeoutMs: 20, botToken: () => new Promise<string>(() => {}) }), fetch);
-    expect(out).toEqual({ ok: false, kind: "timeout", retryAfterSeconds: null });
+    expect(out).toEqual({ ok: false, kind: "bot", retryAfterSeconds: null });
     expect(fetch).not.toHaveBeenCalled();
   });
 });

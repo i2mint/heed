@@ -1,10 +1,10 @@
 {
-  "version": "0.6.0",
+  "version": "0.7.0",
   "entries": {
     "raster": "heed-raster-e4ecd0a430.js",
     "locales": "heed-locales-89272f61c2.js",
-    "widget": "heed-widget-f6bdeb03fc.js",
-    "loader": "heed-2e0d2939b3.js"
+    "widget": "heed-widget-89aa2167ee.js",
+    "loader": "heed-ee022f7289.js"
   },
   "files": {
     "heed-raster-e4ecd0a430.js": {
@@ -21,6 +21,30 @@
       "bytes": 10061,
       "gzip_bytes": 3696
     },
+    "heed-widget-89aa2167ee.js": {
+      "integrity": "sha384-TiDmW+yA4oggh8r5uEvoVPAFOyJ0F0o3/BCPsoEjWgANAx1daHMr9yQq1XT0bKdB",
+      "immutable": true,
+      "version": "0.7.0",
+      "bytes": 30790,
+      "gzip_bytes": 11763
+    },
+    "heed-widget.js": {
+      "immutable": false,
+      "bytes": 30790,
+      "gzip_bytes": 11763
+    },
+    "heed-ee022f7289.js": {
+      "integrity": "sha384-P8D3WrrtTPni06gXvvEShGouU5IZ2XPyNDCbIB2eeYP7EmgCNFc7gtVhMZcfMzTi",
+      "immutable": true,
+      "version": "0.7.0",
+      "bytes": 2030,
+      "gzip_bytes": 1200
+    },
+    "heed.js": {
+      "immutable": false,
+      "bytes": 2030,
+      "gzip_bytes": 1200
+    },
     "heed-widget-f6bdeb03fc.js": {
       "integrity": "sha384-uzAWGtT1jc/OeKkXZUp+2+vAFMpkbjqsiRCncbTacW9OUKNHlwbvaBqDrX4blc2u",
       "immutable": true,
@@ -28,20 +52,10 @@
       "bytes": 29628,
       "gzip_bytes": 11446
     },
-    "heed-widget.js": {
-      "immutable": false,
-      "bytes": 29628,
-      "gzip_bytes": 11446
-    },
     "heed-2e0d2939b3.js": {
       "integrity": "sha384-dLGtpRiDkIOHeDXh1ibiWL/jwhw4HfabqBEDdER014rQXUKREkMyicQjoHRj/2i0",
       "immutable": true,
       "version": "0.6.0",
-      "bytes": 2030,
-      "gzip_bytes": 1198
-    },
-    "heed.js": {
-      "immutable": false,
       "bytes": 2030,
       "gzip_bytes": 1198
     },
@@ -107,13 +121,6 @@
       "version": "0.2.0",
       "bytes": 1906,
       "gzip_bytes": 1144
-    },
-    "heed-widget-bc723cd9a3.js": {
-      "integrity": "sha384-meROgKuavJPiAwv3Asim6YaV1/nKMV0SMXMXS4FOjPyYXFL+Dse1O1xGSXjYKTaZ",
-      "immutable": true,
-      "bytes": 16273,
-      "gzip_bytes": 6509,
-      "version": "0.1.0"
     }
   }
 }

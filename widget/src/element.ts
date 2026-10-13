@@ -107,6 +107,8 @@ export class HeedFeedbackElement extends Base {
   #sending = false;
   #shot: Shot | null = null;
   #gate: { key: string; gate: BotGate | null } | null = null;
+  /** The visitor left while the send waited on its challenge: that send ends without a word. */
+  #abandoned = false;
   /** Static texts of the UI, re-rendered when the language changes. */
   #texts: [Text, TextKey][] = [];
   /** The language whose translations were last asked for. */
@@ -251,7 +253,10 @@ export class HeedFeedbackElement extends Base {
     launcher.addEventListener("click", () => this.open());
     cancel.addEventListener("click", () => this.close());
     doneClose.addEventListener("click", () => this.close());
-    dialog.addEventListener("close", () => this.#emit("heed:close", {}));
+    dialog.addEventListener("close", () => {
+      this.#cancelToken();
+      this.#emit("heed:close", {});
+    });
     form.addEventListener("submit", (event) => {
       event.preventDefault();
       void this.#submit();
@@ -329,6 +334,7 @@ export class HeedFeedbackElement extends Base {
       return;
     }
     this.#sending = true;
+    this.#abandoned = false;
     ui.submit.disabled = true;
     ui.form.setAttribute("aria-busy", "true");
     let outcome: SubmitOutcome | null = null;
@@ -352,13 +358,22 @@ export class HeedFeedbackElement extends Base {
       outcome = await sendReport(input, sending);
       if (!outcome.ok && outcome.kind === "too_large" && screenshot) {
         // The server's cap is lower than ours: the words matter more than the picture.
+        // The server checked the first token before it looked at the picture, so a second
+        // challenge runs; say why the visitor is waiting.
         droppedShot = true;
+        this.#setStatus(this.#msgs().shotDropped, false);
         outcome = await sendReport({ ...input, screenshot: null }, sending);
       }
     } finally {
+      this.#gate?.gate?.cancel(); // a token still awaited (the send timed out) is no longer wanted
       this.#sending = false;
       ui.submit.disabled = false;
       ui.form.removeAttribute("aria-busy");
+    }
+    if (this.#abandoned) {
+      this.#abandoned = false;
+      this.#setStatus("", false);
+      return;
     }
     if (!outcome) return;
     if (outcome.ok) {
@@ -411,7 +426,13 @@ export class HeedFeedbackElement extends Base {
     return this.#gate!.gate;
   }
 
+  /** Stop waiting for the challenge's token (the dialog closed, the element left the page). */
+  #cancelToken(): void {
+    if (this.#gate?.gate?.cancel() && this.#sending) this.#abandoned = true;
+  }
+
   #dropGate(): null {
+    this.#cancelToken();
     this.#gate?.gate?.destroy();
     this.#gate = null;
     return null;

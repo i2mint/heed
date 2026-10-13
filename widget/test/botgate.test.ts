@@ -81,6 +81,76 @@ describe("createBotGate", () => {
     await expect(t).rejects.toThrow("removed");
   });
 
+  it("cancel() rejects the token being waited for, and says whether there was one", async () => {
+    (window as unknown as Record<string, unknown>).turnstile = fakeTurnstile(() => {}).api;
+    const gate = createBotGate(window, document.createElement("div"), { provider: "turnstile", sitekey: "S", load: loadOk })!;
+    expect(gate.cancel()).toBe(false);
+    const t = gate.token();
+    await gate.warm();
+    expect(gate.cancel()).toBe(true);
+    await expect(t).rejects.toThrow("cancelled");
+    expect(gate.cancel()).toBe(false);
+  });
+
+  it("shows its box only while the challenge needs the visitor", async () => {
+    const fake = fakeTurnstile(() => {});
+    (window as unknown as Record<string, unknown>).turnstile = fake.api;
+    const box = document.createElement("div");
+    const gate = createBotGate(window, box, { provider: "turnstile", sitekey: "S", load: loadOk })!;
+    expect(box.hidden).toBe(true); // a hidden input inside would otherwise leave a gap in the form
+    await gate.warm();
+    const params = fake.params() as Record<string, () => void>;
+    params["before-interactive-callback"]();
+    expect(box.hidden).toBe(false);
+    params["after-interactive-callback"]();
+    expect(box.hidden).toBe(true);
+  });
+
+  it("drives hCaptcha: invisible, executed with async, reset between runs", async () => {
+    const calls: string[] = [];
+    let answers = 0;
+    const api = {
+      render: vi.fn((_el: HTMLElement, p: Record<string, unknown>) => (calls.push(`render:${p.size}`), "h1")),
+      execute: vi.fn(async (_id: string, o: { async: boolean }) => (calls.push(`execute:${o.async}`), { response: `h${++answers}` })),
+      reset: vi.fn(() => calls.push("reset")),
+      remove: vi.fn(() => calls.push("remove")),
+    };
+    (window as unknown as Record<string, unknown>).hcaptcha = api;
+    const gate = createBotGate(window, document.createElement("div"), { provider: "hcaptcha", sitekey: "S", load: loadOk })!;
+    expect(await gate.token()).toBe("h1");
+    expect(await gate.token()).toBe("h2");
+    expect(calls).toEqual(["render:invisible", "execute:true", "reset", "execute:true"]);
+    expect(loadOk).toHaveBeenCalledWith(window, GATES.hcaptcha.script);
+    gate.destroy();
+    delete (window as unknown as Record<string, unknown>).hcaptcha;
+  });
+
+  it("rejects when hCaptcha's execute fails", async () => {
+    (window as unknown as Record<string, unknown>).hcaptcha = {
+      render: () => "h1",
+      execute: () => Promise.reject("challenge-closed"),
+      reset() {},
+      remove() {},
+    };
+    const gate = createBotGate(window, document.createElement("div"), { provider: "hcaptcha", sitekey: "S", load: loadOk })!;
+    await expect(gate.token()).rejects.toThrow("challenge-closed");
+    delete (window as unknown as Record<string, unknown>).hcaptcha;
+  });
+
+  it("loads the provider's script once per window, not once per page (an element in an iframe)", async () => {
+    const frame = document.createElement("iframe");
+    document.body.append(frame);
+    const other = frame.contentWindow!;
+    const appended = (w: Window) => vi.spyOn(w.document.head, "append").mockImplementation(((s: HTMLScriptElement) => void queueMicrotask(() => s.onload?.(new Event("load")))) as never);
+    const here = appended(window);
+    const there = appended(other);
+    const gates = [window, other].map((w) => createBotGate(w, w.document.createElement("div"), { provider: "turnstile", sitekey: "S", script: "https://gate.test/own-url.js" })!);
+    await Promise.all(gates.map((g) => g.warm().catch(() => {}))); // no turnstile on either window: render fails, loading is what is asserted
+    await Promise.all(gates.map((g) => g.warm().catch(() => {})));
+    expect(here).toHaveBeenCalledTimes(1);
+    expect(there).toHaveBeenCalledTimes(1);
+  });
+
   it("warns and gives nothing for an unknown provider or an empty sitekey", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const box = document.createElement("div");
@@ -168,6 +238,31 @@ describe("<heed-feedback> with a bot gate", () => {
     (el.shadowRoot!.querySelector("input[name=title]") as HTMLInputElement).value = "t";
     (el.shadowRoot!.querySelector("form") as HTMLFormElement).requestSubmit();
     await vi.waitFor(() => expect(el.shadowRoot!.querySelector(".status")!.textContent).toContain("complete the check"));
+  });
+
+  it("closing the dialog mid-challenge cancels the send quietly and frees Send at once", async () => {
+    (window as unknown as Record<string, unknown>).turnstile = fakeTurnstile(() => {}).api; // waits on the visitor
+    scriptsLoad();
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const fetchMock = okFetch();
+    vi.stubGlobal("fetch", fetchMock);
+    const el = mount({ "bot-gate": "turnstile", "bot-sitekey": "SITE" });
+    const errors: string[] = [];
+    el.addEventListener("heed:error", () => errors.push("error"));
+    el.open();
+    const root = el.shadowRoot!;
+    (root.querySelector("input[name=title]") as HTMLInputElement).value = "t";
+    (root.querySelector("form") as HTMLFormElement).requestSubmit();
+    const button = root.querySelector("button[type=submit]") as HTMLButtonElement;
+    await vi.waitFor(() => expect(root.querySelector(".status")!.textContent).toContain("complete the check"));
+    expect(button.disabled).toBe(true);
+    el.close();
+    await vi.waitFor(() => expect(button.disabled).toBe(false));
+    expect(root.querySelector(".status")!.textContent).toBe("");
+    expect(root.querySelector(".status.error")!.textContent).toBe("");
+    expect(errors).toEqual([]);
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect((root.querySelector("input[name=title]") as HTMLInputElement).value).toBe("t"); // the draft stays
   });
 
   it("is rebuilt when the sitekey changes and removed with the element", async () => {
