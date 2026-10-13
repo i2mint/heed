@@ -20,6 +20,7 @@ import unicodedata
 from collections.abc import Callable, Iterable, Mapping, MutableMapping
 from enum import Enum
 from typing import Optional
+from uuid import uuid4
 
 from heed.base import Report, Status
 from heed.security import normalize_origin
@@ -134,9 +135,11 @@ def chain_moderators(*moderators: Moderator) -> Moderator:
     return moderate
 
 
-#: Prefix of the key a report is claimed under, in the holding store itself, while it is
-#: being released (when no separate ``claimed_store`` is given).
+#: Prefix of the keys reports are claimed under, in the holding store itself, while
+#: they are being released (when no separate ``claimed_store`` is given).
 CLAIM_PREFIX = "claimed--"
+#: Separates a report id from the per-release token in a claim key.
+_CLAIM_SEP = "--"
 
 
 def release_held(
@@ -154,29 +157,37 @@ def release_held(
     ``resolve_sink`` gives for the report's own origin (pass exactly one).
 
     The report is claimed before submitting, so a second release while the first is in
-    flight finds nothing to send. Claiming *moves* it: it is written to a claim key
-    (``CLAIM_PREFIX + report_id`` in ``holding_store``, or ``report_id`` in
-    ``claimed_store`` if given) and only then deleted from holding. If the sink fails
-    the report is put back in holding; the claim is deleted only once the sink has
-    accepted it or it is back in holding. So a crash at any point leaves the report
-    in holding, in the claims, or in both -- never lost -- and :func:`recover_claimed`
-    returns stranded claims to holding.
+    flight finds nothing to send. Claiming *moves* it: it is written under a claim key
+    of its own (``claimed--<id>--<token>`` in ``holding_store``, or ``<id>--<token>``
+    in ``claimed_store``, a store used for nothing else) and only then deleted from
+    holding. If the sink fails the report is put back in holding; a release only ever
+    deletes its own claim, and only once the sink has accepted the report or it is
+    back in holding. So a crash at any point leaves the report in holding, in the
+    claims, or in both -- never lost -- and :func:`recover_claimed` returns stranded
+    claims to holding. A report with a claim is not released again until then.
     """
     if (sink is None) == (resolve_sink is None):
         raise ValueError("pass exactly one of sink= or resolve_sink=")
-    claims, claim_key = _claim_location(report_id, holding_store, claimed_store)
     if claimed_store is None and report_id.startswith(CLAIM_PREFIX):
         raise ValueError(
             f"{report_id!r} is a claim, not a held report: use recover_claimed() to "
             "return stranded claims to holding"
         )
+    claims = holding_store if claimed_store is None else claimed_store
     raw = holding_store.get(report_id)
-    if raw is None or claim_key in claims:
+    if raw is None:
         raise KeyError(f"No held report with id {report_id!r}")
+    if _claim_keys_of(report_id, claims, own_prefix=claimed_store is None):
+        raise KeyError(
+            f"Held report {report_id!r} is being released, or a crashed release left a "
+            "claim on it: call recover_claimed() when no release is running"
+        )
+    claim_key = _new_claim_key(report_id, own_prefix=claimed_store is None)
     claims[claim_key] = raw
     try:
         del holding_store[report_id]
-    except KeyError:  # a concurrent release claimed it first: it owns the claim now
+    except KeyError:  # a concurrent release took it first
+        _drop_claim(claims, claim_key)
         raise KeyError(f"No held report with id {report_id!r}") from None
     try:
         report = Report.model_validate_json(raw)
@@ -209,29 +220,58 @@ def recover_claimed(
     """Return every claimed report to holding, and the ids returned.
 
     A claim outlives its :func:`release_held` only if the process died mid-release
-    (the sink may or may not have accepted the report). Call this when no release is
-    running -- e.g. at startup -- since an in-flight release's claim looks the same.
-    Pass the same ``claimed_store`` as to :func:`release_held`.
+    (the sink may or may not have accepted the report, so a recovered report may be
+    sent twice -- never zero times). Call this when no release is running -- e.g. at
+    startup -- since an in-flight release's claim looks the same. Pass the same
+    ``claimed_store`` as to :func:`release_held`.
+
+    A claim whose report is still in holding is just dropped (the holding copy is
+    intact; the claim may be a torn write). A claim that is not a valid report is
+    left in place, and not returned.
     """
-    if claimed_store is None:
-        claim_keys = [k for k in list(holding_store) if k.startswith(CLAIM_PREFIX)]
-        id_of_claim_key = lambda k: k[len(CLAIM_PREFIX) :]  # noqa: E731
-        claims = holding_store
-    else:
-        claim_keys, id_of_claim_key, claims = list(claimed_store), str, claimed_store
+    own_prefix = claimed_store is None
+    claims = holding_store if own_prefix else claimed_store
     recovered = []
-    for claim_key in claim_keys:
-        report_id = id_of_claim_key(claim_key)
-        _unclaim(report_id, claims[claim_key], holding_store, claims, claim_key)
+    for claim_key in [k for k in list(claims) if _is_claim_key(k, own_prefix)]:
+        report_id = _report_id_of_claim_key(claim_key, own_prefix)
+        if report_id in holding_store:
+            _drop_claim(claims, claim_key)
+            continue
+        raw = claims[claim_key]
+        try:
+            Report.model_validate_json(raw)
+        except ValueError:
+            continue  # torn or foreign: never let it replace anything
+        _unclaim(report_id, raw, holding_store, claims, claim_key)
         recovered.append(report_id)
     return recovered
 
 
-def _claim_location(report_id, holding_store, claimed_store):
-    """The ``(store, key)`` a report is claimed under while it is being released."""
-    if claimed_store is None:
-        return holding_store, CLAIM_PREFIX + report_id
-    return claimed_store, report_id
+def _new_claim_key(report_id, *, own_prefix):
+    """A claim key no other release of ``report_id`` can produce."""
+    key = f"{report_id}{_CLAIM_SEP}{uuid4().hex}"
+    return CLAIM_PREFIX + key if own_prefix else key
+
+
+def _is_claim_key(key, own_prefix):
+    if own_prefix and not key.startswith(CLAIM_PREFIX):
+        return False
+    return _CLAIM_SEP in (key[len(CLAIM_PREFIX) :] if own_prefix else key)
+
+
+def _report_id_of_claim_key(claim_key, own_prefix):
+    key = claim_key[len(CLAIM_PREFIX) :] if own_prefix else claim_key
+    return key.rpartition(_CLAIM_SEP)[0]
+
+
+def _claim_keys_of(report_id, claims, *, own_prefix):
+    """The claim keys of ``report_id`` currently in ``claims``."""
+    return [
+        k
+        for k in list(claims)
+        if _is_claim_key(k, own_prefix)
+        and _report_id_of_claim_key(k, own_prefix) == report_id
+    ]
 
 
 def _unclaim(report_id, raw, holding_store, claims, claim_key):
