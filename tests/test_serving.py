@@ -213,7 +213,7 @@ def test_other_methods_and_paths_get_a_bare_status(method, path):
 
 
 def test_the_resolver_skips_refs_the_route_would_not_serve():
-    from heed import Attachment, Report, Identity
+    from heed import Attachment, Identity, Report
 
     report = Report(
         title="t",
