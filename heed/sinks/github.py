@@ -130,8 +130,8 @@ class GitHubIssuesSink(BaseSink):
         treatment = self.treatment(report.category)
         labels = list(treatment.labels) + list(report.labels)
         light = treatment.detail == "light"
-        # A screenshot the server kept is always linked, even in a light issue: kept data
-        # nothing references would be retained for no reason.
+        # A screenshot the server kept is always linked, even in a light issue: kept
+        # data that nothing references would be retained for no reason.
         url = self._screenshot_url(report) if self._screenshot_url else None
         body = render_issue_body(report, screenshot_url=url, light=light)
         issue = self._create_issue(
@@ -248,7 +248,8 @@ def render_issue_body(
     """Render a report as a GitHub-flavoured markdown issue body.
 
     ``light`` leaves out the environment, console and network (a feature request's
-    intake; a screenshot the server kept is still linked): the idea, the page it came from, and who asked.
+    intake; a screenshot the server kept is still linked): the idea, the page it came
+    from, and who asked.
     """
     lines: list[str] = []
     if report.body:
