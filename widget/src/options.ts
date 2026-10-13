@@ -67,12 +67,17 @@ const oneOf =
     (allowed as string[]).includes(s) ? (s as T) : undefined;
 const bool: Parse<boolean> = (s) =>
   ["", "true", "1", "yes"].includes(s.toLowerCase()) ? true : ["false", "0", "no"].includes(s.toLowerCase()) ? false : undefined;
+// setTimeout fires at once for delays past 2^31 - 1 ms, so longer ones are capped.
+const MAX_TIMER_MS = 2_147_483_647;
 const positiveInt: Parse<number> = (s) => {
   const n = Number(s);
-  return Number.isInteger(n) && n > 0 ? n : undefined;
+  return Number.isInteger(n) && n > 0 ? Math.min(n, MAX_TIMER_MS) : undefined;
 };
+const warnedAnonIds = new Set<string>();
 const anonId: Parse<string> = (s) => {
   if (s === "" || (s.length <= CONTRACT.limits.anon_id_chars && new RegExp(CONTRACT.patterns.anon_id).test(s))) return s;
+  if (warnedAnonIds.has(s)) return undefined;
+  warnedAnonIds.add(s);
   console.warn(`heed: ignoring anon-id ${JSON.stringify(s)}: the server accepts only ${CONTRACT.patterns.anon_id}`);
   return undefined;
 };

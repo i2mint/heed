@@ -45,4 +45,7 @@ describe("options", () => {
     expect(cleanOptions({ anonId: "x".repeat(500) })).toEqual({});
     warn.mockRestore();
   });
+  it("caps timeouts at what setTimeout can wait", () => {
+    expect(cleanOptions({ timeoutMs: 3_000_000_000 })).toEqual({ timeoutMs: 2_147_483_647 });
+  });
 });
