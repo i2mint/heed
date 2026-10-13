@@ -2,8 +2,8 @@
 
 A sink is the only thing that decides what becomes of a report. The ingest layer calls
 :meth:`Sink.submit`; richer sinks may also offer duplicate detection and
-acknowledgement. New destinations are added by writing a sink, never by editing a
-dispatcher.
+acknowledgement, and may list its public items for a board (:mod:`heed.board`). New
+destinations are added by writing a sink, never by editing a dispatcher.
 """
 
 from __future__ import annotations
@@ -12,7 +12,8 @@ from typing import Protocol, runtime_checkable
 
 from pydantic import BaseModel
 
-from heed.base import Report
+from heed.base import Category, Report
+from heed.board import PublicItem
 
 
 class SinkResult(BaseModel):
@@ -52,3 +53,7 @@ class BaseSink:
     def acknowledge(self, report: Report) -> None:
         """Hook called after a successful submit (default: no-op)."""
         return None
+
+    def public_items(self, *, category: Category | None = None) -> list[PublicItem]:
+        """The items a public board may show (default: none; see :mod:`heed.board`)."""
+        return []

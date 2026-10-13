@@ -13,25 +13,80 @@ embed it in the body; base64 data-URIs do not render.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterable, Mapping
+from dataclasses import dataclass
 from typing import Any
 
-from heed.base import Category, Report
+from heed.base import Category, Report, Status
+from heed.board import PublicItem
 from heed.sinks.base import BaseSink, SinkResult
 
 # A callable that creates an issue and returns the GitHub API's issue dict.
 CreateIssue = Callable[..., Mapping[str, Any]]
 
-DEFAULT_LABELS: dict[Category, tuple[str, ...]] = {
-    Category.bug: ("bug",),
-    Category.feature: ("enhancement",),
-    Category.question: ("question",),
-    Category.other: (),
+# A callable ``(*, labels, state) -> issues`` listing a repo's issues (the board's read
+# side).
+ListIssues = Callable[..., Iterable[Mapping[str, Any]]]
+
+
+@dataclass(frozen=True)
+class CategoryTreatment:
+    """What one category of report becomes as a GitHub issue.
+
+    ``detail="light"`` is the feature-request intake: the idea and who asked, without
+    the browser/console/network dump or a screenshot, which say nothing about a wish.
+    """
+
+    labels: tuple[str, ...] | None = None  # None: the category's default labels
+    title_prefix: str = ""
+    detail: str | None = None  # "full" | "light"; None: the category's default
+
+    def __post_init__(self) -> None:
+        if isinstance(self.labels, str):  # "bug" means one label, not three letters
+            object.__setattr__(self, "labels", (self.labels,))
+        if self.detail not in (None, "full", "light"):
+            raise ValueError(f"detail must be 'full' or 'light', got {self.detail!r}")
+
+
+DEFAULT_TREATMENTS: dict[Category, CategoryTreatment] = {
+    Category.bug: CategoryTreatment(("bug",)),
+    Category.feature: CategoryTreatment(("enhancement",), detail="light"),
+    Category.question: CategoryTreatment(("question",), detail="light"),
+    Category.other: CategoryTreatment((), detail="full"),
 }
+
+# Kept for callers that read the label defaults.
+DEFAULT_LABELS: dict[Category, tuple[str, ...]] = {
+    category: treatment.labels for category, treatment in DEFAULT_TREATMENTS.items()
+}
+
+#: Issue labels a maintainer applies to move an item along; the board reads them back.
+DEFAULT_STATUS_LABELS: dict[str, Status] = {
+    "triaged": Status.triaged,
+    "planned": Status.planned,
+    "in progress": Status.started,
+    "duplicate": Status.duplicate,
+    "wontfix": Status.declined,
+}
+
+#: The most pages (of 100 issues) one board read will fetch.
+MAX_BOARD_PAGES = 10
+
+#: A maintainer adds this label to put an item on the public board. Opt-in, because the
+#: title of an unmoderated report must not reach a public page by default.
+DEFAULT_PUBLIC_LABEL = "public"
 
 
 class GitHubIssuesSink(BaseSink):
-    """Route a report to a GitHub issue via an injected ``create_issue`` callable."""
+    """Route a report to a GitHub issue via an injected ``create_issue`` callable.
+
+    ``treatments`` says, per category, the labels, a title prefix and how much context
+    the issue carries (``label_map`` is the older labels-only spelling and still wins
+    for labels). With ``list_issues`` it can also read its issues back as a board's
+    :class:`~heed.board.PublicItem` entries: only those carrying ``public_label``, with
+    status from ``status_labels`` (or the issue's closed state) and votes from the 👍
+    reactions.
+    """
 
     def __init__(
         self,
@@ -39,16 +94,49 @@ class GitHubIssuesSink(BaseSink):
         *,
         label_map: Mapping[Category, tuple[str, ...]] | None = None,
         screenshot_url: Callable[[Report], str | None] | None = None,
+        treatments: Mapping[Category, CategoryTreatment] | None = None,
+        list_issues: ListIssues | None = None,
+        public_label: str = DEFAULT_PUBLIC_LABEL,
+        status_labels: Mapping[str, Status] | None = None,
     ):
         self._create_issue = create_issue
-        self._label_map = dict(label_map or DEFAULT_LABELS)
         self._screenshot_url = screenshot_url
+        # ``label_map`` is the labels-only spelling and, as before, replaces the whole
+        # label table (a category it omits gets no label).
+        base = dict(DEFAULT_TREATMENTS)
+        if label_map is not None:
+            base = {
+                category: CategoryTreatment(
+                    tuple(label_map.get(category, ())),
+                    detail=DEFAULT_TREATMENTS[category].detail,
+                )
+                for category in Category
+            }
+        self._treatments = {
+            category: _resolve(base.get(category), (treatments or {}).get(category))
+            for category in Category
+        }
+        self._list_issues = list_issues
+        self._public_label = public_label
+        self._status_labels = dict(
+            DEFAULT_STATUS_LABELS if status_labels is None else status_labels
+        )
+
+    def treatment(self, category: Category) -> CategoryTreatment:
+        """The treatment applied to reports of ``category``."""
+        return self._treatments[Category(category)]
 
     def submit(self, report: Report) -> SinkResult:
-        labels = list(self._label_map.get(report.category, ())) + list(report.labels)
+        treatment = self.treatment(report.category)
+        labels = list(treatment.labels) + list(report.labels)
+        light = treatment.detail == "light"
+        # A screenshot the server kept is always linked, even in a light issue: kept
+        # data that nothing references would be retained for no reason.
         url = self._screenshot_url(report) if self._screenshot_url else None
-        body = render_issue_body(report, screenshot_url=url)
-        issue = self._create_issue(title=report.title, body=body, labels=labels)
+        body = render_issue_body(report, screenshot_url=url, light=light)
+        issue = self._create_issue(
+            title=treatment.title_prefix + report.title, body=body, labels=labels
+        )
         number = issue.get("number")
         return SinkResult(
             ok=True,
@@ -56,9 +144,113 @@ class GitHubIssuesSink(BaseSink):
             url=issue.get("html_url"),
         )
 
+    def public_items(self, *, category: Category | None = None) -> list[PublicItem]:
+        """The board's items: issues labelled ``public_label``, as :class:`PublicItem`.
 
-def render_issue_body(report: Report, *, screenshot_url: str | None = None) -> str:
-    """Render a report as a GitHub-flavoured markdown issue body."""
+        Empty without ``list_issues``. Only title, category, status, link, votes and
+        dates leave the sink: never an issue body (which holds the reporter's
+        environment and identity).
+        """
+        if self._list_issues is None:
+            return []
+        wanted = None if category is None else Category(category)
+        items = []
+        for issue in self._list_issues(labels=[self._public_label], state="all"):
+            if "pull_request" in issue or issue.get("number") is None:
+                continue  # the issues API also returns pull requests
+            names = [_label_name(label) for label in issue.get("labels", ())]
+            if self._public_label not in names:
+                continue
+            item_category = self._category_of(names)
+            if wanted is not None and item_category is not wanted:
+                continue
+            items.append(
+                PublicItem(
+                    ref=str(issue["number"]),
+                    title=str(issue.get("title") or ""),
+                    category=item_category,
+                    status=self._status_of(issue, set(names)),
+                    url=issue.get("html_url"),
+                    votes=_votes(issue),
+                    created_at=issue.get("created_at"),
+                    closed_at=issue.get("closed_at"),
+                )
+            )
+        return items
+
+    def _category_of(self, names: list[str]) -> Category:
+        """The category whose labels the issue carries; the earliest label wins."""
+        have = set(names)
+        for name in names:
+            for category, treatment in self._treatments.items():
+                labels = treatment.labels or ()
+                if name in labels and set(labels) <= have:
+                    return category
+        return Category.other
+
+    def _status_of(self, issue: Mapping[str, Any], names: set[str]) -> Status:
+        """Status from the issue's state and labels.
+
+        A closed issue is finished whatever stage label it still carries; a terminal
+        label (duplicate, wontfix) wins over the state; of several stage labels the
+        furthest along counts.
+        """
+        marked = [s for label, s in self._status_labels.items() if label in names]
+        terminal = [s for s in marked if s in _TERMINAL]
+        if terminal:
+            return terminal[0]
+        if issue.get("state") == "closed":
+            reason = issue.get("state_reason")
+            if reason == "duplicate":
+                return Status.duplicate
+            return Status.declined if reason == "not_planned" else Status.completed
+        stages = [s for s in marked if s in _STAGES]
+        return max(stages, key=_STAGES.index) if stages else Status.received
+
+
+#: Open-issue stages, least to furthest along.
+_STAGES = (Status.received, Status.triaged, Status.planned, Status.started)
+_TERMINAL = (Status.duplicate, Status.declined, Status.completed)
+
+
+def _resolve(
+    default: CategoryTreatment | None, given: CategoryTreatment | None
+) -> CategoryTreatment:
+    """``given`` over ``default``, field by field (``None`` keeps the default)."""
+    base_labels = () if default is None or default.labels is None else default.labels
+    base_detail = (
+        "full" if default is None or default.detail is None else default.detail
+    )
+    if given is None:
+        return CategoryTreatment(
+            base_labels, default.title_prefix if default else "", base_detail
+        )
+    return CategoryTreatment(
+        labels=base_labels if given.labels is None else tuple(given.labels),
+        title_prefix=given.title_prefix,
+        detail=base_detail if given.detail is None else given.detail,
+    )
+
+
+def _label_name(label: Any) -> str:
+    return str(label.get("name", "")) if isinstance(label, Mapping) else str(label)
+
+
+def _votes(issue: Mapping[str, Any]) -> int:
+    reactions = issue.get("reactions")
+    plus = reactions.get("+1", 0) if isinstance(reactions, Mapping) else 0
+    return plus if isinstance(plus, int) and plus > 0 else 0
+
+
+def render_issue_body(
+    report: Report, *, screenshot_url: str | None = None, light: bool = False
+) -> str:
+    """Render a report as a GitHub-flavoured markdown issue body.
+
+    ``light`` leaves out the environment, console and network (a feature request's
+    intake; a screenshot the server kept is still linked): the idea, the page it came
+    from, and who asked.
+    """
     lines: list[str] = []
     if report.body:
         lines += [report.body, ""]
@@ -67,7 +259,7 @@ def render_issue_body(report: Report, *, screenshot_url: str | None = None) -> s
     meta = [f"- **Category**: {report.category.value}"]
     if report.page_url:
         meta.append(f"- **URL**: {report.page_url}")
-    if report.env.browser or report.env.os:
+    if not light and (report.env.browser or report.env.os):
         env_line = f"- **Env**: {report.env.browser or '?'} on {report.env.os or '?'}"
         if report.env.viewport:
             env_line += f" ({report.env.viewport})"
@@ -77,6 +269,8 @@ def render_issue_body(report: Report, *, screenshot_url: str | None = None) -> s
 
     if screenshot_url:
         lines += [f"![screenshot]({screenshot_url})", ""]
+    if light:
+        return "\n".join(lines).rstrip() + "\n"
     if report.console:
         lines += _collapsible(
             "Console", "\n".join(f"[{e.level}] {e.message}" for e in report.console)
@@ -126,4 +320,19 @@ def github_sink_from_token(repo: str, token: str, **kwargs) -> GitHubIssuesSink:
     def create_issue(*, title: str, body: str, labels: list[str]) -> Mapping[str, Any]:
         return api.issues.create(title=title, body=body, labels=labels)
 
+    def list_issues(*, labels: list[str], state: str = "all"):
+        from itertools import islice
+
+        from ghapi.all import paged
+
+        pages = paged(
+            api.issues.list_for_repo,
+            labels=",".join(labels),
+            state=state,
+            per_page=100,
+        )
+        for page in islice(pages, MAX_BOARD_PAGES):
+            yield from page
+
+    kwargs.setdefault("list_issues", list_issues)
     return GitHubIssuesSink(create_issue, **kwargs)
