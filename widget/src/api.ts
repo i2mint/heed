@@ -4,6 +4,7 @@
  *   heed.init({ endpoint, label, ... })  // mount (or reconfigure) the widget
  *   heed.open() / heed.close()           // show or hide the dialog
  *   heed.on("submitted", fn)             // listen; returns an unsubscribe function
+ *   heed.ready(fn)                       // fn(heed) once the bundle has loaded
  *   heed.destroy()                       // remove the widget heed mounted
  *   heed("open")                         // the same calls, in queue form
  *
@@ -11,10 +12,13 @@
  * stub); they are replayed here in order. The loader's own `_boot` call comes first:
  * it carries the loader's URL (the default endpoint is the `report` route next to the
  * `widget/` folder it was served from) and its `data-*` attributes, and mounts the
- * widget unless `data-auto="false"`.
+ * widget unless `data-auto="false"` or the page already wrote a `<heed-feedback>`.
+ *
+ * The mounted widget is put back if the page replaces `<body>` (Turbo, htmx boost,
+ * pjax…), so the button survives client-side navigations.
  */
 import { HeedFeedbackElement, TAG } from "./element";
-import { type HeedOptions, cleanOptions, optionsFromAttributes } from "./options";
+import { type HeedOptions, cleanOptions, optionsFromAttributes, parseBool } from "./options";
 
 declare const __HEED_VERSION__: string;
 
@@ -25,8 +29,10 @@ export interface HeedApi {
   close(): void;
   destroy(): void;
   on(event: string, handler: (detail: unknown, event: CustomEvent) => void): () => void;
+  ready(callback: (api: HeedApi) => void): void;
   version: string;
   loaded: true;
+  booted: boolean;
 }
 
 interface Boot {
@@ -34,7 +40,8 @@ interface Boot {
   data?: Record<string, string>;
 }
 
-type HeedWindow = Window & { heed?: Partial<HeedApi> & { q?: ArrayLike<unknown>[] } };
+type Entry = ArrayLike<unknown> & { off?: unknown };
+type HeedWindow = Window & { heed?: Partial<HeedApi> & { q?: Entry[] } };
 
 export function installApi(win: HeedWindow = window as HeedWindow): HeedApi {
   if (win.heed?.loaded) return win.heed as HeedApi;
@@ -42,18 +49,24 @@ export function installApi(win: HeedWindow = window as HeedWindow): HeedApi {
   let managed: HeedFeedbackElement | null = null;
   let defaults: Partial<HeedOptions> = {};
 
-  const attach = (el: HeedFeedbackElement) => {
-    if (doc.body) doc.body.append(el);
-    else doc.addEventListener("DOMContentLoaded", () => managed === el && doc.body.append(el), { once: true });
+  const whenParsed = (fn: () => void) => {
+    if (doc.readyState === "loading") doc.addEventListener("DOMContentLoaded", fn, { once: true });
+    else fn();
   };
+  const attach = (el: HeedFeedbackElement) =>
+    whenParsed(() => {
+      if (managed === el && !el.isConnected && doc.body) doc.body.append(el);
+    });
+  // Pages that swap <body> on navigation detach the widget: put it back.
+  new MutationObserver(() => managed && attach(managed)).observe(doc.documentElement, { childList: true });
 
   const init = (options: Partial<HeedOptions> = {}): HeedFeedbackElement | null => {
     if (!managed) {
       managed = doc.createElement(TAG) as HeedFeedbackElement;
       managed.setAttribute("data-heed-managed", "");
       managed.configure(defaults);
-      attach(managed);
     }
+    attach(managed);
     return managed.configure(cleanOptions(options as Record<string, unknown>));
   };
 
@@ -62,11 +75,18 @@ export function installApi(win: HeedWindow = window as HeedWindow): HeedApi {
     managed ?? (doc.querySelector(TAG) as HeedFeedbackElement | null) ?? init();
 
   const boot = ({ base, data = {} }: Boot = {}) => {
+    api.booted = true;
     defaults = cleanOptions({
       ...(base ? { endpoint: new URL("../report", base).href } : {}),
       ...optionsFromAttributes((attr) => data[attr]),
     });
-    if (data.auto !== "false") init();
+    if (data.auto !== undefined && parseBool(data.auto) === false) return;
+    whenParsed(() => {
+      const own = managed ? null : (doc.querySelector(TAG) as HeedFeedbackElement | null);
+      if (!own) init();
+      // The page wrote its own element: leave it be, but lend it the loader's endpoint.
+      else if (!own.hasAttribute("endpoint") && !own.options.endpoint && defaults.endpoint) own.configure({ endpoint: defaults.endpoint });
+    });
   };
 
   const commands: Record<string, (...args: never[]) => unknown> = {
@@ -74,8 +94,7 @@ export function installApi(win: HeedWindow = window as HeedWindow): HeedApi {
     init,
     open: () => {
       const el = target();
-      if (el && !el.isConnected) doc.addEventListener("DOMContentLoaded", () => el.open(), { once: true });
-      else el?.open();
+      if (el) whenParsed(() => el.open());
     },
     close: () => (managed ?? (doc.querySelector(TAG) as HeedFeedbackElement | null))?.close(),
     destroy: () => {
@@ -89,6 +108,7 @@ export function installApi(win: HeedWindow = window as HeedWindow): HeedApi {
       doc.addEventListener(type, listener);
       return () => doc.removeEventListener(type, listener);
     },
+    ready: (callback: (api: HeedApi) => void) => callback(api),
   };
 
   const run = (command: unknown, ...args: unknown[]): unknown => {
@@ -105,17 +125,24 @@ export function installApi(win: HeedWindow = window as HeedWindow): HeedApi {
     }
   };
 
-  const queued = Array.from(win.heed?.q ?? [], (args) => Array.from(args));
-  const api = Object.assign((command: string, ...args: unknown[]) => run(command, ...args), {
+  const queued: Entry[] = Array.from(win.heed?.q ?? []);
+  const api: HeedApi = Object.assign((command: string, ...args: unknown[]) => run(command, ...args), {
     init: (o?: Partial<HeedOptions>) => run("init", o) as HeedFeedbackElement | null,
     open: () => void run("open"),
     close: () => void run("close"),
     destroy: () => void run("destroy"),
     on: (event: string, handler: (detail: unknown, event: CustomEvent) => void) => run("on", event, handler) as () => void,
+    ready: (callback: (api: HeedApi) => void) => void run("ready", callback),
     version: __HEED_VERSION__,
     loaded: true as const,
+    booted: false,
   });
   win.heed = api;
-  for (const [command, ...args] of queued) run(command, ...args);
+  for (const entry of queued) {
+    const [command, ...args] = Array.from(entry);
+    const result = run(command, ...args);
+    // Lets an unsubscribe the loader's stub handed out reach the real listener.
+    if (command === "on") entry.off = result;
+  }
   return api;
 }

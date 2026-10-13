@@ -58,12 +58,13 @@ def _backend(*, router_kwargs=None, **config):
 NONCE = "t3st-n0nce"
 
 
-def _page(backend: str, body: str) -> str:
+def _page(backend: str, body: str, *, csp_extra: str = "") -> str:
     """An embedding page under a strict CSP: no inline style, Trusted Types required,
     scripts only from the backend (or with the test nonce)."""
     csp = (
         f"default-src 'none'; script-src {backend} 'nonce-{NONCE}'; "
         f"connect-src {backend}; style-src 'none'; require-trusted-types-for 'script'"
+        f"{csp_extra}"
     )
     return f"""<!doctype html>
 <html><head><meta charset="utf-8">
@@ -99,7 +100,11 @@ def browser():
 def _open_page(browser, url):
     page = browser.new_page(viewport={"width": 1024, "height": 700})
     problems: list[str] = []
+    page.heed_warnings = warnings = []
     page.on("pageerror", lambda e: problems.append(str(e)))
+    page.on(
+        "console", lambda m: warnings.append(m.text) if m.type == "warning" else None
+    )
     page.on(
         "console",
         lambda m: (
@@ -313,7 +318,8 @@ def test_loader_pinned_with_sri_pins_the_bundle(browser):
 def test_calls_queued_before_the_loader_arrives_are_replayed(browser):
     stub = (
         f'<script nonce="{NONCE}">'
-        "window.heed=window.heed||function(){(heed.q=heed.q||[]).push(arguments)};"
+        'window.heed=typeof window.heed=="function"?window.heed:'
+        "function(){(heed.q=heed.q||[]).push(arguments)};"
         'heed("init", {heading: "Tell us"});'
         'heed("on", "open", function(){ document.title = "opened"; });'
         'heed("open");'
@@ -336,3 +342,60 @@ def test_data_auto_false_waits_for_init(browser):
         tab.evaluate("heed.init({label: 'Now'})")
         tab.get_by_role("button", name="Now").wait_for()
         assert problems == []
+
+
+def test_a_trusted_types_allow_list_without_heed_is_reported_not_crashed(browser):
+    def page(backend):
+        return _page(
+            backend,
+            f'<script async src="{backend}/heed/widget/heed.js"></script>',
+            csp_extra="; trusted-types app",
+        )
+
+    with _site(browser, page=page) as (tab, problems, _store, _origin):
+        tab.wait_for_function("window.heed && window.heed.q")
+        tab.wait_for_timeout(300)
+        assert any("trusted-types" in w for w in tab.heed_warnings)
+        assert not any("Failed to set" in p for p in problems), problems
+
+
+def test_unsubscribing_before_the_bundle_arrives(browser):
+    script = (
+        f'<script nonce="{NONCE}">'
+        "window.calls = 0;"
+        "var off = heed.on('open', function(){ window.calls++; }); off();"
+        "heed.on('open', function(){ window.calls += 10; });"
+        "</script>"
+    )
+
+    def page(backend):
+        # A synchronous loader, so the inline script runs right after it.
+        return _page(
+            backend, f'<script src="{backend}/heed/widget/heed.js"></script>{script}'
+        )
+
+    with _site(browser, page=page) as (tab, problems, _store, _origin):
+        tab.get_by_role("button", name="Feedback").click()
+        tab.get_by_role("dialog").wait_for()
+        assert tab.evaluate("window.calls") == 10
+        assert problems == []
+
+
+def test_earlier_builds_stay_served(browser):
+    """A loader cached before an upgrade still finds its bundle."""
+    manifest = load_widget_manifest()
+    old = [
+        n
+        for n, m in manifest["files"].items()
+        if m.get("immutable") and m["version"] != manifest["version"]
+    ]
+    with _backend() as (backend, _store):
+        tab = browser.new_page()
+        try:
+            for name in old:
+                r = tab.request.get(f"{backend}/heed/widget/{name}")
+                assert r.status == 200 and r.headers["cache-control"].endswith(
+                    "immutable"
+                )
+        finally:
+            tab.close()

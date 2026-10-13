@@ -3,10 +3,16 @@
 // content-hashed name, cached forever and meant for pinning with SRI, and under a
 // stable name (`<stem>.js`, short cache) that keeps working across heed upgrades.
 // manifest.json lists every file with its SRI hash and size.
+//
+// Hashed files of the previous RETAIN_VERSIONS versions (widget/package.json) stay
+// published, so a loader cached before an upgrade, a backend replica still on the old
+// version, or a site that pinned a build with SRI keeps working. Rebuilding without
+// a version bump replaces that version's files: bump the version for every widget
+// change that ships.
 // Fails when a file outgrows its gzip budget: the widget loads on other people's sites.
 import { build } from "esbuild";
 import { createHash } from "node:crypto";
-import { mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { gzipSync } from "node:zlib";
@@ -15,7 +21,8 @@ const here = dirname(fileURLToPath(import.meta.url));
 const OUT_DIR = join(here, "..", "heed", "static", "widget");
 const pkg = JSON.parse(readFileSync(join(here, "package.json"), "utf8"));
 // Gzipped-size budgets in bytes, per entry.
-const BUDGETS = { widget: 8_000, loader: 1_000 };
+const BUDGETS = { widget: 8_000, loader: 1_200 };
+const RETAIN_VERSIONS = 5;
 // Built in order: the loader embeds the widget bundle's hashed name and SRI hash.
 const ENTRIES = {
   widget: { src: "src/index.ts", stem: "heed-widget", define: () => ({ __HEED_VERSION__: JSON.stringify(pkg.version) }) },
@@ -46,6 +53,7 @@ async function bundle(src, define) {
   return result.outputFiles[0].contents;
 }
 
+const MANIFEST = join(OUT_DIR, "manifest.json");
 const manifest = { version: pkg.version, entries: {}, files: {} };
 const outputs = {};
 let overBudget = false;
@@ -58,6 +66,7 @@ for (const [entry, { src, stem, define }] of Object.entries(ENTRIES)) {
   manifest.files[name] = {
     integrity: `sha384-${sha("sha384", code, "base64")}`,
     immutable: true,
+    version: pkg.version,
     bytes: code.length,
     gzip_bytes: gz,
   };
@@ -72,9 +81,33 @@ if (overBudget) {
   process.exit(1);
 }
 
+Object.assign(manifest.files, retainedFiles());
+
 mkdirSync(OUT_DIR, { recursive: true });
 for (const old of readdirSync(OUT_DIR)) {
-  if (old.endsWith(".js") || old === "manifest.json") rmSync(join(OUT_DIR, old));
+  if (old.endsWith(".js") && !(old in manifest.files)) rmSync(join(OUT_DIR, old));
 }
 for (const [name, code] of Object.entries(outputs)) writeFileSync(join(OUT_DIR, name), code);
 writeFileSync(join(OUT_DIR, "manifest.json"), JSON.stringify(manifest, null, 2) + "\n");
+
+/** Hashed files of earlier versions, from the manifest being replaced. */
+function retainedFiles() {
+  if (!existsSync(MANIFEST)) return {};
+  const previous = JSON.parse(readFileSync(MANIFEST, "utf8"));
+  const older = Object.entries(previous.files)
+    .filter(([, meta]) => meta.immutable)
+    .map(([name, meta]) => [name, { ...meta, version: meta.version ?? previous.version }])
+    .filter(([name, meta]) => meta.version !== pkg.version && existsSync(join(OUT_DIR, name)));
+  const keep = [...new Set(older.map(([, m]) => m.version))].sort(compareVersions).slice(-RETAIN_VERSIONS);
+  return Object.fromEntries(older.filter(([, m]) => keep.includes(m.version)));
+}
+
+function compareVersions(a, b) {
+  const pa = a.split(".").map(Number);
+  const pb = b.split(".").map(Number);
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const d = (pa[i] ?? 0) - (pb[i] ?? 0);
+    if (d) return d;
+  }
+  return 0;
+}

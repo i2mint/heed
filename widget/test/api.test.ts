@@ -94,4 +94,40 @@ describe("window.heed", () => {
     const api = installApi(w);
     expect(installApi(w)).toBe(api);
   });
+  it("ready() calls back with the API", () => {
+    const seen = vi.fn();
+    w.heed = { q: [["ready", seen]] };
+    const api = installApi(w);
+    expect(seen).toHaveBeenCalledWith(api);
+  });
+
+  it("puts the widget back when the page swaps <body>", async () => {
+    const api = installApi(w);
+    api.init({ endpoint: "/r" });
+    document.body.replaceWith(document.createElement("body"));
+    await new Promise((r) => setTimeout(r, 0));
+    expect(managed()?.isConnected).toBe(true);
+  });
+
+  it("does not add a second widget beside one the page wrote, but lends it the endpoint", () => {
+    const own = document.createElement(TAG) as HeedFeedbackElement;
+    document.body.append(own);
+    w.heed = { q: [boot()] };
+    installApi(w);
+    expect(document.querySelectorAll(TAG)).toHaveLength(1);
+    expect(own.options.endpoint).toBe("https://h.example/heed/report");
+  });
+
+  it.each(["false", "0", "no", "False"])("data-auto=%s does not mount", (value) => {
+    w.heed = { q: [boot({ auto: value })] };
+    installApi(w);
+    expect(managed()).toBeNull();
+  });
+
+  it("hands queued on() entries their real unsubscribe", () => {
+    const entry: unknown[] & { off?: unknown } = ["on", "open", () => {}];
+    w.heed = { q: [entry] };
+    installApi(w);
+    expect(typeof entry.off).toBe("function");
+  });
 });

@@ -65,7 +65,7 @@ const oneOf =
   <T extends string>(...allowed: T[]): Parse<T> =>
   (s) =>
     (allowed as string[]).includes(s) ? (s as T) : undefined;
-const bool: Parse<boolean> = (s) =>
+export const parseBool: Parse<boolean> = (s) =>
   ["", "true", "1", "yes"].includes(s.toLowerCase()) ? true : ["false", "0", "no"].includes(s.toLowerCase()) ? false : undefined;
 // setTimeout fires at once for delays past 2^31 - 1 ms, so longer ones are capped.
 const MAX_TIMER_MS = 2_147_483_647;
@@ -96,7 +96,7 @@ export const OPTION_SPECS: Specs = {
   heading: { default: "Send feedback", attr: "heading", parse: text },
   categories: { default: [...CONTRACT.categories], attr: "categories", parse: categories },
   pageUrl: { default: "path", attr: "page-url", parse: oneOf("path", "full") },
-  withCredentials: { default: false, attr: "with-credentials", parse: bool },
+  withCredentials: { default: false, attr: "with-credentials", parse: parseBool },
   timeoutMs: { default: 30_000, attr: "timeout-ms", parse: positiveInt },
   botTokenField: { default: CONTRACT.fields.bot_token, attr: "bot-token-field", parse: text },
   honeypotField: { default: CONTRACT.fields.honeypot ?? "", attr: "honeypot-field", parse: text },
