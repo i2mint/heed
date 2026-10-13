@@ -153,3 +153,46 @@ def test_the_resolver_links_a_submitted_screenshot():
     assert url.startswith(f"http://{HOST}/attachments/{report.id}.png?sig=")
     assert _client(attachments, signer=signer).get(url).content == _tiny_png()
     assert screenshot_url_resolver("http://x", signer)(report.model_copy(update={"attachments": []})) is None
+
+
+# ---------------------------------------------------------------------------
+# Adversarial-review regressions
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "query", ["?sig=%C3%A9", "?sig=x&exp=%C2%B2", "?sig=x&exp=" + "9" * 5000]
+)
+def test_malformed_signatures_are_a_404_not_a_500(query):
+    signer = AttachmentSigner(KEY, ttl_seconds=60)
+    assert _client(signer=signer).get(f"/attachments/{REF}{query}").status_code == 404
+
+
+def test_a_trailing_slash_is_not_redirected_to_the_requested_host():
+    signer = AttachmentSigner(KEY)
+    url = signer.url("/attachments", REF).replace(".png?", ".png/?")
+    r = _client(signer=signer).get(url, headers={"host": "evil.com"}, follow_redirects=False)
+    assert r.status_code in (404, 421) and "location" not in r.headers
+
+
+def test_a_string_of_hosts_is_refused():
+    with pytest.raises(TypeError, match="list of hostnames"):
+        make_attachment_app({}, signer=AttachmentSigner(KEY), allowed_hosts=HOST)
+
+
+@pytest.mark.parametrize("method,path", [("post", f"/attachments/{REF}"), ("get", "/nope")])
+def test_other_methods_and_paths_get_a_bare_status(method, path):
+    r = getattr(_client(), method)(path)
+    assert r.status_code in (404, 405) and r.content == b""
+    assert r.headers["cache-control"] == "no-store"
+
+
+def test_the_resolver_skips_refs_the_route_would_not_serve():
+    from heed import Attachment, Report, Identity
+
+    report = Report(
+        title="t",
+        identity=Identity(anon_id="a"),
+        attachments=[Attachment(ref="../x.png", size=1, media_type="image/png")],
+    )
+    assert screenshot_url_resolver("http://x", AttachmentSigner(KEY))(report) is None

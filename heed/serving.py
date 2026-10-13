@@ -40,6 +40,7 @@ from typing import TYPE_CHECKING
 from urllib.parse import urlencode
 
 from fastapi import APIRouter, FastAPI, Request, Response
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from heed.config import ENV_PREFIX, HeedConfig
 from heed.images import pillow_available
@@ -57,6 +58,9 @@ DEFAULT_REF_PATTERN = re.compile(
 )
 MIN_SIGNING_KEY_BYTES = 32
 _SIGNATURE_CONTEXT = b"heed-attachment-v1"
+_SIG = re.compile(r"[A-Za-z0-9_-]{43}")  # urlsafe base64 of a SHA-256, unpadded
+_EXP = re.compile(r"[0-9]{1,12}")  # a Unix time, in seconds
+_BARE_HEADERS = {"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"}
 _MEDIA_TYPE_OF_EXTENSION = {ext: media for media, ext in IMAGE_EXTENSIONS.items()}
 
 
@@ -129,11 +133,11 @@ class AttachmentSigner:
 
     def verify(self, ref: str, *, sig: str | None = None, exp: str | None = None) -> bool:
         """Whether ``sig`` (and ``exp``, if any) authorise ``ref`` right now."""
-        if not sig:
+        if not sig or not _SIG.fullmatch(sig):
             return False
         exp = exp or ""
         if exp:
-            if not exp.isdigit() or int(exp) < self._clock():
+            if not _EXP.fullmatch(exp) or int(exp) < self._clock():
                 return False
         elif self.ttl_seconds is not None:
             return False  # this signer only issues expiring URLs
@@ -148,17 +152,23 @@ class AttachmentSigner:
 
 
 def screenshot_url_resolver(
-    base_url: str, signer: AttachmentSigner | None
+    base_url: str,
+    signer: AttachmentSigner | None,
+    *,
+    ref_pattern: re.Pattern = DEFAULT_REF_PATTERN,
 ) -> Callable[[Report], str | None]:
     """A ``GitHubIssuesSink(screenshot_url=...)`` callable: the report's first image
     attachment as a (signed) URL under ``base_url``, or None.
 
     Pass ``signer=None`` only if the attachment route was built with ``allow_unsigned``.
+    Refs the route would not serve (``ref_pattern``) get no URL.
     """
 
     def screenshot_url(report: Report) -> str | None:
         for attachment in report.attachments:
-            if attachment.media_type in IMAGE_EXTENSIONS:
+            if attachment.media_type in IMAGE_EXTENSIONS and ref_pattern.fullmatch(
+                attachment.ref
+            ):
                 if signer is None:
                     return f"{base_url.rstrip('/')}/{attachment.ref}"
                 return signer.url(base_url, attachment.ref)
@@ -186,8 +196,10 @@ def make_attachment_router(
 
     Every response that returns bytes carries ``attachment_headers``; the bytes are
     re-sniffed, and anything that is not the image its extension names is sent as an
-    opaque download. Every refusal is a bare 404, so the route is no oracle for which
-    reports exist, except a wrong ``Host`` (421, a deployment error worth seeing).
+    opaque download. A missing, malformed, unsigned or expired ref is the same bare 404,
+    so the route is no oracle for which reports exist; a wrong ``Host`` is a 421 (a
+    deployment error worth seeing). Behind a reverse proxy, the ``Host`` checked is the
+    one the proxy forwards: keep it the browser's (Caddy and nginx can).
 
     Args:
         attachment_store: Where ``process_submission`` put the screenshots.
@@ -214,6 +226,10 @@ def make_attachment_router(
         )
     if allowed_hosts is None:
         allowed_hosts = cfg.attachment_hosts
+    if isinstance(allowed_hosts, str):
+        raise TypeError(
+            f"allowed_hosts must be a list of hostnames, not a string: {allowed_hosts!r}"
+        )
     hosts = None if allowed_hosts is None else {h.lower() for h in allowed_hosts}
     if hosts is None:
         logger.warning(
@@ -226,17 +242,17 @@ def make_attachment_router(
             "default sanitizer were stripped, not re-encoded: compressed pixel data is "
             "stored as sent. Install heed[images] where attachments are served."
         )
-    router = APIRouter()
+    router = APIRouter(redirect_slashes=False)  # no redirect to whatever Host says
 
     def not_found() -> Response:
-        return Response(status_code=404, headers={"Cache-Control": "no-store"})
+        return Response(status_code=404, headers=_BARE_HEADERS)
 
     @router.get(path + "/{ref}", include_in_schema=False)
     def get_attachment(
         ref: str, request: Request, sig: str | None = None, exp: str | None = None
     ) -> Response:
         if hosts is not None and _host_of(request) not in hosts:
-            return Response(status_code=421)
+            return Response(status_code=421, headers=_BARE_HEADERS)
         if not ref_pattern.fullmatch(ref):
             return not_found()
         if signer is not None and not signer.verify(ref, sig=sig, exp=exp):
@@ -260,6 +276,18 @@ def make_attachment_app(
     """A standalone app serving only the attachment route (no docs, no OpenAPI): run it
     on the dedicated attachment origin. Keyword arguments go to
     ``make_attachment_router``."""
-    app = FastAPI(title="heed attachments", docs_url=None, redoc_url=None, openapi_url=None)
+    app = FastAPI(
+        title="heed attachments",
+        docs_url=None,
+        redoc_url=None,
+        openapi_url=None,
+        redirect_slashes=False,
+    )
     app.include_router(make_attachment_router(attachment_store, **router_kwargs))
+
+    @app.exception_handler(StarletteHTTPException)
+    async def _bare(request: Request, exc: StarletteHTTPException) -> Response:
+        # Other paths and methods: the status alone, no framework JSON, never cached.
+        return Response(status_code=exc.status_code, headers=_BARE_HEADERS)
+
     return app

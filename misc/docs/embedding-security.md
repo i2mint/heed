@@ -92,7 +92,7 @@ sink = GitHubIssuesSink(..., screenshot_url=screenshot_url_resolver(
 - **Signed URLs by default.** Report ids are not secret: the submit response, the report JSON, logs and holding stores carry them. The route serves a ref only with an HMAC-SHA256 signature the backend made (`HEED_ATTACHMENT_SIGNING_KEY`, at least 32 bytes), so only screenshots a sink chose to link are reachable, and held or rejected reports' screenshots have no URL. `allow_unsigned=True` turns this off, for stores whose every screenshot may be public.
 - **Expiry is optional** (`HEED_ATTACHMENT_URL_TTL_SECONDS`). Without it a GitHub issue keeps its image; revoke by deleting the attachment or rotating the key (`previous_keys=` keeps old URLs valid during a rotation).
 - **A dedicated origin.** Run `make_attachment_app` on its own subdomain and set `allowed_hosts` (`HEED_ATTACHMENT_HOSTS`); any other `Host` gets 421. The app has no docs or OpenAPI routes.
-- **Nothing but heed's refs.** Only `{32 hex}.{png,jpg,webp}` reaches the store; the bytes are re-sniffed and anything that is not the named image is sent as an opaque download. Every refusal is a bare 404.
+- **Nothing but heed's refs.** Only `{32 hex}.{png,jpg,webp}` reaches the store; the bytes are re-sniffed and anything that is not the named image is sent as an opaque download. A missing, malformed, unsigned or expired ref is the same bare 404; other paths and methods get a bare status, never framework JSON or a slash redirect.
 - **Re-encode where you serve.** With `screenshot_sanitizer="strip"` (no Pillow) compressed pixel data is stored as sent; the route logs a warning when Pillow is missing. The headers above keep such bytes inert in a browser either way.
 
 ## CSP guidance for embedders
