@@ -6,6 +6,11 @@ wraps it in a FastAPI ``APIRouter`` you can run standalone (``make_app``) or
 ``include_router`` into an enlace app. Identity is anonymous by default; pass a
 ``user_dependency`` to bind identity when an auth layer (e.g. enlace_auth) is present.
 
+The router treats every request as hostile (see ``security.py`` and issue #5). Checks
+run cheapest-first so abuse is rejected before it costs anything: CORS preflight →
+origin allow-list → rate limits (per IP, per origin) → body-size cap (streamed, before
+parsing) → form limits → honeypot → bot gate → model validation → screenshot sniffing.
+
 NOTE: this module does not ``from __future__ import annotations`` — FastAPI resolves
 route-handler annotations against module globals, so the request/response types are
 imported at module level.
@@ -15,16 +20,11 @@ import json
 from collections.abc import Callable, MutableMapping
 from typing import Any, Optional
 
-from fastapi import (
-    APIRouter,
-    Depends,
-    FastAPI,
-    File,
-    Form,
-    HTTPException,
-    Request,
-    UploadFile,
-)
+from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request, Response
+from fastapi.responses import JSONResponse
+from pydantic import ValidationError
+from starlette.concurrency import run_in_threadpool
+from starlette.datastructures import UploadFile
 
 from heed.base import (
     Attachment,
@@ -36,8 +36,25 @@ from heed.base import (
     utcnow,
 )
 from heed.config import HeedConfig
-from heed.security import InMemoryRateLimiter, RateLimiter, origin_allowed
+from heed.security import (
+    IMAGE_EXTENSIONS,
+    BotVerifier,
+    RateLimiter,
+    client_ip,
+    cors_headers,
+    make_bot_verifier,
+    make_rate_limiter,
+    normalize_origin,
+    origin_allowed,
+    preflight_headers,
+    sniff_image_type,
+)
 from heed.sinks.base import Sink, SinkResult
+
+_FORM_MEDIA_TYPES = ("multipart/form-data", "application/x-www-form-urlencoded")
+_TEXT_FIELDS = ("title", "body", "category", "page_url", "env", "anon_id")
+# Sent on every /report response, success or error.
+_RESPONSE_HEADERS = {"X-Content-Type-Options": "nosniff", "Cache-Control": "no-store"}
 
 
 def process_submission(
@@ -47,6 +64,7 @@ def process_submission(
     origin: str = "",
     user: Optional[str] = None,
     screenshot: Optional[bytes] = None,
+    screenshot_media_type: str = "image/png",
     attachment_store: Optional[MutableMapping] = None,
     config: Optional[HeedConfig] = None,
     id_gen: Callable[[], str] = new_report_id,
@@ -63,9 +81,12 @@ def process_submission(
 
     attachments: list[Attachment] = []
     if screenshot is not None and attachment_store is not None:
-        key = f"{report_id}.png"
+        ext = IMAGE_EXTENSIONS.get(screenshot_media_type, "bin")
+        key = f"{report_id}.{ext}"
         attachment_store[key] = screenshot
-        attachments.append(Attachment(ref=key, size=len(screenshot)))
+        attachments.append(
+            Attachment(ref=key, size=len(screenshot), media_type=screenshot_media_type)
+        )
 
     report = Report(
         id=report_id,
@@ -96,14 +117,78 @@ def _build_submission(
     anon_id: Optional[str],
 ) -> ReportSubmission:
     env_obj = json.loads(env) if env else {}
+    if not isinstance(env_obj, dict):
+        raise ValueError("env must be a JSON object")
     return ReportSubmission(
         title=title,
         body=body,
         category=category,
         page_url=page_url,
         env=env_obj,
-        anon_id=anon_id,
+        anon_id=anon_id or None,
     )
+
+
+async def read_capped_body(request: Request, *, max_bytes: int) -> Optional[bytes]:
+    """Read the request body, or return None as soon as it exceeds ``max_bytes``.
+
+    Checks ``Content-Length`` first, then counts streamed bytes (a chunked request
+    has no length header), so an oversized body is never buffered whole.
+    """
+    declared = request.headers.get("content-length")
+    if declared is not None:
+        try:
+            if int(declared) > max_bytes:
+                return None
+        except ValueError:
+            return None
+    chunks: list[bytes] = []
+    received = 0
+    async for chunk in request.stream():
+        received += len(chunk)
+        if received > max_bytes:
+            return None
+        chunks.append(chunk)
+    return b"".join(chunks)
+
+
+def _replay_request(request: Request, body: bytes) -> Request:
+    """A Request over the same scope whose body is the already-read ``body``."""
+    sent = False
+
+    async def receive():
+        nonlocal sent
+        if sent:
+            return {"type": "http.disconnect"}
+        sent = True
+        return {"type": "http.request", "body": body, "more_body": False}
+
+    return Request(request.scope, receive=receive)
+
+
+_OPENAPI_REQUEST_BODY = {
+    "requestBody": {
+        "required": True,
+        "content": {
+            "multipart/form-data": {
+                "schema": {
+                    "type": "object",
+                    "required": ["title"],
+                    "properties": {
+                        "title": {"type": "string"},
+                        "body": {"type": "string"},
+                        "category": {"type": "string"},
+                        "page_url": {"type": "string"},
+                        "env": {"type": "string", "description": "JSON object"},
+                        "anon_id": {"type": "string"},
+                        "bot_token": {"type": "string"},
+                        "screenshot": {"type": "string", "format": "binary"},
+                    },
+                }
+            }
+        },
+    }
+}
 
 
 def make_router(
@@ -112,18 +197,37 @@ def make_router(
     config: Optional[HeedConfig] = None,
     attachment_store: Optional[MutableMapping] = None,
     rate_limiter: Optional[RateLimiter] = None,
+    origin_rate_limiter: Optional[RateLimiter] = None,
+    bot_verifier: Optional[BotVerifier] = None,
     user_dependency: Optional[Callable[..., Any]] = None,
 ) -> APIRouter:
-    """Build a FastAPI APIRouter exposing ``POST /report``.
+    """Build a FastAPI APIRouter exposing ``POST /report`` (and its CORS preflight).
 
     Run standalone via :func:`make_app`, or ``include_router`` it into an enlace app.
     Provide ``user_dependency`` (a FastAPI dependency returning a user id or None) to
     bind identity when an auth layer like enlace_auth is present.
+
+    Hardening defaults come from ``config``; any piece can be injected instead:
+    ``rate_limiter`` (per client IP), ``origin_rate_limiter`` (per Origin) and
+    ``bot_verifier`` (by default built from ``config.bot_secret``, i.e. off until a
+    secret is configured).
     """
     cfg = config or HeedConfig()
-    limiter = rate_limiter or InMemoryRateLimiter(
-        max_per_window=cfg.rate_limit_per_minute
-    )
+
+    def _limiter(per_window: int, namespace: str) -> RateLimiter:
+        return make_rate_limiter(
+            cfg.rate_limit_backend,
+            max_per_window=per_window,
+            window_seconds=cfg.rate_limit_window_seconds,
+            namespace=namespace,
+            redis_url=cfg.redis_url,
+        )
+
+    ip_limiter = rate_limiter or _limiter(cfg.rate_limit_per_minute, "ip")
+    if origin_rate_limiter is None and cfg.origin_rate_limit_per_minute is not None:
+        origin_rate_limiter = _limiter(cfg.origin_rate_limit_per_minute, "origin")
+    verifier = bot_verifier or make_bot_verifier(cfg.bot_gate, cfg.bot_secret)
+    retry_after = str(int(cfg.rate_limit_window_seconds))
     router = APIRouter()
 
     async def _no_user() -> Optional[str]:
@@ -131,60 +235,167 @@ def make_router(
 
     user_dep = user_dependency or _no_user
 
-    @router.post("/report")
+    def _cors(origin: str) -> dict[str, str]:
+        if not cfg.handle_cors:
+            return dict(_RESPONSE_HEADERS)
+        return {
+            **_RESPONSE_HEADERS,
+            **cors_headers(
+                origin or None,
+                cfg.allowed_origins,
+                allow_credentials=cfg.cors_allow_credentials,
+            ),
+        }
+
+    def _fail(status: int, detail: Any, origin: str, **extra_headers) -> HTTPException:
+        return HTTPException(
+            status_code=status,
+            detail=detail,
+            headers={**_cors(origin), **extra_headers},
+        )
+
+    if cfg.handle_cors:
+
+        @router.options("/report", include_in_schema=False)
+        async def report_preflight(request: Request):
+            headers = preflight_headers(
+                request.headers.get("origin"),
+                cfg.allowed_origins,
+                allow_credentials=cfg.cors_allow_credentials,
+                max_age_seconds=cfg.cors_max_age_seconds,
+            )
+            if not headers:
+                return Response(status_code=403)
+            return Response(status_code=204, headers=headers)
+
+    async def _parse_form(request: Request, origin: str) -> dict[str, Any]:
+        media_type = request.headers.get("content-type", "").split(";")[0].strip()
+        if media_type.lower() not in _FORM_MEDIA_TYPES:
+            raise _fail(415, "expected multipart/form-data", origin)
+        body = await read_capped_body(request, max_bytes=cfg.max_body_bytes)
+        if body is None:
+            raise _fail(413, "request body too large", origin)
+        replay = _replay_request(request, body)
+        try:
+            form = await replay.form(
+                max_files=1,
+                max_fields=cfg.max_form_fields,
+                max_part_size=cfg.max_field_bytes,
+            )
+        except Exception as e:  # malformed multipart, too many parts, ...
+            raise _fail(400, "malformed form data", origin) from e
+        try:
+            if len(form) > cfg.max_form_fields + 1:
+                raise _fail(400, "too many form fields", origin)
+            fields: dict[str, Any] = {}
+            for key, value in form.multi_items():
+                if isinstance(value, UploadFile):
+                    if key != "screenshot":
+                        raise _fail(400, f"unexpected file field {key!r}", origin)
+                    fields[key] = await value.read()
+                else:
+                    if len(value.encode()) > cfg.max_field_bytes:
+                        raise _fail(413, f"field {key!r} too large", origin)
+                    fields[key] = value
+            return fields
+        finally:
+            await form.close()
+
+    @router.post("/report", openapi_extra=_OPENAPI_REQUEST_BODY)
     async def submit_report(
         request: Request,
-        title: str = Form(...),
-        body: str = Form(""),
-        category: str = Form("bug"),
-        page_url: str = Form(""),
-        env: str = Form("{}"),
-        anon_id: Optional[str] = Form(None),
-        screenshot: Optional[UploadFile] = File(None),
         user: Optional[str] = Depends(user_dep),
     ):
         origin = request.headers.get("origin", "")
         if not origin_allowed(origin or None, cfg.allowed_origins):
-            raise HTTPException(status_code=403, detail="origin not allowed")
-        client_key = request.client.host if request.client else "unknown"
-        if not limiter.allow(client_key):
-            raise HTTPException(status_code=429, detail="rate limit exceeded")
+            raise HTTPException(
+                status_code=403, detail="origin not allowed", headers=_RESPONSE_HEADERS
+            )
 
+        ip = client_ip(
+            request.client.host if request.client else None,
+            request.headers.get("x-forwarded-for"),
+            trusted_proxies=cfg.trusted_proxies,
+        )
+        if not ip_limiter.allow(ip):
+            raise _fail(
+                429, "rate limit exceeded", origin, **{"Retry-After": retry_after}
+            )
+        origin_key = normalize_origin(origin) if origin else "-"
+        if origin_rate_limiter is not None and not origin_rate_limiter.allow(
+            origin_key
+        ):
+            raise _fail(
+                429, "rate limit exceeded", origin, **{"Retry-After": retry_after}
+            )
+
+        fields = await _parse_form(request, origin)
+
+        if cfg.honeypot_field and fields.get(cfg.honeypot_field):
+            # Look like success so the bot learns nothing; route nowhere.
+            return JSONResponse(
+                {"id": new_report_id(), "ok": True, "ref": None, "url": None},
+                headers=_cors(origin),
+            )
+
+        if verifier is not None:
+            token = fields.get(cfg.bot_token_field)
+            token = token if isinstance(token, str) else None
+            human = await run_in_threadpool(verifier.verify, token, remote_ip=ip)
+            if not human:
+                raise _fail(403, "bot verification failed", origin)
+
+        if not isinstance(fields.get("title"), str):
+            raise _fail(422, "title is required", origin)
+        text = {k: fields.get(k) for k in _TEXT_FIELDS}
+        if any(v is not None and not isinstance(v, str) for v in text.values()):
+            raise _fail(422, "unexpected file in a text field", origin)
         try:
             submission = _build_submission(
-                title=title,
-                body=body,
-                category=category,
-                page_url=page_url,
-                env=env,
-                anon_id=anon_id,
+                title=text["title"],
+                body=text["body"] or "",
+                category=text["category"] or "bug",
+                page_url=text["page_url"] or "",
+                env=text["env"] or "{}",
+                anon_id=text["anon_id"],
             )
-        except Exception as e:
-            raise HTTPException(
-                status_code=422, detail=f"invalid submission: {e}"
-            ) from e
+        except ValidationError as e:
+            detail = e.errors(
+                include_url=False, include_input=False, include_context=False
+            )
+            raise _fail(422, detail, origin) from e
+        except (ValueError, RecursionError) as e:
+            raise _fail(422, "invalid env: must be a JSON object", origin) from e
 
-        shot: Optional[bytes] = None
-        if screenshot is not None:
-            shot = await screenshot.read()
+        shot = fields.get("screenshot") or None
+        shot_type = "image/png"
+        if shot is not None:
             if len(shot) > cfg.max_screenshot_bytes:
-                raise HTTPException(status_code=413, detail="screenshot too large")
+                raise _fail(413, "screenshot too large", origin)
+            shot_type = sniff_image_type(shot)
+            if shot_type is None:
+                raise _fail(415, "screenshot must be a PNG, JPEG or WebP image", origin)
 
-        report, result = process_submission(
+        report, result = await run_in_threadpool(
+            process_submission,
             submission,
             sink,
             origin=origin,
             user=user,
             screenshot=shot,
+            screenshot_media_type=shot_type,
             attachment_store=attachment_store,
             config=cfg,
         )
-        return {
-            "id": report.id,
-            "ok": result.ok,
-            "ref": result.external_ref,
-            "url": result.url,
-        }
+        return JSONResponse(
+            {
+                "id": report.id,
+                "ok": result.ok,
+                "ref": result.external_ref,
+                "url": result.url,
+            },
+            headers=_cors(origin),
+        )
 
     return router
 

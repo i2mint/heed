@@ -9,11 +9,98 @@ origin, status) before handing it to a sink.
 
 from __future__ import annotations
 
+import re
 from datetime import datetime, timezone
 from enum import Enum
+from typing import Annotated
+from urllib.parse import urlsplit
 from uuid import uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import AfterValidator, BaseModel, Field, StringConstraints
+
+# --- Field limits (SSOT). The ingest endpoint is public, so every string and list a
+# client can send is bounded here; the router adds byte-level caps on top (config.py).
+MAX_TITLE_CHARS = 300
+MAX_BODY_CHARS = 20_000
+MAX_URL_CHARS = 2_000
+MAX_SHORT_CHARS = 500  # user agent, browser, os, locale, ...
+MAX_EXTRA_ITEMS = 32
+MAX_EXTRA_KEY_CHARS = 64
+MAX_ANON_ID_CHARS = 128
+MAX_LOG_ENTRIES = 200
+MAX_LOG_MESSAGE_CHARS = 2_000
+
+# C0/C1 control characters except tab, newline and carriage return, plus the Unicode
+# bidi embedding/override/isolate controls (used to visually spoof text).
+_CONTROL_CHARS = re.compile(
+    r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f\u202a-\u202e\u2066-\u2069]"
+)
+_SAFE_URL_SCHEMES = frozenset({"http", "https"})
+
+
+def strip_control_chars(text: str) -> str:
+    r"""Remove control characters (keeping tab/newline/CR) from untrusted text.
+
+    >>> strip_control_chars("a\x00b\tc\u202ed")
+    'ab\tcd'
+    """
+    return _CONTROL_CHARS.sub("", text)
+
+
+def _clean_text(text: str) -> str:
+    return strip_control_chars(text).strip()
+
+
+def _non_blank(text: str) -> str:
+    if not text:
+        raise ValueError("must not be blank")
+    return text
+
+
+def _safe_url(url: str) -> str:
+    """Allow only empty or absolute http(s) URLs (no ``javascript:``/``data:``)."""
+    if not url:
+        return url
+    parts = urlsplit(url)
+    if parts.scheme.lower() not in _SAFE_URL_SCHEMES or not parts.netloc:
+        raise ValueError("must be an absolute http(s) URL")
+    return url
+
+
+ShortText = Annotated[
+    str, AfterValidator(_clean_text), StringConstraints(max_length=MAX_SHORT_CHARS)
+]
+Title = Annotated[
+    str,
+    AfterValidator(_clean_text),
+    AfterValidator(_non_blank),
+    StringConstraints(max_length=MAX_TITLE_CHARS),
+]
+BodyText = Annotated[
+    str,
+    AfterValidator(strip_control_chars),
+    StringConstraints(max_length=MAX_BODY_CHARS),
+]
+SafeUrl = Annotated[
+    str,
+    AfterValidator(_clean_text),
+    StringConstraints(max_length=MAX_URL_CHARS),
+    AfterValidator(_safe_url),
+]
+ExtraKey = Annotated[
+    str, AfterValidator(_clean_text), StringConstraints(max_length=MAX_EXTRA_KEY_CHARS)
+]
+LogMessage = Annotated[
+    str,
+    AfterValidator(strip_control_chars),
+    StringConstraints(max_length=MAX_LOG_MESSAGE_CHARS),
+]
+AnonId = Annotated[
+    str,
+    StringConstraints(
+        min_length=1, max_length=MAX_ANON_ID_CHARS, pattern=r"^[A-Za-z0-9_.:-]+$"
+    ),
+]
 
 
 def new_report_id() -> str:
@@ -50,29 +137,31 @@ class Status(str, Enum):
 class Environment(BaseModel):
     """Client environment captured by default (no PII beyond the user agent)."""
 
-    user_agent: str | None = None
-    browser: str | None = None
-    os: str | None = None
-    viewport: str | None = Field(default=None, description='e.g. "1280x720"')
-    locale: str | None = None
-    device_pixel_ratio: float | None = None
-    extra: dict[str, str] = Field(default_factory=dict)
+    user_agent: ShortText | None = None
+    browser: ShortText | None = None
+    os: ShortText | None = None
+    viewport: ShortText | None = Field(default=None, description='e.g. "1280x720"')
+    locale: ShortText | None = None
+    device_pixel_ratio: float | None = Field(default=None, gt=0, le=100)
+    extra: dict[ExtraKey, ShortText] = Field(
+        default_factory=dict, max_length=MAX_EXTRA_ITEMS
+    )
 
 
 class LogEntry(BaseModel):
     """One captured console entry (opt-in capture only)."""
 
-    level: str
-    message: str
+    level: ShortText
+    message: LogMessage
     at: datetime | None = None
-    source: str | None = None
+    source: ShortText | None = None
 
 
 class NetEntry(BaseModel):
     """One captured network entry (opt-in; metadata only, never bodies)."""
 
-    method: str
-    url: str
+    method: ShortText
+    url: Annotated[str, StringConstraints(max_length=MAX_URL_CHARS)]
     status: int | None = None
     duration_ms: float | None = None
     ok: bool | None = None
@@ -103,14 +192,14 @@ class ReportSubmission(BaseModel):
     """The (untrusted) payload a widget POSTs; server fields are assigned later."""
 
     category: Category = Category.bug
-    title: str = Field(min_length=1, max_length=300)
-    body: str = Field(default="", max_length=20_000)
-    page_url: str = Field(default="", max_length=2_000)
+    title: Title
+    body: BodyText = ""
+    page_url: SafeUrl = ""
     env: Environment = Field(default_factory=Environment)
-    console: list[LogEntry] | None = None
-    network: list[NetEntry] | None = None
+    console: list[LogEntry] | None = Field(default=None, max_length=MAX_LOG_ENTRIES)
+    network: list[NetEntry] | None = Field(default=None, max_length=MAX_LOG_ENTRIES)
     # Opaque id the widget may carry across submissions; server still owns identity.
-    anon_id: str | None = None
+    anon_id: AnonId | None = None
 
 
 class Report(BaseModel):

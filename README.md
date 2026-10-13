@@ -50,7 +50,21 @@ routes wherever you want.
 pip install heed                 # core (backend + models)
 pip install "heed[github]"       # + GitHub sink
 pip install "heed[enlace,mcp]"   # + enlace mount + MCP feedback queue
+pip install "heed[redis]"        # + rate limits shared across workers
 ```
+
+## Running the ingest endpoint safely
+
+The `POST /report` endpoint is public, so it ships hardened: origin allow-list with CORS, streamed body/field/screenshot caps, strict input validation, per-IP and per-origin rate limits, a honeypot field, and an optional Turnstile/hCaptcha gate. Configure it in code or from `HEED_*` environment variables:
+
+```python
+from heed import HeedConfig, StoreSink, make_app
+
+config = HeedConfig.from_env()   # e.g. HEED_ALLOWED_ORIGINS=https://myapp.example
+app = make_app(StoreSink({}), config=config)
+```
+
+For production, set `allowed_origins`, `trusted_proxies` (behind a reverse proxy), `rate_limit_backend="redis"` with `redis_url` (several workers), and `bot_secret` to turn the bot gate on. Embedders also need a Content-Security-Policy that allows the widget: see [`misc/docs/embedding-security.md`](misc/docs/embedding-security.md).
 
 ## Documents
 
@@ -59,6 +73,7 @@ pip install "heed[enlace,mcp]"   # + enlace mount + MCP feedback queue
   research with adversarial verification).
 - [`misc/docs/design.md`](misc/docs/design.md) — architecture, the data model, the
   sink interface, and the spectrum of approaches with pros/cons.
+- [`misc/docs/embedding-security.md`](misc/docs/embedding-security.md) — hardening knobs for operators and CSP guidance for sites that embed the widget.
 
 ---
 
