@@ -85,8 +85,11 @@ export const GATES: Record<string, GateProvider> = {
       hcaptcha(win)?.render(container, {
         sitekey,
         size: "invisible",
+        // Without this the challenge is appended to <body>, which a modal dialog makes inert.
+        "challenge-container": container,
         "error-callback": (code: string) => cb.onError(String(code)),
-        "close-callback": () => cb.onError("closed"),
+        "open-callback": () => cb.onInteractive(true),
+        "close-callback": () => (cb.onInteractive(false), cb.onError("closed")),
       }),
     run(win, handle, fresh, cb) {
       if (handle === undefined) return;
@@ -134,13 +137,18 @@ export function createBotGate(win: Window, container: HTMLElement, options: BotG
   // Shown only while the challenge needs the visitor: an invisible one leaves no gap in the form.
   container.hidden = true;
   const callbacks: ChallengeCallbacks = {
-    onToken: (t) => pending?.resolve(t),
-    onError: (code) => pending?.reject(new Error(`challenge failed: ${code}`)),
+    // The request is settled (and forgotten) at once: a later cancel() must not touch a send that has its token.
+    onToken: (t) => settle()?.resolve(t),
+    onError: (code) => settle()?.reject(new Error(`challenge failed: ${code}`)),
     onInteractive: (on) => (container.hidden = !on),
   };
-  const cancel = (reason: string) => {
+  const settle = () => {
     const had = pending;
     pending = null;
+    return had;
+  };
+  const cancel = (reason: string) => {
+    const had = settle();
     container.hidden = true;
     had?.reject(new Error(reason));
     return !!had;
@@ -191,10 +199,11 @@ const policies = new WeakMap<Window, Policy | null>();
 
 /**
  * Nonce lent to the provider's script (strict-dynamic aside): that of the script which loaded this
- * bundle, else of any nonced script in the document (an ES-module import has no `currentScript`).
+ * bundle (for its own document), else of any nonced script in the document (an ES-module import has no
+ * `currentScript`).
  */
 const nonceOf = (win: Window): string =>
-  ownScript?.nonce || win.document.querySelector<HTMLScriptElement>("script[nonce]")?.nonce || "";
+  (win.document === globalThis.document ? ownScript?.nonce : "") || win.document.querySelector<HTMLScriptElement>("script[nonce]")?.nonce || "";
 
 /** The script URL, as a Trusted Types value when the page enforces them (only URLs this module loads pass). */
 function trustedUrl(win: Window, url: string): string {

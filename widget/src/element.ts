@@ -358,11 +358,13 @@ export class HeedFeedbackElement extends Base {
       outcome = await sendReport(input, sending);
       if (!outcome.ok && outcome.kind === "too_large" && screenshot) {
         // The server's cap is lower than ours: the words matter more than the picture.
-        // The server checked the first token before it looked at the picture, so a second
-        // challenge runs; say why the visitor is waiting.
+        if (!ui.dialog.open) return this.#setStatus("", false); // the visitor left meanwhile: no challenge behind a closed dialog
+        // The screenshot check comes after the token is verified, so a second challenge runs;
+        // keep saying why the visitor is waiting.
         droppedShot = true;
-        this.#setStatus(this.#msgs().shotDropped, false);
-        outcome = await sendReport({ ...input, screenshot: null }, sending);
+        const why = this.#msgs().shotDropped;
+        this.#setStatus(`${why} ${this.#msgs().sending}`, false);
+        outcome = await sendReport({ ...input, screenshot: null }, this.#withGate(o, why));
       }
     } finally {
       this.#gate?.gate?.cancel(); // a token still awaited (the send timed out) is no longer wanted
@@ -443,7 +445,8 @@ export class HeedFeedbackElement extends Base {
     this.#currentGate(this.options)?.warm().catch((e) => console.warn("heed: the bot gate could not start", e));
   }
 
-  #withGate(o: HeedOptions): HeedOptions {
+  /** `o` with the gate's token as `botToken`; `note` stays in front of the status lines while it runs. */
+  #withGate(o: HeedOptions, note = ""): HeedOptions {
     const gate = this.#currentGate(o);
     if (!gate) return o;
     const ui = this.#ui;
@@ -451,8 +454,9 @@ export class HeedFeedbackElement extends Base {
       ...o,
       botToken: () => {
         // An interactive challenge waits on the visitor: say so instead of "Sending…".
-        if (ui) this.#setStatus(this.#msgs().gateWaiting, false);
-        return gate.token().finally(() => ui && this.#setStatus(this.#msgs().sending, false));
+        const say = (m: string) => ui && this.#setStatus(note ? `${note} ${m}` : m, false);
+        say(this.#msgs().gateWaiting);
+        return gate.token().finally(() => say(this.#msgs().sending));
       },
     };
   }

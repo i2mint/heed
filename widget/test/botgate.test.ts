@@ -125,6 +125,25 @@ describe("createBotGate", () => {
     delete (window as unknown as Record<string, unknown>).hcaptcha;
   });
 
+  it("puts hCaptcha's challenge inside the dialog's box and shows the box while it is open", async () => {
+    const seen: Record<string, unknown>[] = [];
+    (window as unknown as Record<string, unknown>).hcaptcha = {
+      render: (_el: HTMLElement, p: Record<string, unknown>) => (seen.push(p), "h1"),
+      execute: () => new Promise(() => {}),
+      reset() {},
+      remove() {},
+    };
+    const box = document.createElement("div");
+    const gate = createBotGate(window, box, { provider: "hcaptcha", sitekey: "S", load: loadOk })!;
+    await gate.warm();
+    expect(seen[0]["challenge-container"]).toBe(box);
+    (seen[0]["open-callback"] as () => void)();
+    expect(box.hidden).toBe(false);
+    (seen[0]["close-callback"] as () => void)();
+    expect(box.hidden).toBe(true);
+    delete (window as unknown as Record<string, unknown>).hcaptcha;
+  });
+
   it("rejects when hCaptcha's execute fails", async () => {
     (window as unknown as Record<string, unknown>).hcaptcha = {
       render: () => "h1",
@@ -263,6 +282,77 @@ describe("<heed-feedback> with a bot gate", () => {
     expect(errors).toEqual([]);
     expect(fetchMock).not.toHaveBeenCalled();
     expect((root.querySelector("input[name=title]") as HTMLInputElement).value).toBe("t"); // the draft stays
+  });
+
+  it("closing the dialog while the report uploads (the token is already spent) still reports the result", async () => {
+    (window as unknown as Record<string, unknown>).turnstile = fakeTurnstile().api;
+    scriptsLoad();
+    let answer!: (r: Response) => void;
+    const fetchMock = vi.fn(() => new Promise<Response>((r) => (answer = r)));
+    vi.stubGlobal("fetch", fetchMock);
+    const el = mount({ "bot-gate": "turnstile", "bot-sitekey": "SITE" });
+    const submitted = vi.fn();
+    el.addEventListener("heed:submitted", submitted);
+    el.open();
+    const root = el.shadowRoot!;
+    (root.querySelector("input[name=title]") as HTMLInputElement).value = "t";
+    (root.querySelector("form") as HTMLFormElement).requestSubmit();
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    el.close();
+    answer(new Response(JSON.stringify({ ok: true, id: "r1", status: "received" }), { status: 200 }));
+    await vi.waitFor(() => expect(submitted).toHaveBeenCalledTimes(1));
+    expect((root.querySelector(".done") as HTMLElement).hidden).toBe(false);
+    expect((root.querySelector("input[name=title]") as HTMLInputElement).value).toBe(""); // the draft was sent
+  });
+
+  /** An open dialog whose screenshot has been taken and shown (jsdom loads no images: play the browser's part). */
+  const withShot = async (el: HeedFeedbackElement) => {
+    el.configure({ takeScreenshot: async () => new Blob([new Uint8Array([137, 80, 78, 71])], { type: "image/png" }) });
+    el.open();
+    const root = el.shadowRoot!;
+    await vi.waitFor(() => expect(root.querySelector(".preview")!.getAttribute("src")).toBeTruthy());
+    root.querySelector(".preview")!.dispatchEvent(new Event("load"));
+    (root.querySelector("input[name=title]") as HTMLInputElement).value = "t";
+    return root;
+  };
+  const tooLarge = () => new Response(JSON.stringify({ detail: "screenshot too large" }), { status: 413 });
+
+  it("resends without the screenshot behind a second challenge, and says why while it runs", async () => {
+    const fake = fakeTurnstile();
+    (window as unknown as Record<string, unknown>).turnstile = fake.api;
+    scriptsLoad();
+    const fetchMock = vi.fn(async (_u: unknown, init?: unknown) => ((init as { body: FormData }).body.has("screenshot") ? tooLarge() : new Response(JSON.stringify({ ok: true, id: "r1", status: "received" }), { status: 200 })));
+    vi.stubGlobal("fetch", fetchMock);
+    const el = mount({ "bot-gate": "turnstile", "bot-sitekey": "SITE", screenshot: "true" });
+    const root = await withShot(el);
+    const lines: string[] = [];
+    new MutationObserver(() => lines.push(root.querySelector(".status")!.textContent ?? "")).observe(root.querySelector(".status")!, { childList: true, subtree: true, characterData: true });
+    (root.querySelector("form") as HTMLFormElement).requestSubmit();
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    expect(fake.api.execute).toHaveBeenCalledTimes(2);
+    expect(tokenSent(fetchMock as ReturnType<typeof okFetch>, 1)).toBe("tok2");
+    expect(lines.filter((l) => l.includes("too large") && l.includes("complete the check"))).not.toHaveLength(0);
+    expect(lines.filter((l) => l.includes("too large") && l.includes("Sending"))).not.toHaveLength(0);
+  });
+
+  it("does not start a second challenge for the screenshot-less resend once the dialog is closed", async () => {
+    const fake = fakeTurnstile();
+    (window as unknown as Record<string, unknown>).turnstile = fake.api;
+    scriptsLoad();
+    let answer!: (r: Response) => void;
+    const fetchMock = vi.fn(() => new Promise<Response>((r) => (answer = r)));
+    vi.stubGlobal("fetch", fetchMock);
+    const el = mount({ "bot-gate": "turnstile", "bot-sitekey": "SITE", screenshot: "true" });
+    const root = await withShot(el);
+    (root.querySelector("form") as HTMLFormElement).requestSubmit();
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    el.close();
+    answer(tooLarge());
+    const button = root.querySelector("button[type=submit]") as HTMLButtonElement;
+    await vi.waitFor(() => expect(button.disabled).toBe(false));
+    expect(fake.api.execute).toHaveBeenCalledTimes(1); // only the first send's challenge
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(root.querySelector(".status.error")!.textContent).toBe("");
   });
 
   it("is rebuilt when the sitekey changes and removed with the element", async () => {
