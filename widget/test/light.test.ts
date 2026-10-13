@@ -60,9 +60,10 @@ describe("light intake for feature requests", () => {
     const el = mount(take);
     el.open();
     await previewShown(el);
-    expect($<HTMLElement>(el, ".shot").parentElement).not.toBeNull();
+    expect($<HTMLElement>(el, ".shot").hidden).toBe(false);
     const note = $(el, ".note").textContent;
     choose(el, "feature");
+    expect($<HTMLElement>(el, ".shot").hidden).toBe(true);
     expect($<HTMLElement>(el, ".preview").hidden).toBe(true);
     expect($(el, ".note").textContent).toMatch(/Sent with your idea/);
     expect($(el, ".note").textContent).not.toBe(note);
@@ -114,5 +115,81 @@ describe("light intake for feature requests", () => {
     await send(el);
     expect(sent(fetch).has("screenshot")).toBe(true);
     expect(envOf(fetch).user_agent).toBeTruthy();
+  });
+
+  it("follows a changed `categories` attribute while the dialog is open", async () => {
+    const fetch = ok();
+    vi.stubGlobal("fetch", fetch);
+    const take = vi.fn(async () => png());
+    const el = mount(take, { categories: "feature bug" });
+    el.open();
+    expect($(el, ".note").textContent).toMatch(/Sent with your idea/);
+    el.setAttribute("categories", "bug"); // the selected category is now bug
+    expect($(el, ".note").textContent).not.toMatch(/Sent with your idea/);
+    await vi.waitFor(() => expect(take).toHaveBeenCalledTimes(1));
+    await previewShown(el);
+    await send(el);
+    expect(sent(fetch).has("screenshot")).toBe(true);
+    expect(envOf(fetch).user_agent).toBeTruthy();
+  });
+
+  it("takes the screenshot when light-categories is emptied while open on a feature", async () => {
+    const fetch = ok();
+    vi.stubGlobal("fetch", fetch);
+    const take = vi.fn(async () => png());
+    const el = mount(take, { categories: "feature bug" });
+    el.open();
+    expect(take).not.toHaveBeenCalled();
+    el.configure({ lightCategories: [] });
+    await vi.waitFor(() => expect(take).toHaveBeenCalledTimes(1));
+    await previewShown(el);
+    await send(el);
+    expect(sent(fetch).has("screenshot")).toBe(true);
+  });
+
+  it("sends nothing but extra when a category turns light after its screenshot was shown", async () => {
+    const fetch = ok();
+    vi.stubGlobal("fetch", fetch);
+    const el = mount(vi.fn(async () => png()));
+    el.open();
+    await previewShown(el);
+    el.configure({ lightCategories: ["bug"] });
+    await send(el);
+    expect(sent(fetch).has("screenshot")).toBe(false);
+    expect(envOf(fetch)).toEqual({ extra: { version: "1.2.3" } });
+  });
+
+  it("waits for the newer capture when Send was pressed during one the visitor replaced", async () => {
+    const fetch = ok();
+    vi.stubGlobal("fetch", fetch);
+    const take = vi.fn(async () => {
+      await tick(30);
+      return png();
+    });
+    const el = mount(take);
+    el.open();
+    $<HTMLInputElement>(el, "input[name=title]").value = "t";
+    $<HTMLFormElement>(el, "form").requestSubmit(); // waits for the first capture
+    await tick(5);
+    choose(el, "feature");
+    choose(el, "bug"); // a second capture replaces the first
+    await vi.waitFor(() => expect(take).toHaveBeenCalledTimes(2));
+    await previewShown(el);
+    await vi.waitFor(() => expect($(el, ".status").textContent).toMatch(/Check the screenshot/));
+    expect(fetch).not.toHaveBeenCalled(); // not sent without the picture the visitor was shown
+  });
+
+  it("fixes the category while a report is on its way", async () => {
+    let release: (r: Response) => void = () => {};
+    const fetch = vi.fn(() => new Promise<Response>((r) => (release = r)));
+    vi.stubGlobal("fetch", fetch);
+    const el = mount(vi.fn(async () => png()), { screenshot: "false" });
+    el.open();
+    $<HTMLInputElement>(el, "input[name=title]").value = "t";
+    $<HTMLFormElement>(el, "form").requestSubmit();
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalled());
+    expect($<HTMLSelectElement>(el, "select").disabled).toBe(true);
+    release(new Response(JSON.stringify({ id: "x", ok: true, status: "received" })));
+    await vi.waitFor(() => expect($<HTMLSelectElement>(el, "select").disabled).toBe(false));
   });
 });

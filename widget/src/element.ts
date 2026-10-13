@@ -261,7 +261,7 @@ export class HeedFeedbackElement extends Base {
     launcher.addEventListener("click", () => this.open());
     cancel.addEventListener("click", () => this.close());
     doneClose.addEventListener("click", () => this.close());
-    category.addEventListener("change", () => this.#categoryChanged());
+    category.addEventListener("change", () => this.#syncCapture());
     dialog.addEventListener("close", () => {
       this.#cancelToken();
       this.#emit("heed:close", {});
@@ -334,9 +334,6 @@ export class HeedFeedbackElement extends Base {
     ui.body.maxLength = CONTRACT.limits.body_chars;
     ui.honeypot.name = o.honeypotField || "hp";
     ui.honeypot.disabled = !o.honeypotField;
-    const light = this.#isLight();
-    ui.note.textContent = light ? m.noteLight : o.screenshot ? m.noteShot : m.note;
-    ui.shotRow.hidden = !o.screenshot || light;
     const wanted = o.categories.map((c) => `${c}=${categoryLabel(m, c)}`).join("|"); // rebuilt when a label changes
     if (ui.category.dataset.categories !== wanted) {
       const previous = ui.category.value;
@@ -347,6 +344,7 @@ export class HeedFeedbackElement extends Base {
       ui.category.dataset.categories = wanted;
     }
     ui.categoryLabel.hidden = o.categories.length < 2;
+    this.#syncCapture(m);
     if (this.#status) this.#setStatus(this.#status.pick, this.#status.error);
     const done = this.#done?.(m);
     if (done !== undefined && ui.doneMessage.textContent !== done) ui.doneMessage.textContent = done;
@@ -367,7 +365,7 @@ export class HeedFeedbackElement extends Base {
     }
     this.#sending = true;
     this.#abandoned = false;
-    ui.submit.disabled = true;
+    ui.submit.disabled = ui.category.disabled = true; // the category decides what is sent: fixed while sending
     ui.form.setAttribute("aria-busy", "true");
     let outcome: SubmitOutcome | null = null;
     let droppedShot = false;
@@ -400,7 +398,7 @@ export class HeedFeedbackElement extends Base {
     } finally {
       this.#gate?.gate?.cancel(); // a token still awaited (the send timed out) is no longer wanted
       this.#sending = false;
-      ui.submit.disabled = false;
+      ui.submit.disabled = ui.category.disabled = false;
       ui.form.removeAttribute("aria-busy");
     }
     if (this.#abandoned) {
@@ -441,6 +439,8 @@ export class HeedFeedbackElement extends Base {
     if (shot.shown) return shot.blob;
     this.#setStatus((m) => m.shotFinishing, false);
     await shot.settled;
+    // A newer capture replaced this one (the category went light and back): wait for that one.
+    if (this.#shot && this.#shot !== shot) return this.#screenshotToSend();
     return shot.shown && ui.shotBox.checked && this.#shot === shot ? "review" : null;
   }
 
@@ -500,13 +500,21 @@ export class HeedFeedbackElement extends Base {
     return o.lightCategories.includes(chosen);
   }
 
-  /** The category changed: a light one drops the screenshot, a heavy one takes it (once). */
-  #categoryChanged(): void {
+  /**
+   * Bring the note, the screenshot row and the capture in line with the chosen category: a
+   * light one shows its own note and drops the screenshot, a heavy one takes it (once).
+   * Runs at the end of every sync, so a changed `categories` or `lightCategories` is covered.
+   */
+  #syncCapture(m: Messages = this.#msgs()): void {
     const ui = this.#ui;
     if (!ui) return;
-    this.#sync(); // the note and the screenshot row follow the category
-    if (this.#isLight()) this.#clearScreenshot();
-    else if (this.options.screenshot && ui.dialog.open && !this.#shot) this.#startScreenshot();
+    const o = this.options;
+    const light = this.#isLight();
+    ui.note.textContent = light ? m.noteLight : o.screenshot ? m.noteShot : m.note;
+    ui.shotRow.hidden = !o.screenshot || light;
+    if (light) {
+      if (this.#shot) this.#clearScreenshot();
+    } else if (o.screenshot && ui.dialog.open && !this.#shot) this.#startScreenshot();
   }
 
   /** Capture the page behind the dialog, in the background; the visitor sees a preview. */
