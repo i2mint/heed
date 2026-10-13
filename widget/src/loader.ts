@@ -69,10 +69,10 @@ type TT = { createPolicy(n: string, p: object): Policy };
 
   // Under `require-trusted-types-for 'script'` a script URL must come from a policy;
   // this one only passes heed's own content-hashed files next to this loader (the
-  // bundle reuses it for the rasterizer).
+  // bundle reuses it for the rasterizer and the translations).
   const url = new URL(__HEED_BUNDLE__, self.src).href;
   const dir = new URL(".", url).href;
-  const own = (u: string) => (u.startsWith(dir) && /^heed-(widget|raster)-[0-9a-f]{10}\.js$/.test(u.slice(dir.length)) ? u : "");
+  const own = (u: string) => (u.startsWith(dir) && /^heed-(widget|raster|locales)-[0-9a-f]{10}\.js$/.test(u.slice(dir.length)) ? u : "");
   let policy: Policy | null = null;
   try {
     policy = w.trustedTypes?.createPolicy("heed", { createScriptURL: own }) ?? null;

@@ -73,7 +73,14 @@ def _backend(*, router_kwargs=None, **config):
 NONCE = "t3st-n0nce"
 
 
-def _page(backend: str, body: str, *, csp_extra: str = "", script_src: str = "") -> str:
+def _page(
+    backend: str,
+    body: str,
+    *,
+    csp_extra: str = "",
+    script_src: str = "",
+    html_attrs: str = "",
+) -> str:
     """An embedding page under a strict CSP: no inline style, Trusted Types required,
     scripts only from the backend (or with the test nonce)."""
     csp = (
@@ -82,7 +89,7 @@ def _page(backend: str, body: str, *, csp_extra: str = "", script_src: str = "")
         f"{csp_extra}"
     )
     return f"""<!doctype html>
-<html><head><meta charset="utf-8">
+<html{html_attrs}><head><meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="{csp}">
 <title>embedder</title></head>
 <body><h1>Some site</h1>
@@ -299,6 +306,7 @@ def _loader_page(
     *,
     csp_extra: str = "",
     script_src: str = "",
+    html_attrs: str = "",
 ):
     """The documented embed: one async loader tag, optionally after inline calls
     (screenshots off, as in ``_embed_page``)."""
@@ -312,6 +320,7 @@ def _loader_page(
             "</script>",
             csp_extra=csp_extra,
             script_src=script_src,
+            html_attrs=html_attrs,
         )
 
     return page
@@ -881,3 +890,55 @@ def test_real_turnstile_with_cloudflares_test_sitekey(browser):
         tab.get_by_role("button", name="Send").click()
         tab.get_by_text("Your report was sent").wait_for(timeout=30_000)
         assert verifier.seen == [_CF_DUMMY_TOKEN] and len(store) == 1
+
+
+# --- translations (heed#39) --------------------------------------------------------
+
+
+def _requests(tab) -> list[str]:
+    seen: list[str] = []
+    tab.on("request", lambda r: seen.append(r.url))
+    return seen
+
+
+def test_a_french_page_gets_a_french_dialog_under_strict_csp(browser):
+    # Strict CSP, Trusted Types enforced, loader pinned to the bundle by SRI: the
+    # translations file rides the same chain (bundle -> locales, with its own SRI).
+    page = _loader_page(html_attrs=' lang="fr"')
+    with _site(browser, page=page) as (tab, problems, store, _origin):
+        tab.get_by_role("button", name="Commentaires").click()
+        tab.get_by_role("heading", name="Envoyer un commentaire").wait_for()
+        tab.get_by_label("Titre").fill("Le bouton ne répond pas")
+        tab.get_by_role("button", name="Envoyer").click()
+        tab.get_by_text("Votre signalement a été envoyé").wait_for()
+        assert len(store) == 1 and problems == []
+        tag = tab.evaluate(
+            "() => { const s = document.querySelector('script[src*=heed-locales-]');"
+            " return s && [s.integrity, s.crossOrigin]; }"
+        )
+        assert tag and tag[0].startswith("sha384-") and tag[1] == "anonymous"
+
+
+def test_an_english_page_never_fetches_the_translations(browser):
+    page = _loader_page(html_attrs=' lang="en"')
+    with _site(browser, page=page) as (tab, problems, _store, _origin):
+        seen = _requests(tab)
+        tab.get_by_role("button", name="Feedback").click()
+        tab.get_by_role("dialog").wait_for()
+        tab.wait_for_timeout(300)
+        assert not [u for u in seen if "heed-locales" in u]
+        assert problems == []
+
+
+def test_messages_override_single_texts_from_heed_init(browser):
+    init = (
+        f'<script nonce="{NONCE}">window.heed=window.heed||function()'
+        "{(heed.q=heed.q||[]).push(arguments)};"
+        'heed("init",{lang:"de",messages:{send:"Abschicken"}});</script>'
+    )
+    page = _loader_page(before=init)
+    with _site(browser, page=page) as (tab, problems, _store, _origin):
+        tab.get_by_role("button", name="Feedback").click()
+        tab.get_by_role("button", name="Abschicken").wait_for()
+        tab.get_by_role("button", name="Abbrechen").wait_for()
+        assert problems == []

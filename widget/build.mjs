@@ -21,15 +21,17 @@ import { licence } from "./licence.mjs";
 const here = dirname(fileURLToPath(import.meta.url));
 const OUT_DIR = join(here, "..", "heed", "static", "widget");
 const pkg = JSON.parse(readFileSync(join(here, "package.json"), "utf8"));
-// Gzipped-size budgets in bytes, per entry (widget: 10_000 plus the opt-in bot-gate adapter, heed#37).
-const BUDGETS = { raster: 14_000, widget: 11_000, loader: 1_300 };
+// Gzipped-size budgets in bytes, per entry (widget: 10_000 plus the opt-in bot-gate adapter, heed#37, and the i18n machinery, heed#39; translations are a separate lazy file).
+const BUDGETS = { raster: 14_000, locales: 5_000, widget: 11_500, loader: 1_300 };
 const RETAIN_VERSIONS = 5;
-// Built in order: the bundle embeds the rasterizer's hashed name and SRI hash, the
-// loader the bundle's.
+// Built in order: the bundle embeds the rasterizer's and the translations' hashed names
+// and SRI hashes, the loader the bundle's.
 const ENTRIES = {
   // Only ever loaded by the bundle, by its hashed name: no stable name.
   // It bundles modern-screenshot (MIT), whose licence travels inside the file.
   raster: { src: "src/raster-entry.ts", stem: "heed-raster", stable: false, define: () => ({}), banner: licence("modern-screenshot") },
+  // The built-in translations, fetched only for visitors whose language is not English.
+  locales: { src: "src/locales-entry.ts", stem: "heed-locales", stable: false, define: () => ({}) },
   widget: {
     src: "src/index.ts",
     stem: "heed-widget",
@@ -37,6 +39,8 @@ const ENTRIES = {
       __HEED_VERSION__: JSON.stringify(pkg.version),
       __HEED_RASTER__: JSON.stringify(m.entries.raster),
       __HEED_RASTER_INTEGRITY__: JSON.stringify(m.files[m.entries.raster].integrity),
+      __HEED_LOCALES__: JSON.stringify(m.entries.locales),
+      __HEED_LOCALES_INTEGRITY__: JSON.stringify(m.files[m.entries.locales].integrity),
     }),
   },
   loader: {

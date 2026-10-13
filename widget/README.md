@@ -108,6 +108,8 @@ Every option has a default; set it as an element attribute, as a `data-*` attrib
 | `label` (`label`) | `Feedback` | Launcher button text. |
 | `position` (`position`) | `bottom-right` | `bottom-left`, or `none` for no launcher (open it with `el.open()`). |
 | `heading` (`heading`) | `Send feedback` | Dialog heading. |
+| `lang` (`lang`) | follows the page | Language of the widget's texts: `en`, `es`, `fr`, `de` or `pt` (a tag like `fr-CA` works). Empty uses the nearest `lang` attribute above the widget (`<html lang>`), then the browser's language, then English. See "Languages". |
+| `messages` | none | `{send: "Go"}`: override single texts, in any language (code-only: `el.configure({messages})`, `heed.init({messages})`, a prop in React). Keys are those of `MESSAGES` in `src/i18n.ts`. |
 | `categories` (`categories`) | `bug feature question other` | Categories offered, first preselected; one category hides the picker. |
 | `pageUrl` (`page-url`) | `path` | `path` reports the page URL without its query and fragment (they often carry tokens); `full` sends it all. |
 | `withCredentials` (`with-credentials`) | `false` | Send cookies, for a backend that binds identity (needs `cors_allow_credentials` server-side). |
@@ -135,6 +137,18 @@ el.addEventListener("heed:submitted", (e) => console.log("report", e.detail.id))
 ```
 
 Events (they bubble and cross the shadow boundary): `heed:open`, `heed:close`, `heed:submitted` (`{id, status, url}`; `status` is `held` when the backend's moderation queue holds it), `heed:error` (`{kind}`).
+
+## Languages
+
+All visitor-facing text lives in one table (`MESSAGES`, `src/i18n.ts`). Built in: English, Spanish, French, German and Portuguese. The widget picks the language from its `lang` option, else the page's `lang` attribute, else `navigator.language`; anything else (a Japanese page, say) gets English, or your own texts:
+
+```js
+heed.init({ lang: "ja", messages: { label: "フィードバック", heading: "フィードバックを送る", send: "送信", cancel: "キャンセル", close: "閉じる" /* …every key you want to change */ } });
+```
+
+`messages` is the strongest layer (a later `messages` replaces the earlier one; `{}` clears it): English, then the language's translations, then your overrides. `retryIn` is the one function (`(seconds) => string`); the category names are the `cat_<name>` keys. A `label` or `heading` option you set yourself also beats the translation.
+
+The translations are not in the widget bundle. A visitor whose language is not English triggers one extra request, for `heed-locales-<hash>.js` next to the bundle (content-hashed and SRI-pinned like the rasterizer, nothing new for the CSP or Trusted Types); the widget shows English until it arrives. If it cannot be fetched, the widget stays in English and warns in the console. With the npm package your bundler splits the translations into a chunk that only those visitors download. To follow your own language switcher, call `el.configure({ lang })`.
 
 ## Bot gate
 

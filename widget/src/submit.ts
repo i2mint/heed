@@ -40,35 +40,6 @@ export type SubmitOutcome =
   | { ok: true; id: string; status: "received" | "held"; url: string | null }
   | { ok: false; kind: ErrorKind; retryAfterSeconds: number | null };
 
-/** Everything a visitor can be told, in one place (the seam for translations). */
-export const MESSAGES = {
-  sending: "Sending…",
-  received: "Thank you! Your report was sent.",
-  held: "Thank you! Your report was received and will be reviewed before it is published.",
-  view: "View your report",
-  titleRequired: "Please give your report a short title.",
-  noEndpoint: "This feedback form is not set up yet (no endpoint).",
-  invalid: "The report could not be accepted. Please shorten or simplify it and try again.",
-  too_large: "The report is too large to send. Please shorten it.",
-  forbidden: "This site is not allowed to send reports to this feedback service.",
-  bot: "We could not confirm you are human. Please reload the page and try again.",
-  rate_limited: "Too many reports were sent recently. Please try again later.",
-  unavailable: "The feedback service is unavailable right now. Please try again shortly.",
-  network: "Could not reach the feedback service. Check your connection and try again.",
-  timeout: "The feedback service took too long to answer. Please try again.",
-  gateWaiting: "Please complete the check above, then wait a moment.",
-  retryIn: (s: number) => `You can try again in ${s} seconds.`,
-  note: "Sent with your report: this page's address (without its query) and your browser details.",
-  noteShot: "Sent with your report: this page's address (without its query), your browser details, and the screenshot below if ticked. Form fields are blacked out in it.",
-  shotLabel: "Include a screenshot of this page",
-  shotTaking: "Taking a screenshot…",
-  shotFinishing: "Finishing the screenshot…",
-  shotReview: "Check the screenshot below (untick it to leave it out), then press Send.",
-  shotNoPreview: "The screenshot cannot be shown on this page, so it will not be sent.",
-  shotDropped: "The screenshot was too large and was left out.",
-  shotFailed: "No screenshot could be taken; the report will be sent without one.",
-} as const;
-
 export function buildFormData(input: SubmitInput, options: HeedOptions, botToken: string | null): FormData {
   const form = new FormData();
   form.set(F.title, input.draft.title.trim().slice(0, L.title_chars));

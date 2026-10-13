@@ -10,6 +10,7 @@
  * (heed's Pydantic models). This table is the widget's schema.
  */
 import { CONTRACT } from "./contract.gen.js";
+import { MESSAGES, type MessageOverrides, cleanMessages } from "./i18n.js";
 
 export type Category = (typeof CONTRACT.categories)[number];
 export type Position = "bottom-right" | "bottom-left" | "none";
@@ -34,6 +35,10 @@ export interface HeedOptions {
   position: Position;
   /** The dialog's heading. */
   heading: string;
+  /** Language of the widget's texts: a tag like "fr" or "pt-BR"; empty follows the page's `lang`, then the browser's. Built in: en, es, fr, de, pt. */
+  lang: string;
+  /** Overrides for single texts (any language), by key (see `MESSAGES`); code-only. A `label`/`heading` option, when changed from its default, takes precedence over the translation. */
+  messages: MessageOverrides;
   /** Categories offered to the visitor, in order; the first is preselected. */
   categories: Category[];
   /** "path" sends the page URL without query or fragment (privacy default); "full" sends all of it. */
@@ -79,6 +84,8 @@ interface OptionSpec<T> {
   /** Attribute name; absent for options only settable from code (functions). */
   attr?: string;
   parse?: Parse<T>;
+  /** Validates a value given from code (instead of the type check against the default). */
+  clean?: (value: unknown) => T | undefined;
 }
 
 type Specs = { [K in keyof HeedOptions]: OptionSpec<HeedOptions[K]> };
@@ -114,9 +121,11 @@ const categories: Parse<Category[]> = (s) => {
 
 export const OPTION_SPECS: Specs = {
   endpoint: { default: "", attr: "endpoint", parse: text },
-  label: { default: "Feedback", attr: "label", parse: text },
+  label: { default: MESSAGES.label, attr: "label", parse: text },
   position: { default: "bottom-right", attr: "position", parse: oneOf("bottom-right", "bottom-left", "none") },
-  heading: { default: "Send feedback", attr: "heading", parse: text },
+  heading: { default: MESSAGES.heading, attr: "heading", parse: text },
+  lang: { default: "", attr: "lang", parse: text },
+  messages: { default: {}, clean: cleanMessages },
   categories: { default: [...CONTRACT.categories], attr: "categories", parse: categories },
   pageUrl: { default: "path", attr: "page-url", parse: oneOf("path", "full") },
   withCredentials: { default: false, attr: "with-credentials", parse: parseBool },
@@ -145,7 +154,7 @@ export function defaultOptions(): HeedOptions {
   const out: Record<string, unknown> = {};
   for (const [key, spec] of Object.entries(OPTION_SPECS as Record<string, OptionSpec<unknown>>)) {
     const d = spec.default;
-    out[key] = Array.isArray(d) ? [...d] : d;
+    out[key] = Array.isArray(d) ? [...d] : d && typeof d === "object" ? { ...d } : d;
   }
   return out as unknown as HeedOptions;
 }
@@ -183,6 +192,7 @@ export function cleanOptions(given: Record<string, unknown> | null | undefined):
 
 function cleanValue(value: unknown, spec: OptionSpec<unknown>): unknown {
   const dflt = spec.default;
+  if (spec.clean) return spec.clean(value);
   if (dflt === null) return value === null || typeof value === "function" ? value : undefined;
   if (Array.isArray(dflt)) return Array.isArray(value) ? spec.parse?.(value.join(",")) : undefined;
   if (typeof value !== typeof dflt) return undefined;
