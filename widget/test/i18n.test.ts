@@ -234,6 +234,36 @@ describe("<heed-feedback> language", () => {
     expect($(el, "dialog h2").textContent).toBe("Send feedback");
   });
 
+  it("an empty lang option on the element follows the page's lang, not English", async () => {
+    document.documentElement.lang = "fr";
+    const el = mount({ lang: "" });
+    await vi.waitFor(() => expect($(el, "button[type=submit]").textContent).toBe("Envoyer"));
+  });
+
+  it("does not rewrite an unchanged error line (an alert region may be announced again)", async () => {
+    const el = mount({ lang: "fr" });
+    await vi.waitFor(() => expect($(el, "button[type=submit]").textContent).toBe("Envoyer"));
+    fail429();
+    sendTitled(el);
+    await vi.waitFor(() => expect($(el, ".status.error").textContent).toContain(LOCALES.fr.rate_limited));
+    const writes = vi.fn();
+    new MutationObserver(writes).observe($(el, ".status.error"), { childList: true, characterData: true, subtree: true });
+    el.configure({ position: "bottom-left" });
+    document.body.append(Object.assign(document.createElement("span"), { lang: "ja" }));
+    await nextTick();
+    expect(writes).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
+  });
+
+  it("a retryIn that answers with something else than text falls back to the English hint", async () => {
+    const el = mount();
+    el.configure({ messages: { retryIn: (() => undefined) as unknown as (s: number) => string } });
+    fail429();
+    sendTitled(el);
+    await vi.waitFor(() => expect($(el, ".status.error").textContent).toBe(`${MESSAGES.rate_limited} ${MESSAGES.retryIn(7)}`));
+    vi.unstubAllGlobals();
+  });
+
   it("an embedder's retryIn that throws does not hide the error or heed:error", async () => {
     vi.spyOn(console, "warn").mockImplementation(() => {});
     const el = mount();

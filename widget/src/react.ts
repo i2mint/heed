@@ -6,7 +6,7 @@
  * prop through `configure()` (so function props such as `botToken` work in React 18
  * and 19 alike), and turns the element's events into callbacks.
  *
- *   <HeedFeedback endpoint="/heed/report" label="Feedback"
+ *   <HeedFeedback endpoint="/heed/report" label="Report a problem"
  *                 onSubmitted={(r) => console.log(r.id)} />
  *
  * A ref gives `open()` and `close()`, for opening it from your own menu item.

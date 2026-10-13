@@ -282,8 +282,10 @@ export class HeedFeedbackElement extends Base {
 
   /** The nearest `lang` above the element, looking out through the shadow roots it may sit in. */
   #pageLang(): string | null | undefined {
-    for (let node: Element | null = this; node; node = (node.getRootNode() as ShadowRoot).host ?? null) {
-      const lang = node.closest("[lang]")?.getAttribute("lang");
+    // (from above the element: its own `lang` option is read separately, and an empty one means "follow the page")
+    let node: Element | null = this.parentElement ?? (this.getRootNode() as ShadowRoot).host ?? null;
+    for (; node; node = (node.getRootNode() as ShadowRoot).host ?? null) {
+      const lang = node.closest("[lang]:not([lang=''])")?.getAttribute("lang");
       if (lang) return lang;
     }
     return null;
@@ -344,7 +346,8 @@ export class HeedFeedbackElement extends Base {
     }
     ui.categoryLabel.hidden = o.categories.length < 2;
     if (this.#status) this.#setStatus(this.#status.pick, this.#status.error);
-    if (this.#done) ui.doneMessage.textContent = this.#done(m);
+    const done = this.#done?.(m);
+    if (done !== undefined && ui.doneMessage.textContent !== done) ui.doneMessage.textContent = done;
   }
 
   async #submit(): Promise<void> {
@@ -566,8 +569,10 @@ export class HeedFeedbackElement extends Base {
     const pick = typeof message === "string" ? () => message : message;
     this.#status = message === "" ? null : { pick, error: isError };
     const text = message === "" ? "" : pick(this.#msgs());
-    this.#ui.status.textContent = isError ? "" : text;
-    this.#ui.error.textContent = isError ? text : "";
+    // (only when it changed: a role="alert" line rewritten with the same text may be announced again)
+    const [status, error] = isError ? ["", text] : [text, ""];
+    if (this.#ui.status.textContent !== status) this.#ui.status.textContent = status;
+    if (this.#ui.error.textContent !== error) this.#ui.error.textContent = error;
   }
 
   #emit(type: string, detail: unknown): void {
@@ -578,11 +583,12 @@ export class HeedFeedbackElement extends Base {
 /** The embedder's `retryIn`, which may throw: the report's failure is still reported, with the English hint. */
 function safeRetryIn(m: Messages, seconds: number): string {
   try {
-    return String(m.retryIn(seconds));
+    const text = m.retryIn(seconds);
+    if (typeof text === "string") return text;
   } catch (e) {
     console.warn("heed: the retryIn message threw", e);
-    return MESSAGES.retryIn(seconds);
   }
+  return MESSAGES.retryIn(seconds);
 }
 
 function isModal(dialog: HTMLDialogElement): boolean {
