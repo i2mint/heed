@@ -64,7 +64,6 @@ describe("light intake for feature requests", () => {
     const note = $(el, ".note").textContent;
     choose(el, "feature");
     expect($<HTMLElement>(el, ".shot").hidden).toBe(true);
-    expect($<HTMLElement>(el, ".preview").hidden).toBe(true);
     expect($(el, ".note").textContent).toMatch(/Sent with your idea/);
     expect($(el, ".note").textContent).not.toBe(note);
     await send(el);
@@ -74,21 +73,37 @@ describe("light intake for feature requests", () => {
     expect(envOf(fetch)).toEqual({ extra: { version: "1.2.3" } });
   });
 
-  it("takes the screenshot again when the visitor goes back to a bug", async () => {
+  it("keeps the visitor's choice about the screenshot across a round trip through a feature request", async () => {
     const fetch = ok();
     vi.stubGlobal("fetch", fetch);
     const take = vi.fn(async () => png());
     const el = mount(take);
     el.open();
     await previewShown(el);
+    $<HTMLInputElement>(el, ".shot input").checked = false; // the visitor opts out
     choose(el, "feature");
-    expect(take).toHaveBeenCalledTimes(1);
     choose(el, "bug");
-    await vi.waitFor(() => expect(take).toHaveBeenCalledTimes(2));
+    expect($<HTMLInputElement>(el, ".shot input").checked).toBe(false);
+    expect(take).toHaveBeenCalledTimes(1); // no second capture
+    await send(el);
+    expect(sent(fetch).has("screenshot")).toBe(false);
+    expect(envOf(fetch).user_agent).toBeTruthy(); // a bug again: full details
+  });
+
+  it("sends the same screenshot after a round trip, and starts no capture per switch", async () => {
+    const fetch = ok();
+    vi.stubGlobal("fetch", fetch);
+    const take = vi.fn(async () => png());
+    const el = mount(take);
+    el.open();
     await previewShown(el);
+    for (let i = 0; i < 4; i++) {
+      choose(el, "feature");
+      choose(el, "bug");
+    }
+    expect(take).toHaveBeenCalledTimes(1);
     await send(el);
     expect(sent(fetch).has("screenshot")).toBe(true);
-    expect(envOf(fetch).user_agent).toBeTruthy();
   });
 
   it("never takes a screenshot when the dialog opens on a light category", async () => {
@@ -159,24 +174,35 @@ describe("light intake for feature requests", () => {
     expect(envOf(fetch)).toEqual({ extra: { version: "1.2.3" } });
   });
 
-  it("waits for the newer capture when Send was pressed during one the visitor replaced", async () => {
+  it("does not hang a send whose capture is cleared before its preview loads", async () => {
     const fetch = ok();
     vi.stubGlobal("fetch", fetch);
-    const take = vi.fn(async () => {
-      await tick(30);
-      return png();
-    });
-    const el = mount(take);
+    const el = mount(vi.fn(async () => png()));
     el.open();
+    await vi.waitFor(() => expect($<HTMLImageElement>(el, ".preview").getAttribute("src")).toBeTruthy());
     $<HTMLInputElement>(el, "input[name=title]").value = "t";
-    $<HTMLFormElement>(el, "form").requestSubmit(); // waits for the first capture
+    $<HTMLFormElement>(el, "form").requestSubmit(); // waits for a preview that never loads
     await tick(5);
-    choose(el, "feature");
-    choose(el, "bug"); // a second capture replaces the first
-    await vi.waitFor(() => expect(take).toHaveBeenCalledTimes(2));
+    expect($<HTMLButtonElement>(el, "button[type=submit]").disabled).toBe(true);
+    el.close();
+    el.open(); // a fresh capture replaces (and releases) the old one
+    await vi.waitFor(() => expect($<HTMLImageElement>(el, ".preview").getAttribute("src")).toBeTruthy());
+    $(el, ".preview").dispatchEvent(new Event("load")); // the new preview, which the send then waits for
+    await vi.waitFor(() => expect($<HTMLButtonElement>(el, "button[type=submit]").disabled).toBe(false));
+  });
+
+  it("starts no capture behind the thank-you screen", async () => {
+    const fetch = ok();
+    vi.stubGlobal("fetch", fetch);
+    const take = vi.fn(async () => png());
+    const el = mount(take, { screenshot: "true" });
+    el.open();
     await previewShown(el);
-    await vi.waitFor(() => expect($(el, ".status").textContent).toMatch(/Check the screenshot/));
-    expect(fetch).not.toHaveBeenCalled(); // not sent without the picture the visitor was shown
+    await send(el);
+    expect($<HTMLElement>(el, ".done").hidden).toBe(false);
+    el.setAttribute("lang", "es"); // anything that syncs
+    await tick(80);
+    expect(take).toHaveBeenCalledTimes(1);
   });
 
   it("fixes the category while a report is on its way", async () => {

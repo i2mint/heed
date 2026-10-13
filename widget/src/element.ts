@@ -65,6 +65,8 @@ interface Shot {
   url: string | null;
   /** The visitor has been shown the preview: only then may the image be sent. */
   shown: boolean;
+  /** Ends the wait on `settled` (the capture was cleared; an image without a `src` fires no event). */
+  release: () => void;
 }
 
 interface Ui {
@@ -512,9 +514,9 @@ export class HeedFeedbackElement extends Base {
     const light = this.#isLight();
     ui.note.textContent = light ? m.noteLight : o.screenshot ? m.noteShot : m.note;
     ui.shotRow.hidden = !o.screenshot || light;
-    if (light) {
-      if (this.#shot) this.#clearScreenshot();
-    } else if (o.screenshot && ui.dialog.open && !this.#shot) this.#startScreenshot();
+    // A light category only hides the row (and `#screenshotToSend` sends nothing): the capture and
+    // the visitor's tick survive a round trip, and quick switching starts no second capture.
+    if (!light && o.screenshot && ui.dialog.open && ui.done.hidden && !this.#shot) this.#startScreenshot();
   }
 
   /** Capture the page behind the dialog, in the background; the visitor sees a preview. */
@@ -527,7 +529,9 @@ export class HeedFeedbackElement extends Base {
     ui.shotBox.disabled = false;
     ui.shotState.textContent = this.#msgs().shotTaking;
     const win = this.ownerDocument.defaultView ?? window;
-    const shot: Shot = { settled: Promise.resolve(), blob: null, url: null, shown: false };
+    let release = () => {};
+    const released = new Promise<void>((r) => (release = r));
+    const shot: Shot = { settled: Promise.resolve(), blob: null, url: null, shown: false, release };
     const fail = (message: string) => {
       ui.shotBox.checked = false;
       ui.shotBox.disabled = true;
@@ -535,7 +539,7 @@ export class HeedFeedbackElement extends Base {
       ui.shotState.textContent = message;
     };
     // Let the dialog paint before the (main-thread) capture starts.
-    shot.settled = new Promise((r) => setTimeout(r, 50))
+    const chain = new Promise((r) => setTimeout(r, 50))
       .then(() =>
         captureWithin(
           o.takeScreenshot ?? screenshotStrategy(),
@@ -570,11 +574,13 @@ export class HeedFeedbackElement extends Base {
             ui.preview.hidden = false;
           }),
       );
+    shot.settled = Promise.race([chain, released]);
     this.#shot = shot;
   }
 
   #clearScreenshot(): void {
     if (this.#shot?.url) URL.revokeObjectURL(this.#shot.url);
+    this.#shot?.release();
     this.#shot = null;
     if (!this.#ui) return;
     this.#ui.preview.hidden = true;
