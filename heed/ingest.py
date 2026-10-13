@@ -65,6 +65,7 @@ from heed.security import (
     sniff_image_type,
 )
 from heed.sinks.base import Sink, SinkResult
+from heed.widget import make_widget_router
 
 _FORM_MEDIA_TYPES = ("multipart/form-data", "application/x-www-form-urlencoded")
 _TEXT_FIELDS = ("title", "body", "category", "page_url", "env", "anon_id")
@@ -604,9 +605,15 @@ def make_app(
     config: Optional[HeedConfig] = None,
     attachment_store: Optional[MutableMapping] = None,
     prefix: str = "/heed",
+    serve_widget: bool = True,
     **router_kwargs: Any,
 ) -> FastAPI:
-    """A standalone FastAPI app serving the heed router under ``prefix``."""
+    """A standalone FastAPI app serving the heed router under ``prefix``.
+
+    With ``serve_widget`` (the default) it also serves the built widget at
+    ``{prefix}/widget/{file}`` (see :mod:`heed.widget`), so one host both hands out the
+    script and receives its reports.
+    """
     app = FastAPI(title="heed")
     app.include_router(
         make_router(
@@ -614,4 +621,6 @@ def make_app(
         ),
         prefix=prefix,
     )
+    if serve_widget:
+        app.include_router(make_widget_router(), prefix=prefix)
     return app

@@ -5,7 +5,8 @@ useful context gathered automatically, routed to a pluggable backend (GitHub Iss
 first). It works standalone and integrates with ``enlace`` as an optional add-on,
 without depending on it.
 
-Phase 1 ships the backend core (the widget is tracked in issue #6). The competitive
+Phase 1 ships the backend core and the embeddable widget (``widget/``, served by
+:func:`make_widget_router`). The competitive
 landscape and design rationale live in ``misc/docs/``.
 
 Public API (Phase 1):
@@ -24,6 +25,8 @@ Public API (Phase 1):
     Storage   make_report_store, make_holding_store, make_attachment_store
     Serving   make_attachment_router, make_attachment_app, AttachmentSigner,
               screenshot_url_resolver (a separate origin for screenshots, #19)
+    Widget    make_widget_router (serves the built embeddable widget),
+              widget_contract (what the widget sends; SSOT for widget/)
 
 Example:
     >>> from heed import StoreSink, ReportSubmission, process_submission
@@ -87,6 +90,7 @@ from heed.sinks import (
     github_sink_from_token,
 )
 from heed.storage import make_attachment_store, make_holding_store, make_report_store
+from heed.widget import make_widget_router, widget_contract
 
 __version__ = "0.0.1"
 
@@ -95,6 +99,8 @@ __all__ = [
     "AttachmentSigner",
     "make_attachment_app",
     "make_attachment_router",
+    "make_widget_router",
+    "widget_contract",
     "screenshot_url_resolver",
     "__version__",
     # models

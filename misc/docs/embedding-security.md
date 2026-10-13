@@ -107,10 +107,12 @@ Content-Security-Policy:
   img-src 'self' data: blob:;
 ```
 
-- `script-src` must list the origin serving the widget bundle. Prefer pinning a versioned URL with Subresource Integrity (`<script src="…/heed-1.2.3.js" integrity="sha384-…" crossorigin="anonymous">`) over allowing a whole CDN.
+- `script-src` must list the origin serving the widget bundle. Prefer pinning the bundle with Subresource Integrity over allowing a whole CDN: each built file's `integrity` value is in `heed/static/widget/manifest.json` (served files carry `Access-Control-Allow-Origin: *`, so `crossorigin="anonymous"` works).
 - `connect-src` must list the heed backend origin; that is where the report is POSTed.
 - `img-src data: blob:` lets the widget preview the screenshot it captured.
-- The widget ([i2mint/heed#6](https://github.com/i2mint/heed/issues/6)) is required to render in a Shadow DOM with constructed stylesheets, so that it needs no `'unsafe-inline'` in `style-src` and no `'unsafe-eval'`; treat any widget build that needs either as a bug.
+- The widget ([i2mint/heed#6](https://github.com/i2mint/heed/issues/6)) renders in a Shadow DOM with constructed stylesheets and builds its DOM without `innerHTML`, so it needs no `'unsafe-inline'` in `style-src`, no `'unsafe-eval'`, and runs under `require-trusted-types-for 'script'`. `tests/test_widget_browser.py` checks this in Chromium with `style-src 'none'`; treat any widget build that needs more as a bug.
+
+- The widget sends through the page's own `fetch`, so a script on the page that wraps `fetch` (analytics, error tracking) can see a report's text. Shadow DOM is isolation, not a security boundary: the embedding page is trusted with what its visitors type into the widget.
 
 With the bot gate on, add the provider:
 
