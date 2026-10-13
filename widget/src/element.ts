@@ -30,7 +30,7 @@ import {
 } from "./options";
 import { CONTRACT } from "./contract.gen";
 import { MESSAGES, type SubmitOutcome, sendReport } from "./submit";
-import { builtinScreenshot, captureWithin } from "./capture";
+import { captureWithin, screenshotStrategy } from "./capture";
 import { applyStyles } from "./styles";
 
 export const TAG = "heed-feedback";
@@ -368,7 +368,7 @@ export class HeedFeedbackElement extends HTMLElement {
     shot.settled = new Promise((r) => setTimeout(r, 50))
       .then(() =>
         captureWithin(
-          o.takeScreenshot ?? builtinScreenshot,
+          o.takeScreenshot ?? screenshotStrategy(),
           win,
           { maskInputs: o.maskInputs, maskSelector: o.maskSelector, maxNodes: o.screenshotMaxNodes },
           o.screenshotTimeoutMs,

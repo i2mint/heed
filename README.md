@@ -74,7 +74,7 @@ The backend serves the widget too, so a site adds one tag:
 <script async src="https://feedback.example/heed/widget/heed.js"></script>
 ```
 
-Options (`data-*` or `heed.init({...})`), the `heed` API, pinning a build with SRI, events, theming and CSP notes: [`widget/README.md`](widget/README.md).
+Options (`data-*` or `heed.init({...})`), the `heed` API, the React wrapper, screenshots and their masking, pinning a build with SRI, events, theming and CSP notes: [`widget/README.md`](widget/README.md).
 
 ## Documents
 

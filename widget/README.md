@@ -70,6 +70,34 @@ The bundle works on its own too: load `heed-widget.js` and write the element, wh
 <heed-feedback endpoint="https://feedback.example/heed/report"></heed-feedback>
 ```
 
+### React
+
+A thin wrapper over the same element, for apps that bundle heed (`heed-widget/react`; the package is not on npm yet, see [i2mint/heed#40](https://github.com/i2mint/heed/issues/40)). Props are the options below plus event callbacks; a ref gives `open()` and `close()`:
+
+```tsx
+import { useRef } from "react";
+import { HeedFeedback, type HeedFeedbackHandle } from "heed-widget/react";
+
+export function Feedback() {
+  const feedback = useRef<HeedFeedbackHandle>(null);
+  return (
+    <>
+      <button onClick={() => feedback.current?.open()}>Report a problem</button>
+      <HeedFeedback
+        ref={feedback}
+        endpoint="https://feedback.example/heed/report"
+        position="none"
+        extra={() => ({ app_version: "2.3.1" })}
+        onSubmitted={(report) => console.log("sent", report.id)}
+        style={{ "--heed-accent": "#0a7" }}
+      />
+    </>
+  );
+}
+```
+
+Function props (`botToken`, `extra`, `takeScreenshot`) work in React 18 and 19 alike (the wrapper passes every prop through `configure()`), and a removed prop goes back to its default. Bundled this way, the screenshot rasterizer is a separate chunk your bundler loads only when the dialog opens. Without a bundler, the loader's `<heed-feedback>` works in JSX as is.
+
 ## Options
 
 Every option has a default; set it as an element attribute, as a `data-*` attribute on the loader tag, or from code with `heed.init({...})` / `el.configure({...})`. Function-valued options are code-only. `endpoint` defaults to the backend that served the loader.
@@ -143,6 +171,7 @@ npm ci
 npm run check    # TypeScript
 npm test         # unit tests (vitest + jsdom)
 npm run build    # writes heed/static/widget/ and its manifest; fails over the size budget
+npm run build:lib  # the ES module package in dist/ (heed-widget, heed-widget/react), with types
 ```
 
 Bump `version` in `package.json` for every widget change that ships: hashed files are retained per version (the previous five), and a rebuild without a bump replaces the current version's files.

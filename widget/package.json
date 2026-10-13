@@ -1,19 +1,46 @@
 {
   "name": "heed-widget",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
   "description": "heed's embeddable feedback widget: a Web Component in an open Shadow DOM with a native <dialog>.",
   "license": "Apache-2.0",
   "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/types/lib.d.ts",
+      "import": "./dist/lib.js"
+    },
+    "./react": {
+      "types": "./dist/types/react.d.ts",
+      "import": "./dist/react.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "node build.mjs",
     "check": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "build:lib": "node build-lib.mjs",
+    "prepack": "npm run build:lib"
+  },
+  "peerDependencies": {
+    "react": ">=17"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    }
   },
   "devDependencies": {
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
     "esbuild": "^0.25.12",
     "jsdom": "^26.1.0",
     "modern-screenshot": "^4.7.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
     "typescript": "^5.9.3",
     "vitest": "^3.2.7"
   }
