@@ -66,17 +66,43 @@ def test_a_failing_sink_is_a_502_the_widget_can_read():
     assert "tracker is down" not in resp.text  # no internals
 
 
-@pytest.mark.parametrize("sink", [_RaisingSink(), _RefusingSink()])
-def test_a_report_that_went_nowhere_leaves_no_screenshot(sink):
+def test_a_refused_report_leaves_no_screenshot():
     attachments = {}
-    submission = ReportSubmission(title="x")
-    try:
-        _, result = process_submission(
-            submission, sink, screenshot=b"img", attachment_store=attachments
+    _, result = process_submission(
+        ReportSubmission(title="x"),
+        _RefusingSink(),
+        screenshot=b"img",
+        attachment_store=attachments,
+    )
+    assert not result.ok and attachments == {}
+
+
+def test_a_sink_that_raises_keeps_the_screenshot_it_may_already_link():
+    attachments = {}
+    with pytest.raises(ConnectionError):
+        process_submission(
+            ReportSubmission(title="x"),
+            _RaisingSink(),
+            screenshot=b"img",
+            attachment_store=attachments,
         )
-        assert not result.ok
-    except ConnectionError:
-        pass
+    assert len(attachments) == 1
+
+
+def test_a_report_that_cannot_be_built_leaves_no_screenshot():
+    attachments = {}
+
+    def broken_clock():
+        raise RuntimeError("no time")
+
+    with pytest.raises(RuntimeError):
+        process_submission(
+            ReportSubmission(title="x"),
+            StoreSink({}),
+            screenshot=b"img",
+            attachment_store=attachments,
+            clock=broken_clock,
+        )
     assert attachments == {}
 
 

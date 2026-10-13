@@ -109,21 +109,19 @@ def process_submission(
             Attachment(ref=key, size=len(screenshot), media_type=screenshot_media_type)
         )
 
-    report = Report(
-        id=report_id,
-        created_at=clock(),
-        category=submission.category,
-        title=submission.title,
-        body=submission.body,
-        page_url=submission.page_url,
-        env=submission.env,
-        attachments=attachments,
-        console=submission.console if config.accept_console else None,
-        network=submission.network if config.accept_network else None,
-        identity=Identity(anon_id=submission.anon_id or report_id, user=user),
-        origin=origin,
-        status=Status.received,
-    )
+    try:
+        report = _new_report(
+            submission,
+            report_id,
+            attachments,
+            origin=origin,
+            user=user,
+            config=config,
+            clock=clock,
+        )
+    except Exception:  # nothing will reference the screenshot: don't keep it
+        _discard_attachments(attachments, attachment_store)
+        raise
     verdict = _moderate(moderator, report)
     if verdict is Verdict.reject:
         _discard_attachments(
@@ -138,14 +136,34 @@ def process_submission(
             raise ValueError("moderator returned 'hold' but no holding_sink was given")
         report = report.model_copy(update={"status": Status.held})
         sink = holding_sink
-    try:
-        result = sink.submit(report)
-    except Exception:
-        _discard_attachments(attachments, attachment_store)
-        raise
-    if not result.ok:  # the report went nowhere, so its screenshot must not stay
+    # A sink that raises may already have acted (an issue created, then a timeout on the
+    # reply), and the report it made links the screenshot: keep it. One that returns
+    # ok=False took nothing, so the screenshot has nothing to belong to.
+    result = sink.submit(report)
+    if not result.ok:
         _discard_attachments(attachments, attachment_store)
     return report, result
+
+
+def _new_report(
+    submission, report_id, attachments, *, origin, user, config, clock
+) -> Report:
+    """The Report for ``submission``. The server owns id, time, identity and origin."""
+    return Report(
+        id=report_id,
+        created_at=clock(),
+        category=submission.category,
+        title=submission.title,
+        body=submission.body,
+        page_url=submission.page_url,
+        env=submission.env,
+        attachments=attachments,
+        console=submission.console if config.accept_console else None,
+        network=submission.network if config.accept_network else None,
+        identity=Identity(anon_id=submission.anon_id or report_id, user=user),
+        origin=origin,
+        status=Status.received,
+    )
 
 
 def _discard_attachments(attachments, attachment_store) -> None:
@@ -561,7 +579,7 @@ def make_router(
                 holding_sink=holding_sink,
             )
         except Exception as e:  # the sink failed: say so with CORS, not a bare 500
-            logger.exception("heed: the sink failed to take a report")
+            logger.exception("heed: a report could not be processed or delivered")
             raise _fail(502, "the report could not be delivered", origin) from e
         # A rejected report looks received, like a honeypot hit; a held one says so,
         # so the widget can tell a real visitor their report awaits review.

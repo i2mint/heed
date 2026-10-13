@@ -243,10 +243,12 @@ def discard_held(
 ) -> None:
     """Delete a held report for good, with its attachments (e.g. a screenshot).
 
-    The attachments go first, so a crash in between leaves a report that can simply be
-    discarded again; an attachment already gone is not an error. Raises ``KeyError``
-    when ``report_id`` is not held. A report whose text no longer parses is still
-    deleted, but its attachments cannot be named and are left.
+    The report leaves holding first, so a release that took it meanwhile wins and this
+    raises ``KeyError`` before touching its attachments; a crash between the two steps
+    leaves an orphaned screenshot, never a report pointing at a deleted one. Raises
+    ``KeyError`` when ``report_id`` is not held. A report whose text no longer parses is
+    still deleted, but its attachments cannot be named and are left. Run it serialised
+    with :func:`release_held` for the same report.
     """
     if report_id.startswith(CLAIM_PREFIX):
         raise ValueError(f"{report_id!r} is a claim, not a held report")
@@ -258,10 +260,10 @@ def discard_held(
             "heed: held report %s does not parse; its attachments are left", report_id
         )
         refs = []
+    del holding_store[report_id]
     if attachment_store is not None:
         for ref in refs:
             attachment_store.pop(ref, None)
-    del holding_store[report_id]
 
 
 def recover_claimed(
