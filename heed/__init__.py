@@ -15,7 +15,8 @@ Public API (Phase 1):
               github_sink_from_token
     Backend   process_submission, make_router, make_app, HeedConfig
     Hardening RateLimiter, InMemoryRateLimiter, RedisRateLimiter, make_rate_limiter,
-              BotVerifier, SiteverifyBotVerifier, make_bot_verifier
+              BotVerifier, SiteverifyBotVerifier, make_bot_verifier,
+              make_image_sanitizer, strip_image, reencode_image, attachment_headers
               (see misc/docs/embedding-security.md)
     Routing   sinks_by_origin, Verdict, accept_all, hold_all,
               make_heuristic_moderator, chain_moderators, release_held
@@ -44,6 +45,7 @@ from heed.base import (
     new_report_id,
 )
 from heed.config import HeedConfig
+from heed.images import make_image_sanitizer, reencode_image, strip_image
 from heed.ingest import make_app, make_router, process_submission
 from heed.routing import (
     Verdict,
@@ -60,6 +62,7 @@ from heed.security import (
     RateLimiter,
     RedisRateLimiter,
     SiteverifyBotVerifier,
+    attachment_headers,
     make_bot_verifier,
     make_rate_limiter,
 )
@@ -108,6 +111,10 @@ __all__ = [
     "BotVerifier",
     "SiteverifyBotVerifier",
     "make_bot_verifier",
+    "make_image_sanitizer",
+    "strip_image",
+    "reencode_image",
+    "attachment_headers",
     # routing (site resolution + moderation)
     "sinks_by_origin",
     "Verdict",

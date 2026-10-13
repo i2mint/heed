@@ -16,7 +16,8 @@ The router rejects abuse cheapest-first, so a flood costs as little as possible:
 8. Bot gate (only when a secret is configured): Turnstile or hCaptcha token verified server-side; fails closed.
 9. Per-origin rate limit. It runs after the honeypot and the bot gate on purpose: `Origin` is a header any non-browser client can set, so counting earlier would let spoofed junk exhaust a real site's budget. With the bot gate off, a determined attacker spread over many IPs can still do that; turn the gate on if it happens.
 10. Model validation (`heed/base.py`): length limits on every string and list, `page_url` must be an absolute `http(s)` URL, control and bidi-override characters are stripped, `anon_id` is a short opaque token, `env` must be a JSON object. Errors never echo the submitted input back.
-11. Screenshot: size cap, then magic-byte sniffing; only PNG, JPEG and WebP are stored, under the sniffed type, whatever the client claimed.
+11. Screenshot: size cap, then magic-byte sniffing; only PNG, JPEG and WebP are accepted, under the sniffed type, whatever the client claimed.
+12. Screenshot sanitizing (`heed/images.py`): the accepted bytes are rewritten so only the image is stored. A polyglot (a valid image header followed by HTML, a ZIP or a script) loses its payload, and EXIF/XMP metadata (GPS) is dropped. A file that is only a header, or is otherwise malformed, gets `415`. See "Stored screenshots" below.
 
 The sink is chosen server-side; the browser never names a repository or board (see *Routing and moderation* below).
 
@@ -37,6 +38,8 @@ Every knob is a keyword of `HeedConfig` and can also come from a `HEED_<NAME>` e
 | `cors_allow_credentials` | `False` | Needed only when an auth cookie binds identity (`user_dependency`). Requires an explicit `allowed_origins`. |
 | `max_body_bytes` | 6 MB | Whole request. Must be at least `max_screenshot_bytes`. |
 | `max_screenshot_bytes` | 5 MB | The screenshot file. |
+| `screenshot_sanitizer` | `"auto"` | `"reencode"` (decode and re-save with Pillow, `pip install heed[images]`), `"strip"` (pure Python: keep only the chunks that render, truncate at the end marker), `"auto"` (re-encode if Pillow is installed, else strip), `"none"` (store as received). |
+| `max_screenshot_pixels` | 40 M | Re-encode refuses larger canvases before decoding (a small file can declare a huge one). |
 | `max_field_bytes` | 100 KB | Any single text field. |
 | `max_form_fields` | 16 | Number of form parts. |
 | `rate_limit_per_minute` | 30 | Per client IP. |
@@ -60,6 +63,17 @@ Every piece is also injectable on `make_router(...)`: `rate_limiter`, `origin_ra
 - With more than one worker process or host, use `rate_limit_backend="redis"`. The in-memory limiter counts per process, so the effective limit is multiplied by the worker count. If Redis becomes unreachable (0.5 s socket timeout), the Redis limiter falls back to a per-process in-memory limit rather than dropping all feedback or removing the limit.
 - Turn the bot gate on (`bot_secret`) once spam appears, or from the start on a high-traffic site. Set `bot_expected_hostnames` to reject tokens solved on another site.
 - Keep a reverse-proxy body limit too (e.g. Caddy `request_body { max_size 6MB }`) as a second line.
+
+## Stored screenshots
+
+Sanitizing reduces what a stored screenshot can carry, but neither rewrite makes the bytes safe to serve on their own: even a re-encoded pixel stream can contain attacker-chosen byte runs. heed does not serve attachments today. Whatever serves them later (for example a public screenshot URL embedded in a GitHub issue) must send every response with `heed.attachment_headers(media_type, filename=...)`:
+
+- `Content-Type` is the stored, sniffed image type; anything else is sent as `application/octet-stream` with `Content-Disposition: attachment`.
+- `X-Content-Type-Options: nosniff`, so a browser never reinterprets the bytes.
+- `Content-Security-Policy: default-src 'none'; sandbox`, so even a document rendering runs no script and loads nothing.
+- `Referrer-Policy: no-referrer`; `Cross-Origin-Resource-Policy: cross-origin` (needed for embedding as `<img>` elsewhere).
+
+Serve attachments from an origin separate from the app's (a dedicated subdomain), so a rendering mistake cannot reach the app's cookies or storage.
 
 ## CSP guidance for embedders
 

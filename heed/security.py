@@ -13,7 +13,8 @@ composes them and deployments swap implementations without touching it:
 - **Bot gate**: the :class:`BotVerifier` protocol and :class:`SiteverifyBotVerifier`
   for Cloudflare Turnstile / hCaptcha, built by :func:`make_bot_verifier` only when a
   secret is configured (off otherwise).
-- **Attachments**: :func:`sniff_image_type` checks screenshot magic bytes.
+- **Attachments**: :func:`sniff_image_type` checks screenshot magic bytes (and
+  ``images.py`` rewrites them); :func:`attachment_headers` is how to serve them.
 """
 
 from __future__ import annotations
@@ -481,3 +482,40 @@ def sniff_image_type(data: bytes) -> str | None:
         if matches(data):
             return media_type
     return None
+
+
+#: Response headers for serving a stored attachment, whatever its bytes contain:
+#: never sniffed as another type, never allowed to run script or load anything, and
+#: offered as a file if a browser navigates to it directly.
+ATTACHMENT_RESPONSE_HEADERS = {
+    "X-Content-Type-Options": "nosniff",
+    "Content-Security-Policy": "default-src 'none'; sandbox",
+    "Cross-Origin-Resource-Policy": "cross-origin",
+    "Referrer-Policy": "no-referrer",
+}
+
+
+def attachment_headers(media_type: str, *, filename: str | None = None) -> dict:
+    """Headers for serving a stored screenshot (issue #15). Use them on every response
+    that returns attachment bytes, ideally from an origin separate from the app's.
+
+    Only the image types heed accepts are served as themselves; anything else is sent as
+    an opaque download.
+
+    >>> h = attachment_headers("image/png", filename="r1.png")
+    >>> h["Content-Type"], h["X-Content-Type-Options"], h["Content-Disposition"]
+    ('image/png', 'nosniff', 'inline; filename="r1.png"')
+    >>> attachment_headers("text/html")["Content-Type"]
+    'application/octet-stream'
+    """
+    known = media_type in IMAGE_EXTENSIONS
+    headers = {
+        "Content-Type": media_type if known else "application/octet-stream",
+        **ATTACHMENT_RESPONSE_HEADERS,
+    }
+    disposition = "inline" if known else "attachment"
+    if filename is not None:
+        safe = "".join(c for c in filename if c.isalnum() or c in "._-") or "attachment"
+        disposition += f'; filename="{safe}"'
+    headers["Content-Disposition"] = disposition
+    return headers
