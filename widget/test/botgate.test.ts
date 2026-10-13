@@ -159,6 +159,17 @@ describe("<heed-feedback> with a bot gate", () => {
     expect(el.shadowRoot!.querySelector(".status.error")!.textContent).toContain("confirm you are human");
   });
 
+  it("tells the visitor to complete the check while a challenge waits", async () => {
+    (window as unknown as Record<string, unknown>).turnstile = fakeTurnstile(() => {}).api; // waits on the visitor
+    scriptsLoad();
+    vi.stubGlobal("fetch", okFetch());
+    const el = mount({ "bot-gate": "turnstile", "bot-sitekey": "SITE" });
+    el.open();
+    (el.shadowRoot!.querySelector("input[name=title]") as HTMLInputElement).value = "t";
+    (el.shadowRoot!.querySelector("form") as HTMLFormElement).requestSubmit();
+    await vi.waitFor(() => expect(el.shadowRoot!.querySelector(".status")!.textContent).toContain("complete the check"));
+  });
+
   it("is rebuilt when the sitekey changes and removed with the element", async () => {
     const fake = fakeTurnstile();
     (window as unknown as Record<string, unknown>).turnstile = fake.api;

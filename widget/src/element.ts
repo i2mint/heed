@@ -388,7 +388,16 @@ export class HeedFeedbackElement extends Base {
 
   #withGate(o: HeedOptions): HeedOptions {
     const gate = this.#currentGate(o);
-    return gate ? { ...o, botToken: () => gate.token() } : o;
+    if (!gate) return o;
+    const ui = this.#ui;
+    return {
+      ...o,
+      botToken: () => {
+        // An interactive challenge waits on the visitor: say so instead of "Sending…".
+        if (ui) this.#setStatus(MESSAGES.gateWaiting, false);
+        return gate.token().finally(() => ui && this.#setStatus(MESSAGES.sending, false));
+      },
+    };
   }
 
   /** Capture the page behind the dialog, in the background; the visitor sees a preview. */

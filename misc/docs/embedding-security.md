@@ -114,7 +114,7 @@ Content-Security-Policy:
 
 - The widget sends through the page's own `fetch`, so a script on the page that wraps `fetch` (analytics, error tracking) can see a report's text. Shadow DOM is isolation, not a security boundary: the embedding page is trusted with what its visitors type into the widget.
 
-With the bot gate on, add the provider. The widget's built-in Turnstile adapter (`data-bot-gate="turnstile"`, [i2mint/heed#37](https://github.com/i2mint/heed/issues/37)) loads `https://challenges.cloudflare.com/turnstile/v0/api.js` when the dialog opens, through a Trusted Types policy named `heed-bot-gate` (add it to a `trusted-types` allow-list; it passes only that one URL), and renders the challenge inside the dialog:
+With the bot gate on, add the provider. The widget's built-in Turnstile adapter (`data-bot-gate="turnstile"`, [i2mint/heed#37](https://github.com/i2mint/heed/issues/37)) loads `https://challenges.cloudflare.com/turnstile/v0/api.js` when the dialog opens, through a Trusted Types policy named `heed-bot-gate` (add it to a `trusted-types` allow-list, with `'allow-duplicates'` if the page loads two heed bundles; it passes only the provider's script URL, or the `botGateScript` the embedder's own code sets), and renders the challenge inside the dialog:
 
 | Provider | `script-src` | `frame-src` | `connect-src` |
 |---|---|---|---|

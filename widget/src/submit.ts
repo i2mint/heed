@@ -56,6 +56,7 @@ export const MESSAGES = {
   unavailable: "The feedback service is unavailable right now. Please try again shortly.",
   network: "Could not reach the feedback service. Check your connection and try again.",
   timeout: "The feedback service took too long to answer. Please try again.",
+  gateWaiting: "Please complete the check above, then wait a moment.",
   retryIn: (s: number) => `You can try again in ${s} seconds.`,
   note: "Sent with your report: this page's address (without its query) and your browser details.",
   noteShot: "Sent with your report: this page's address (without its query), your browser details, and the screenshot below if ticked. Form fields are blacked out in it.",

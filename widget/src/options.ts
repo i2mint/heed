@@ -129,7 +129,7 @@ export const OPTION_SPECS: Specs = {
   maskSelector: { default: "[data-heed-mask]", attr: "mask-selector", parse: text },
   screenshotTimeoutMs: { default: 10_000, attr: "screenshot-timeout-ms", parse: positiveInt },
   screenshotMaxNodes: { default: 5_000, attr: "screenshot-max-nodes", parse: positiveInt },
-  botGate: { default: "", attr: "bot-gate", parse: text },
+  botGate: { default: "", attr: "bot-gate", parse: (s) => s.toLowerCase() },
   botSitekey: { default: "", attr: "bot-sitekey", parse: text },
   botGateScript: { default: "" },
   botToken: { default: null },
