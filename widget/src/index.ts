@@ -8,10 +8,13 @@
  */
 import { installApi } from "./api.js";
 import { defineHeedElement } from "./element.js";
+import { setLocaleLoader } from "./i18n.js";
+import { servedLocaleLoader } from "./locale.js";
 
 export { HeedFeedbackElement, TAG, defineHeedElement } from "./element.js";
 export { installApi, type HeedApi } from "./api.js";
 export type { HeedOptions } from "./options.js";
 
+setLocaleLoader(servedLocaleLoader);
 defineHeedElement();
 installApi();

@@ -1,9 +1,10 @@
 {
-  "version": "0.5.0",
+  "version": "0.6.0",
   "entries": {
     "raster": "heed-raster-e4ecd0a430.js",
-    "widget": "heed-widget-d1fddb9314.js",
-    "loader": "heed-6ff717c8ee.js"
+    "locales": "heed-locales-2ee8668b6c.js",
+    "widget": "heed-widget-069a568c0e.js",
+    "loader": "heed-b1b8eefd45.js"
   },
   "files": {
     "heed-raster-e4ecd0a430.js": {
@@ -13,6 +14,37 @@
       "bytes": 28788,
       "gzip_bytes": 11555
     },
+    "heed-locales-2ee8668b6c.js": {
+      "integrity": "sha384-PYXg9QexNkPCxDQjQONbWFGfvQviiVUQ6SmjZlaUBkBDOi8Py1/JtffKcF2f+uwp",
+      "immutable": true,
+      "version": "0.6.0",
+      "bytes": 10055,
+      "gzip_bytes": 3687
+    },
+    "heed-widget-069a568c0e.js": {
+      "integrity": "sha384-tp/cAaxUXhGTdcxYgYXd9jfJK7fLCa81wF5LthM1CjL/aNY/DAg7t9bF/HSESWah",
+      "immutable": true,
+      "version": "0.6.0",
+      "bytes": 29374,
+      "gzip_bytes": 11347
+    },
+    "heed-widget.js": {
+      "immutable": false,
+      "bytes": 29374,
+      "gzip_bytes": 11347
+    },
+    "heed-b1b8eefd45.js": {
+      "integrity": "sha384-zKgLz7Zr+ivZ0hF5+sgF3V1WFQs+4ghQ8vHRjkXc763cfkgdNtx7XgzX5RRFgQBS",
+      "immutable": true,
+      "version": "0.6.0",
+      "bytes": 2030,
+      "gzip_bytes": 1200
+    },
+    "heed.js": {
+      "immutable": false,
+      "bytes": 2030,
+      "gzip_bytes": 1200
+    },
     "heed-widget-d1fddb9314.js": {
       "integrity": "sha384-dTQUXzS3rK2groFtYoTS+pVatxZnyz9FFQAxqbw8Rm3LKNWiGnQzV+kOqiZsDgT/",
       "immutable": true,
@@ -20,20 +52,10 @@
       "bytes": 26998,
       "gzip_bytes": 10469
     },
-    "heed-widget.js": {
-      "immutable": false,
-      "bytes": 26998,
-      "gzip_bytes": 10469
-    },
     "heed-6ff717c8ee.js": {
       "integrity": "sha384-ctDhJoprPC1GOwNaW8CFNUcukUdbOp9QxcTM2mWE3qiwZ9vUMRFBd0dRxq0Iz4+o",
       "immutable": true,
       "version": "0.5.0",
-      "bytes": 2022,
-      "gzip_bytes": 1194
-    },
-    "heed.js": {
-      "immutable": false,
       "bytes": 2022,
       "gzip_bytes": 1194
     },

@@ -29,19 +29,16 @@ import {
   optionsFromAttributes,
 } from "./options.js";
 import { CONTRACT } from "./contract.gen.js";
-import { MESSAGES, type SubmitOutcome, sendReport } from "./submit.js";
+import { type SubmitOutcome, sendReport } from "./submit.js";
+import { MESSAGES, type Messages, categoryLabel, ensureLocale, messagesFor, pickLanguage } from "./i18n.js";
 import { captureWithin, screenshotStrategy } from "./capture.js";
 import { applyStyles } from "./styles.js";
 import { type BotGate, createBotGate } from "./botgate.js";
 
 export const TAG = "heed-feedback";
 
-const CATEGORY_LABELS: Record<Category, string> = {
-  bug: "Something is broken",
-  feature: "An idea or request",
-  question: "A question",
-  other: "Something else",
-};
+/** Keys of the messages that are plain strings (all but `retryIn`). */
+type TextKey = { [K in keyof Messages]: Messages[K] extends string ? K : never }[keyof Messages];
 
 type Attrs = Record<string, string | boolean | undefined>;
 
@@ -109,6 +106,10 @@ export class HeedFeedbackElement extends Base {
   #sending = false;
   #shot: Shot | null = null;
   #gate: { key: string; gate: BotGate | null } | null = null;
+  /** Static texts of the UI, re-rendered when the language changes. */
+  #texts: [Text, TextKey][] = [];
+  /** The language whose translations were last asked for. */
+  #requested = "";
 
   /** The effective options: defaults, then attributes, then `configure()`/properties. */
   get options(): HeedOptions {
@@ -190,13 +191,19 @@ export class HeedFeedbackElement extends Base {
     const root = this.shadowRoot ?? this.attachShadow({ mode: "open" });
     applyStyles(root);
     const id = (s: string) => `heed-${s}`;
+    this.#texts = [];
+    const tx = (key: TextKey) => {
+      const node = doc.createTextNode(MESSAGES[key]);
+      this.#texts.push([node, key]);
+      return node;
+    };
 
     const launcher = h(doc, "button", { type: "button", class: "launcher", part: "launcher" });
     const heading = h(doc, "h2", { id: id("heading"), part: "heading" });
     const category = h(doc, "select", { name: "category" });
-    const categoryLabel = h(doc, "label", {}, "What is it about?", category);
+    const categoryLabel = h(doc, "label", {}, tx("categoryPrompt"), category);
     const title = h(doc, "input", { name: "title", type: "text", required: true, autocomplete: "off" });
-    const body = h(doc, "textarea", { name: "body", placeholder: "What happened, and what did you expect?" });
+    const body = h(doc, "textarea", { name: "body" });
     // Hints that keep password managers and autofill out of the trap field.
     const honeypot = h(doc, "input", {
       type: "text",
@@ -209,22 +216,22 @@ export class HeedFeedbackElement extends Base {
     });
     const status = h(doc, "p", { class: "status", role: "status", "aria-live": "polite" });
     const error = h(doc, "p", { class: "status error", role: "alert" });
-    const submit = h(doc, "button", { type: "submit", class: "primary", part: "submit" }, "Send");
-    const cancel = h(doc, "button", { type: "button", value: "cancel" }, "Cancel");
+    const submit = h(doc, "button", { type: "submit", class: "primary", part: "submit" }, tx("send"));
+    const cancel = h(doc, "button", { type: "button", value: "cancel" }, tx("cancel"));
     const note = h(doc, "p", { class: "note" });
     const shotBox = h(doc, "input", { type: "checkbox", checked: true });
     const shotState = h(doc, "p", { class: "note", role: "status" });
-    const preview = h(doc, "img", { class: "preview", alt: "Screenshot to be sent", hidden: true, part: "preview" });
+    const preview = h(doc, "img", { class: "preview", hidden: true, part: "preview" });
     const gate = h(doc, "div", { class: "gate", part: "gate" });
-    const shotRow = h(doc, "div", { class: "shot" }, h(doc, "label", { class: "check" }, shotBox, MESSAGES.shotLabel), shotState, preview);
+    const shotRow = h(doc, "div", { class: "shot" }, h(doc, "label", { class: "check" }, shotBox, tx("shotLabel")), shotState, preview);
     const form = h(
       doc,
       "form",
       { novalidate: true },
       categoryLabel,
-      h(doc, "label", {}, "Title", title),
-      h(doc, "label", {}, "Details", body),
-      h(doc, "div", { class: "hp", "aria-hidden": "true" }, h(doc, "label", {}, "Leave this field empty", honeypot)),
+      h(doc, "label", {}, tx("titleLabel"), title),
+      h(doc, "label", {}, tx("bodyLabel"), body),
+      h(doc, "div", { class: "hp", "aria-hidden": "true" }, h(doc, "label", {}, tx("honeypotLabel"), honeypot)),
       note,
       shotRow,
       gate,
@@ -232,8 +239,8 @@ export class HeedFeedbackElement extends Base {
       h(doc, "div", { class: "actions" }, cancel, submit),
     );
     const doneMessage = h(doc, "p", { role: "status" });
-    const doneLink = h(doc, "a", { target: "_blank", rel: "noopener noreferrer", hidden: true }, MESSAGES.view);
-    const doneClose = h(doc, "button", { type: "button", class: "primary" }, "Close");
+    const doneLink = h(doc, "a", { target: "_blank", rel: "noopener noreferrer", hidden: true }, tx("view"));
+    const doneClose = h(doc, "button", { type: "button", class: "primary" }, tx("close"));
     const done = h(doc, "div", { class: "done", hidden: true }, doneMessage, doneLink, h(doc, "div", { class: "actions" }, doneClose));
     const dialog = h(doc, "dialog", { part: "dialog", "aria-labelledby": id("heading") }, heading, form, done);
     root.append(h(doc, "div", { class: "root" }, launcher, dialog));
@@ -252,26 +259,47 @@ export class HeedFeedbackElement extends Base {
     return { launcher, dialog, heading, form, categoryLabel, category, title, body, honeypot, note, gate, shotRow, shotBox, shotState, preview, status, error, submit, doneClose, done, doneMessage, doneLink };
   }
 
+  /** The visitor's language: `lang`, else the nearest `lang` above the element, else the browser's. */
+  #language(o: HeedOptions): string {
+    return pickLanguage(o.lang, this.closest("[lang]")?.getAttribute("lang"), globalThis.navigator?.language);
+  }
+
+  /** Every text, in the current language, with the embedder's overrides applied. */
+  #msgs(): Messages {
+    const o = this.options;
+    return messagesFor(this.#language(o), o.messages);
+  }
+
   /** Bring the rendered UI in line with the current options. */
   #sync(): void {
     const ui = this.#ui;
     if (!ui) return;
     const o = this.options;
-    ui.launcher.textContent = o.label;
+    const lang = this.#language(o);
+    const m = messagesFor(lang, o.messages);
+    if (this.#requested !== lang) {
+      this.#requested = lang;
+      void ensureLocale(lang).then((ok) => (ok ? this.#sync() : void (this.#requested = ""))); // a later open retries
+    }
+    for (const [node, key] of this.#texts) node.data = m[key];
+    // An explicit label or heading beats the translation; the English default does not.
+    ui.launcher.textContent = o.label !== MESSAGES.label ? o.label : m.label;
     ui.launcher.className = `launcher ${o.position}`;
     ui.launcher.hidden = o.position === "none";
-    ui.heading.textContent = o.heading;
+    ui.heading.textContent = o.heading !== MESSAGES.heading ? o.heading : m.heading;
+    ui.body.placeholder = m.bodyPlaceholder;
+    ui.preview.alt = m.shotAlt;
     ui.title.maxLength = CONTRACT.limits.title_chars;
     ui.body.maxLength = CONTRACT.limits.body_chars;
     ui.honeypot.name = o.honeypotField || "hp";
     ui.honeypot.disabled = !o.honeypotField;
-    ui.note.textContent = o.screenshot ? MESSAGES.noteShot : MESSAGES.note;
+    ui.note.textContent = o.screenshot ? m.noteShot : m.note;
     ui.shotRow.hidden = !o.screenshot;
-    const wanted = o.categories.join(",");
+    const wanted = `${lang}|${m.cat_bug}|${o.categories.join(",")}`; // rebuilt when the labels change
     if (ui.category.dataset.categories !== wanted) {
       const previous = ui.category.value;
       ui.category.replaceChildren(
-        ...o.categories.map((c) => h(this.ownerDocument, "option", { value: c }, CATEGORY_LABELS[c])),
+        ...o.categories.map((c) => h(this.ownerDocument, "option", { value: c }, categoryLabel(m, c))),
       );
       if (o.categories.includes(previous as Category)) ui.category.value = previous;
       ui.category.dataset.categories = wanted;
@@ -284,12 +312,12 @@ export class HeedFeedbackElement extends Base {
     if (!ui || this.#sending) return;
     const o = this.options;
     if (!ui.title.value.trim()) {
-      this.#setStatus(MESSAGES.titleRequired, true);
+      this.#setStatus(this.#msgs().titleRequired, true);
       ui.title.focus();
       return;
     }
     if (!o.endpoint) {
-      this.#setStatus(MESSAGES.noEndpoint, true);
+      this.#setStatus(this.#msgs().noEndpoint, true);
       return;
     }
     this.#sending = true;
@@ -300,10 +328,10 @@ export class HeedFeedbackElement extends Base {
     try {
       const screenshot = await this.#screenshotToSend();
       if (screenshot === "review") {
-        this.#setStatus(MESSAGES.shotReview, false);
+        this.#setStatus(this.#msgs().shotReview, false);
         return;
       }
-      this.#setStatus(MESSAGES.sending, false);
+      this.#setStatus(this.#msgs().sending, false);
       const win = this.ownerDocument.defaultView ?? window;
       const input = {
         draft: { category: (ui.category.value || o.categories[0]) as Category, title: ui.title.value, body: ui.body.value },
@@ -329,7 +357,7 @@ export class HeedFeedbackElement extends Base {
       ui.form.reset();
       this.#clearScreenshot();
       ui.doneMessage.textContent =
-        (outcome.status === "held" ? MESSAGES.held : MESSAGES.received) + (droppedShot ? ` ${MESSAGES.shotDropped}` : "");
+        (outcome.status === "held" ? this.#msgs().held : this.#msgs().received) + (droppedShot ? ` ${this.#msgs().shotDropped}` : "");
       ui.doneLink.hidden = !outcome.url;
       if (outcome.url) ui.doneLink.href = outcome.url;
       else ui.doneLink.removeAttribute("href");
@@ -339,8 +367,8 @@ export class HeedFeedbackElement extends Base {
       ui.doneClose.focus();
       this.#emit("heed:submitted", { id: outcome.id, status: outcome.status, url: outcome.url });
     } else {
-      const retry = outcome.retryAfterSeconds ? ` ${MESSAGES.retryIn(outcome.retryAfterSeconds)}` : "";
-      this.#setStatus(MESSAGES[outcome.kind] + retry, true);
+      const retry = outcome.retryAfterSeconds ? ` ${this.#msgs().retryIn(outcome.retryAfterSeconds)}` : "";
+      this.#setStatus(this.#msgs()[outcome.kind] + retry, true);
       this.#emit("heed:error", { kind: outcome.kind });
     }
   }
@@ -354,7 +382,7 @@ export class HeedFeedbackElement extends Base {
     const shot = this.#shot;
     if (!ui || !this.options.screenshot || !shot || !ui.shotBox.checked) return null;
     if (shot.shown) return shot.blob;
-    this.#setStatus(MESSAGES.shotFinishing, false);
+    this.#setStatus(this.#msgs().shotFinishing, false);
     await shot.settled;
     return shot.shown && ui.shotBox.checked && this.#shot === shot ? "review" : null;
   }
@@ -394,8 +422,8 @@ export class HeedFeedbackElement extends Base {
       ...o,
       botToken: () => {
         // An interactive challenge waits on the visitor: say so instead of "Sending…".
-        if (ui) this.#setStatus(MESSAGES.gateWaiting, false);
-        return gate.token().finally(() => ui && this.#setStatus(MESSAGES.sending, false));
+        if (ui) this.#setStatus(this.#msgs().gateWaiting, false);
+        return gate.token().finally(() => ui && this.#setStatus(this.#msgs().sending, false));
       },
     };
   }
@@ -408,7 +436,7 @@ export class HeedFeedbackElement extends Base {
     if (!ui || !o.screenshot) return;
     ui.shotBox.checked = true;
     ui.shotBox.disabled = false;
-    ui.shotState.textContent = MESSAGES.shotTaking;
+    ui.shotState.textContent = this.#msgs().shotTaking;
     const win = this.ownerDocument.defaultView ?? window;
     const shot: Shot = { settled: Promise.resolve(), blob: null, url: null, shown: false };
     const fail = (message: string) => {
@@ -432,7 +460,7 @@ export class HeedFeedbackElement extends Base {
           new Promise<void>((done) => {
             if (this.#shot !== shot) return done(); // a newer capture (or a reset) replaced this one
             if (!blob) {
-              fail(MESSAGES.shotFailed);
+              fail(this.#msgs().shotFailed);
               return done();
             }
             shot.blob = blob;
@@ -443,7 +471,7 @@ export class HeedFeedbackElement extends Base {
                 if (ok) {
                   shot.shown = true;
                   ui.shotState.textContent = "";
-                } else fail(MESSAGES.shotNoPreview); // e.g. a CSP without img-src blob:
+                } else fail(this.#msgs().shotNoPreview); // e.g. a CSP without img-src blob:
               }
               done();
             };

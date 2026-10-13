@@ -48,7 +48,7 @@ def test_built_widget_is_shipped_with_its_manifest():
     name = manifest["entries"]["widget"]
     meta = manifest["files"][name]
     assert meta["integrity"].startswith("sha384-")
-    assert meta["gzip_bytes"] <= 11_000  # the budgets live in widget/build.mjs
+    assert meta["gzip_bytes"] <= 11_500  # the budgets live in widget/build.mjs
     stable = manifest["files"]["heed-widget.js"]
     assert stable["immutable"] is False and "integrity" not in stable
     loader = manifest["entries"]["loader"]
@@ -68,6 +68,18 @@ def test_bundle_pins_the_rasterizer_it_loads_lazily():
         assert "modern-screenshot" not in code  # the rasterizer stays out of the bundle
     # modern-screenshot's MIT licence travels inside the file served to browsers.
     assert "Includes modern-screenshot" in (root / raster).read_text()[:2000]
+
+
+def test_bundle_pins_the_translations_it_loads_lazily():
+    manifest = load_widget_manifest()
+    locales = manifest["entries"]["locales"]
+    meta = manifest["files"][locales]
+    assert meta["gzip_bytes"] <= 5_000 and "heed-locales.js" not in manifest["files"]
+    root = Path(__file__).resolve().parent.parent / "heed" / "static" / "widget"
+    for bundle in (manifest["entries"]["widget"], "heed-widget.js"):
+        code = (root / bundle).read_text()
+        assert locales in code and meta["integrity"] in code
+        assert "Envoyer" not in code  # the translations stay out of the bundle
 
 
 def test_loader_pins_the_bundle_it_loads():

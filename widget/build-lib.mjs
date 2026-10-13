@@ -33,6 +33,9 @@ await build({
     // Only the served bundle loads the rasterizer by URL; here it is imported.
     __HEED_RASTER__: JSON.stringify(""),
     __HEED_RASTER_INTEGRITY__: JSON.stringify(""),
+    // Likewise the translations: imported lazily, not fetched by URL.
+    __HEED_LOCALES__: JSON.stringify(""),
+    __HEED_LOCALES_INTEGRITY__: JSON.stringify(""),
   },
 });
 if (!process.argv[2]) {

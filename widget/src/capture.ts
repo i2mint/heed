@@ -3,29 +3,19 @@
  * bound the whole capture by a deadline, so a slow or failing capture never blocks a
  * report (it is sent without the screenshot instead).
  *
- * The rasterizer file is located next to this bundle's own `<script>` and loaded with
- * the SRI hash baked in at build time (the same chain as loader → bundle). Code that
+ * The rasterizer file is loaded as a sibling of the bundle (sibling.ts). Code that
  * bundles heed itself (no `<script>` to locate) passes its own `takeScreenshot`.
  */
 import { CONTRACT } from "./contract.gen.js";
 import type { ScreenshotTaker } from "./options.js";
+import { loadSibling } from "./sibling.js";
 import type { CaptureOptions, Raster } from "./raster.js";
 
 declare const __HEED_RASTER__: string;
 declare const __HEED_RASTER_INTEGRITY__: string;
 
-type TT = { createPolicy(n: string, p: object): { createScriptURL(u: string): unknown } };
-type HeedGlobals = Window & {
-  __heedRaster?: Raster;
-  __heedTT?: { createScriptURL(u: string): unknown } | null;
-  trustedTypes?: TT;
-};
+type HeedGlobals = Window & { __heedRaster?: Raster };
 
-/** This bundle's own `<script>`; null when an app bundled heed into its own code. */
-const ownScript = (() => {
-  const s = typeof document !== "undefined" ? (document.currentScript as HTMLScriptElement | null) : null;
-  return s && /\/heed-widget(-[0-9a-f]{10})?\.js([?#]|$)/.test(s.src) ? s : null;
-})();
 let raster: Promise<Raster> | null = null;
 let csp: boolean | undefined;
 
@@ -56,39 +46,10 @@ export function screenshotsAllowed(doc: Document): boolean {
 
 /** Load `heed-raster-<hash>.js` once, next to this bundle, pinned by SRI. */
 export function loadRaster(win: Window = window): Promise<Raster> {
-  const w = win as HeedGlobals;
-  if (w.__heedRaster) return Promise.resolve(w.__heedRaster);
   if (raster) return raster;
-  if (!ownScript) return Promise.reject(new Error("heed: cannot locate the rasterizer; pass takeScreenshot"));
-  const url = new URL(__HEED_RASTER__, ownScript.src).href;
-  raster = new Promise<Raster>((resolve, reject) => {
-    const doc = win.document;
-    const s = doc.createElement("script");
-    s.src = scriptUrl(w, url);
-    s.integrity = __HEED_RASTER_INTEGRITY__;
-    s.crossOrigin = "anonymous";
-    s.async = true;
-    if (ownScript.nonce) s.nonce = ownScript.nonce;
-    s.onload = () => (w.__heedRaster ? resolve(w.__heedRaster) : reject(new Error("heed: rasterizer did not register")));
-    s.onerror = () => reject(new Error(`heed: could not load ${url}`));
-    (doc.head || doc.documentElement).append(s);
-  });
+  raster = loadSibling(win, __HEED_RASTER__, __HEED_RASTER_INTEGRITY__, () => (win as HeedGlobals).__heedRaster, "rasterizer");
   raster.catch(() => (raster = null)); // allow a retry on the next open
   return raster;
-}
-
-/** A Trusted Types-safe script URL: through the loader's `heed` policy, or our own. */
-function scriptUrl(w: HeedGlobals, url: string): string {
-  if (w.__heedTT === undefined) {
-    const dir = new URL(".", url).href;
-    const own = (u: string) => (u.startsWith(dir) && /^heed-(widget|raster)-[0-9a-f]{10}\.js$/.test(u.slice(dir.length)) ? u : "");
-    try {
-      w.__heedTT = w.trustedTypes?.createPolicy("heed", { createScriptURL: own }) ?? null;
-    } catch {
-      w.__heedTT = null; // the page's CSP does not allow the policy; screenshotsAllowed said no anyway
-    }
-  }
-  return (w.__heedTT ? w.__heedTT.createScriptURL(url) : url) as string;
 }
 
 /** The built-in strategy for the served bundle: the rasterizer file, loaded on first use. */
