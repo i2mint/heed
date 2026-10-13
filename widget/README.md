@@ -120,6 +120,9 @@ Every option has a default; set it as an element attribute, as a `data-*` attrib
 | `screenshotTimeoutMs` (`screenshot-timeout-ms`) | `10000` | Give up on the screenshot after this long; the report is sent without it. |
 | `screenshotMaxNodes` (`screenshot-max-nodes`) | `5000` | No screenshot of pages with more elements than this (cloning them would freeze the tab). |
 | `anonId` (`anon-id`) | none | An opaque id your app chooses to group one visitor's reports. The widget never invents or stores one. |
+| `botGate` (`bot-gate`) | none (off) | Built-in challenge: `turnstile`. Loads Cloudflare's script when the dialog opens, runs it for every send. Needs `botSitekey`; see "Bot gate" below. |
+| `botSitekey` (`bot-sitekey`) | none | The challenge provider's public site key. The secret key stays on the server (`bot_secret`, `HEED_BOT_SECRET`). |
+| `botGateScript` | provider's | Code-only: another URL for the provider's script (a self-hosted proxy, a test stand-in). |
 | `botToken` | none | `() => token` (or a promise of one): the bot-gate seam. Return a Turnstile/hCaptcha token when the backend's bot gate is on. |
 | `extra` | none | `() => ({key: "value"})`: extra facts sent in `env.extra` (app version, flags…), trimmed to the server's limits. |
 | `takeScreenshot` | built-in | `(window, {maskInputs, maskSelector, maxNodes, maxBytes, maxPixels}) => Promise<Blob \| null>`: replace the screenshot strategy (an app that bundles heed itself, or its own capture). |
@@ -132,6 +135,17 @@ el.addEventListener("heed:submitted", (e) => console.log("report", e.detail.id))
 ```
 
 Events (they bubble and cross the shadow boundary): `heed:open`, `heed:close`, `heed:submitted` (`{id, status, url}`; `status` is `held` when the backend's moderation queue holds it), `heed:error` (`{kind}`).
+
+## Bot gate
+
+When the backend demands a challenge token (`bot_gate`, [embedding-security.md](../misc/docs/embedding-security.md)), the widget can run Cloudflare Turnstile itself:
+
+```html
+<script async src="https://feedback.example/heed/widget/heed.js"
+        data-bot-gate="turnstile" data-bot-sitekey="0x4AAAA…"></script>
+```
+
+Off unless `bot-gate` is set; nothing is loaded from the provider until the visitor opens the dialog. The challenge is rendered inside the dialog (a modal dialog makes the rest of the page inert, so an interactive challenge placed outside it could not be clicked) in Turnstile's "managed, interaction-only" mode: most visitors see nothing, and a token is requested for each send, so it is never stale. The time the challenge takes counts against `timeoutMs`. A failed or blocked challenge shows the "could not confirm you are human" message and sends nothing. An explicit `botToken` provider always takes precedence. The page's CSP must allow the provider (table in embedding-security.md); under Trusted Types add the policy `heed-bot-gate`, which passes only the provider's script URL. For another provider, keep using `botToken`; `GATES` in `src/botgate.ts` is where an adapter would be added.
 
 ## What is sent
 

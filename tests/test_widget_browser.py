@@ -73,11 +73,11 @@ def _backend(*, router_kwargs=None, **config):
 NONCE = "t3st-n0nce"
 
 
-def _page(backend: str, body: str, *, csp_extra: str = "") -> str:
+def _page(backend: str, body: str, *, csp_extra: str = "", script_src: str = "") -> str:
     """An embedding page under a strict CSP: no inline style, Trusted Types required,
     scripts only from the backend (or with the test nonce)."""
     csp = (
-        f"default-src 'none'; script-src {backend} 'nonce-{NONCE}'; "
+        f"default-src 'none'; script-src {backend} 'nonce-{NONCE}' {script_src}; "
         f"connect-src {backend}; style-src 'none'; require-trusted-types-for 'script'"
         f"{csp_extra}"
     )
@@ -293,7 +293,13 @@ def test_focus_and_modality_survive_success_and_reparenting(browser):
         assert problems == []
 
 
-def _loader_page(script_attrs: str = "", before: str = ""):
+def _loader_page(
+    script_attrs: str = "",
+    before: str = "",
+    *,
+    csp_extra: str = "",
+    script_src: str = "",
+):
     """The documented embed: one async loader tag, optionally after inline calls
     (screenshots off, as in ``_embed_page``)."""
     script_attrs += ' data-screenshot="false"'
@@ -304,6 +310,8 @@ def _loader_page(script_attrs: str = "", before: str = ""):
             f"{before}\n"
             f'<script async src="{backend}/heed/widget/heed.js" {script_attrs}>'
             "</script>",
+            csp_extra=csp_extra,
+            script_src=script_src,
         )
 
     return page
@@ -742,3 +750,134 @@ def test_react_wrapper_in_a_bundled_app(browser, react_app):
         (saved,) = [json.loads(v) for v in store.values()]
         assert saved["title"] == "from a React app"
         assert len(saved["attachments"]) == 1
+
+
+# --- the built-in bot-gate adapter (heed#37) ---------------------------------------
+
+_FAKE_TURNSTILE = """
+window.turnstile = {
+  log: [],
+  render(el, params) {
+    this.log.push("render:" + params.sitekey + ":" + params.execution);
+    this.params = params;
+    el.append(document.createElement("iframe"));
+    return "w1";
+  },
+  execute() {
+    this.log.push("execute");
+    setTimeout(() => this.params.callback("human"), 5);
+  },
+  reset() { this.log.push("reset"); },
+  remove() { this.log.push("remove"); },
+};
+"""
+
+
+def _gate_page(*, csp_extra: str = "", script_src: str = "'self'", init: str):
+    """The loader with ``data-bot-gate``, then an inline ``heed.init`` (nonced)."""
+    stub = f'<script nonce="{NONCE}">{init}</script>'
+    return _loader_page(
+        'data-bot-gate="turnstile" data-bot-sitekey="SITE"',
+        before=stub,
+        csp_extra=csp_extra,
+        script_src=script_src,
+    )
+
+
+_FAKE_INIT = (
+    "window.heed=window.heed||function(){(heed.q=heed.q||[]).push(arguments)};"
+    "heed('init',{botGateScript:'/fake-turnstile.js'});"
+)
+
+
+def test_built_in_turnstile_gate_supplies_the_token(browser, tmp_path):
+    (tmp_path / "fake-turnstile.js").write_text(_FAKE_TURNSTILE)
+    verifier = _TokenVerifier()
+    # Trusted Types are enforced and the allow-list names heed-bot-gate.
+    page = _gate_page(init=_FAKE_INIT, csp_extra="; trusted-types heed heed-bot-gate")
+    with _site(
+        browser,
+        page=page,
+        static_dir=tmp_path,
+        router_kwargs={"bot_verifier": verifier},
+    ) as (tab, problems, store, _origin):
+        tab.get_by_role("button", name="Feedback").click()
+        tab.wait_for_function("window.turnstile && window.turnstile.log.length")
+        # The challenge lives inside the (modal) dialog, where it can be clicked.
+        assert tab.locator("heed-feedback").evaluate(
+            "el => !!el.shadowRoot.querySelector('dialog .gate iframe')"
+        )
+        tab.get_by_label("Title").fill("gated")
+        tab.get_by_role("button", name="Send").click()
+        tab.get_by_text("Your report was sent").wait_for()
+        assert verifier.seen == ["human"] and len(store) == 1
+        assert tab.evaluate("window.turnstile.log") == [
+            "render:SITE:execute",
+            "execute",
+        ]
+        assert problems == []
+
+
+def test_gate_script_blocked_by_trusted_types_fails_closed_and_says_why(
+    browser, tmp_path
+):
+    (tmp_path / "fake-turnstile.js").write_text(_FAKE_TURNSTILE)
+    verifier = _TokenVerifier()
+    page = _gate_page(init=_FAKE_INIT, csp_extra="; trusted-types heed")
+    with _site(
+        browser,
+        page=page,
+        static_dir=tmp_path,
+        router_kwargs={"bot_verifier": verifier},
+    ) as (tab, _problems, store, _origin):
+        tab.get_by_role("button", name="Feedback").click()
+        tab.get_by_label("Title").fill("blocked")
+        tab.get_by_role("button", name="Send").click()
+        tab.get_by_text("could not confirm you are human").wait_for()
+        assert store == {} and verifier.seen == []
+        assert any("heed-bot-gate" in w for w in tab.heed_warnings)
+
+
+def _cloudflare_reachable() -> bool:
+    try:
+        socket.create_connection(("challenges.cloudflare.com", 443), 3).close()
+        return True
+    except OSError:
+        return False
+
+
+# Cloudflare's documented dummy keys: this one always passes and renders no widget UI;
+# the matching token is "XXXX.DUMMY.TOKEN.XXXX".
+_CF_ALWAYS_PASSES = "1x00000000000000000000BB"
+_CF_DUMMY_TOKEN = "XXXX.DUMMY.TOKEN.XXXX"
+
+
+@pytest.mark.skipif(
+    not _cloudflare_reachable(), reason="needs network access to Cloudflare"
+)
+def test_real_turnstile_with_cloudflares_test_sitekey(browser):
+    class Verifier:
+        seen: list = []
+
+        def verify(self, token, *, remote_ip=None):
+            self.seen.append(token)
+            return token == _CF_DUMMY_TOKEN
+
+    verifier = Verifier()
+    cf = "https://challenges.cloudflare.com"
+    page = _loader_page(
+        f'data-bot-gate="turnstile" data-bot-sitekey="{_CF_ALWAYS_PASSES}"',
+        csp_extra=f"; frame-src {cf}; trusted-types heed heed-bot-gate",
+        script_src=cf,
+    )
+    with _site(browser, page=page, router_kwargs={"bot_verifier": verifier}) as (
+        tab,
+        _problems,
+        store,
+        _origin,
+    ):
+        tab.get_by_role("button", name="Feedback").click()
+        tab.get_by_label("Title").fill("through the real thing")
+        tab.get_by_role("button", name="Send").click()
+        tab.get_by_text("Your report was sent").wait_for(timeout=30_000)
+        assert verifier.seen == [_CF_DUMMY_TOKEN] and len(store) == 1

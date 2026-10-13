@@ -84,6 +84,7 @@ label.check { display: flex; align-items: center; gap: 8px; font-weight: 400; }
 label.check input { width: auto; margin: 0; }
 .preview { max-width: 100%; max-height: 240px; object-fit: contain; justify-self: start; border: 1px solid var(--_border); border-radius: 6px; }
 .hp { position: absolute; left: -10000px; top: auto; width: 1px; height: 1px; overflow: hidden; }
+.gate:empty { display: none; }
 `;
 
 let shared: CSSStyleSheet | null = null;
