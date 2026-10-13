@@ -20,7 +20,7 @@ Public API (Phase 1):
               (see misc/docs/embedding-security.md)
     Routing   sinks_by_origin, Verdict, accept_all, hold_all,
               make_heuristic_moderator, chain_moderators, release_held,
-              recover_claimed
+              recover_claimed, discard_held
     Storage   make_report_store, make_attachment_store
 
 Example:
@@ -52,6 +52,7 @@ from heed.routing import (
     Verdict,
     accept_all,
     chain_moderators,
+    discard_held,
     hold_all,
     make_heuristic_moderator,
     recover_claimed,
@@ -126,6 +127,7 @@ __all__ = [
     "chain_moderators",
     "release_held",
     "recover_claimed",
+    "discard_held",
     # storage
     "make_report_store",
     "make_attachment_store",

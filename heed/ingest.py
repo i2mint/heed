@@ -126,8 +126,9 @@ def process_submission(
     )
     verdict = _moderate(moderator, report)
     if verdict is Verdict.reject:
-        for attachment in attachments:  # a rejected report keeps nothing
-            attachment_store.pop(attachment.ref, None)
+        _discard_attachments(
+            attachments, attachment_store
+        )  # a rejected report keeps nothing
         report = report.model_copy(
             update={"status": Status.declined, "attachments": []}
         )
@@ -136,8 +137,20 @@ def process_submission(
         if holding_sink is None:
             raise ValueError("moderator returned 'hold' but no holding_sink was given")
         report = report.model_copy(update={"status": Status.held})
-        return report, holding_sink.submit(report)
-    return report, sink.submit(report)
+        sink = holding_sink
+    try:
+        result = sink.submit(report)
+    except Exception:
+        _discard_attachments(attachments, attachment_store)
+        raise
+    if not result.ok:  # the report went nowhere, so its screenshot must not stay
+        _discard_attachments(attachments, attachment_store)
+    return report, result
+
+
+def _discard_attachments(attachments, attachment_store) -> None:
+    for attachment in attachments:
+        attachment_store.pop(attachment.ref, None)
 
 
 def _moderate(moderator: Moderator, report: Report) -> Verdict:
@@ -423,7 +436,9 @@ def make_router(
             )
         ip = client_ip(
             request.client.host if request.client else None,
-            request.headers.get("x-forwarded-for"),
+            # Every X-Forwarded-For line, in order: a proxy appends its own line, so
+            # reading only the first would let the client's forged line choose the IP.
+            ", ".join(request.headers.getlist("x-forwarded-for")) or None,
             trusted_proxies=trusted_networks,
         )
         # Limiters may do network I/O (Redis): keep it off the event loop.
@@ -531,19 +546,23 @@ def make_router(
             if len(shot) > cfg.max_screenshot_bytes:  # a re-encode can grow the file
                 raise _fail(413, "screenshot too large", origin)
 
-        report, result = await run_in_threadpool(
-            process_submission,
-            submission,
-            request.state.heed_sink,
-            origin=origin,
-            user=user,
-            screenshot=shot,
-            screenshot_media_type=shot_type,
-            attachment_store=attachment_store,
-            config=cfg,
-            moderator=moderator or accept_all,
-            holding_sink=holding_sink,
-        )
+        try:
+            report, result = await run_in_threadpool(
+                process_submission,
+                submission,
+                request.state.heed_sink,
+                origin=origin,
+                user=user,
+                screenshot=shot,
+                screenshot_media_type=shot_type,
+                attachment_store=attachment_store,
+                config=cfg,
+                moderator=moderator or accept_all,
+                holding_sink=holding_sink,
+            )
+        except Exception as e:  # the sink failed: say so with CORS, not a bare 500
+            logger.exception("heed: the sink failed to take a report")
+            raise _fail(502, "the report could not be delivered", origin) from e
         # A rejected report looks received, like a honeypot hit; a held one says so,
         # so the widget can tell a real visitor their report awaits review.
         held = report.status is Status.held

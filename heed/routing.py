@@ -15,6 +15,7 @@ Two seams, both decided on the server, never by the browser:
 
 from __future__ import annotations
 
+import logging
 import re
 import unicodedata
 from collections.abc import Callable, Iterable, Mapping, MutableMapping
@@ -25,6 +26,8 @@ from uuid import uuid4
 from heed.base import Report, Status
 from heed.security import normalize_origin
 from heed.sinks.base import Sink, SinkResult
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------- site resolution
 
@@ -166,6 +169,11 @@ def release_held(
     back in holding. So a crash at any point leaves the report in holding, in the
     claims, or in both -- never lost -- and :func:`recover_claimed` returns stranded
     claims to holding. A report with a claim is not released again until then.
+
+    Not safe against two releases of the same report at the same moment: claiming is a
+    copy and a delete on a plain mapping, not an atomic move, so one interleaving
+    leaves a claim on a report the other release already sent, and the next
+    :func:`recover_claimed` sends it again. Serialise releases of one report.
     """
     if (sink is None) == (resolve_sink is None):
         raise ValueError("pass exactly one of sink= or resolve_sink=")
@@ -194,7 +202,9 @@ def release_held(
         # Usually a concurrent release took it first, and its claim is the one that
         # counts. But if no other claim exists the delete may have happened anyway
         # (stores that report errors after acting): keep ours, so it is not lost.
-        others = set(_claim_keys_of(report_id, claims, own_prefix=claimed_store is None))
+        others = set(
+            _claim_keys_of(report_id, claims, own_prefix=claimed_store is None)
+        )
         if report_id in holding_store or others - {claim_key}:
             _drop_claim(claims, claim_key)
             raise KeyError(f"No held report with id {report_id!r}") from None
@@ -223,6 +233,35 @@ def release_held(
     else:
         _unclaim(report_id, raw, holding_store, claims, claim_key)
     return result
+
+
+def discard_held(
+    report_id: str,
+    *,
+    holding_store: MutableMapping[str, str],
+    attachment_store: MutableMapping | None = None,
+) -> None:
+    """Delete a held report for good, with its attachments (e.g. a screenshot).
+
+    The attachments go first, so a crash in between leaves a report that can simply be
+    discarded again; an attachment already gone is not an error. Raises ``KeyError``
+    when ``report_id`` is not held. A report whose text no longer parses is still
+    deleted, but its attachments cannot be named and are left.
+    """
+    if report_id.startswith(CLAIM_PREFIX):
+        raise ValueError(f"{report_id!r} is a claim, not a held report")
+    raw = holding_store[report_id]
+    try:
+        refs = [a.ref for a in Report.model_validate_json(raw).attachments]
+    except ValueError:
+        logger.warning(
+            "heed: held report %s does not parse; its attachments are left", report_id
+        )
+        refs = []
+    if attachment_store is not None:
+        for ref in refs:
+            attachment_store.pop(ref, None)
+    del holding_store[report_id]
 
 
 def recover_claimed(
