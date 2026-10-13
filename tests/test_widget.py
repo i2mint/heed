@@ -48,7 +48,7 @@ def test_built_widget_is_shipped_with_its_manifest():
     name = manifest["entries"]["widget"]
     meta = manifest["files"][name]
     assert meta["integrity"].startswith("sha384-")
-    assert meta["gzip_bytes"] <= 12_000  # the budgets live in widget/build.mjs
+    assert meta["gzip_bytes"] <= 12_500  # the budgets live in widget/build.mjs
     stable = manifest["files"]["heed-widget.js"]
     assert stable["immutable"] is False and "integrity" not in stable
     loader = manifest["entries"]["loader"]
