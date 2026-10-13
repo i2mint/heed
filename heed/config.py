@@ -59,6 +59,13 @@ class HeedConfig:
     # A hidden form field humans leave empty; a filled one is silently dropped.
     honeypot_field: str | None = "hp_website"
 
+    # --- Serving stored screenshots (serving.py) -----------------------------------
+    # HMAC key for signed attachment URLs; without one the route refuses to build.
+    attachment_signing_key: str | None = field(default=None, repr=False)
+    attachment_url_ttl_seconds: int | None = None  # None: URLs do not expire
+    # Hostnames the attachment route answers on: a dedicated origin, not the app's.
+    attachment_hosts: list[str] | None = None
+
     # --- Capture policy -------------------------------------------------------------
     accept_console: bool = False  # opt-in heavy capture (privacy by default)
     accept_network: bool = False
