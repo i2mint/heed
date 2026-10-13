@@ -41,6 +41,7 @@ from heed.base import (
     utcnow,
 )
 from heed.config import HeedConfig
+from heed.routing import Moderator, SinkResolver, Verdict, accept_all
 from heed.security import (
     IMAGE_EXTENSIONS,
     BotVerifier,
@@ -78,12 +79,16 @@ def process_submission(
     config: Optional[HeedConfig] = None,
     id_gen: Callable[[], str] = new_report_id,
     clock: Callable[[], Any] = utcnow,
+    moderator: Moderator = accept_all,
+    holding_sink: Optional[Sink] = None,
 ) -> tuple[Report, SinkResult]:
     """Enrich ``submission`` into a Report, store any screenshot, and route to ``sink``.
 
     Returns the (report, sink-result) pair. The server owns id/created_at/identity/
-    origin/status — never the client. Opt-in capture (console/network) is dropped unless
-    enabled in ``config``.
+    origin/status — never the client. Opt-in capture (console/network) is dropped
+    unless enabled in ``config``. ``moderator`` decides first: ``hold`` sends the report
+    (status ``held``) to ``holding_sink`` instead, ``reject`` drops it (status
+    ``declined``).
     """
     config = config or HeedConfig()
     report_id = id_gen()
@@ -112,8 +117,29 @@ def process_submission(
         origin=origin,
         status=Status.received,
     )
-    result = sink.submit(report)
-    return report, result
+    verdict = _moderate(moderator, report)
+    if verdict is Verdict.reject:
+        for attachment in attachments:  # a rejected report keeps nothing
+            attachment_store.pop(attachment.ref, None)
+        report = report.model_copy(
+            update={"status": Status.declined, "attachments": []}
+        )
+        return report, SinkResult(ok=True, detail="rejected by moderation")
+    if verdict is Verdict.hold:
+        if holding_sink is None:
+            raise ValueError("moderator returned 'hold' but no holding_sink was given")
+        report = report.model_copy(update={"status": Status.held})
+        return report, holding_sink.submit(report)
+    return report, sink.submit(report)
+
+
+def _moderate(moderator: Moderator, report: Report) -> Verdict:
+    """Run ``moderator``; a crash or an invalid answer holds the report (fail safe)."""
+    try:
+        return Verdict(moderator(report))
+    except Exception:  # noqa: BLE001 - operator code must not 500 the endpoint
+        logger.exception("heed: moderator failed; holding report %s", report.id)
+        return Verdict.hold
 
 
 def _build_submission(
@@ -214,7 +240,7 @@ _OPENAPI_REQUEST_BODY = {
 
 
 def make_router(
-    sink: Sink,
+    sink: Optional[Sink],
     *,
     config: Optional[HeedConfig] = None,
     attachment_store: Optional[MutableMapping] = None,
@@ -222,6 +248,9 @@ def make_router(
     origin_rate_limiter: Optional[RateLimiter] = None,
     bot_verifier: Optional[BotVerifier] = None,
     user_dependency: Optional[Callable[..., Any]] = None,
+    resolve_sink: Optional[SinkResolver] = None,
+    moderator: Optional[Moderator] = None,
+    holding_sink: Optional[Sink] = None,
 ) -> APIRouter:
     """Build a FastAPI APIRouter exposing ``POST /report`` (and its CORS preflight).
 
@@ -233,8 +262,39 @@ def make_router(
     ``rate_limiter`` (per client IP), ``origin_rate_limiter`` (per Origin) and
     ``bot_verifier`` (by default built from ``config.bot_secret``, i.e. off until a
     secret is configured).
+
+    Routing is decided server-side, never by the browser: ``resolve_sink`` maps the
+    validated origin to that site's sink (``sink`` is then the fallback and may be
+    None; an origin resolving to no sink gets 403). ``moderator`` may hold reports in
+    ``holding_sink`` (required with a moderator) or reject them; see ``routing.py``.
     """
     cfg = config or HeedConfig()
+    if sink is None and resolve_sink is None:
+        raise ValueError("make_router needs a sink, a resolve_sink, or both")
+    if moderator is not None and holding_sink is None:
+        raise ValueError(
+            "a moderator needs a holding_sink to park held reports in (a failing "
+            "moderator also holds), e.g. holding_sink=StoreSink(make_report_store("
+            "'held/'))"
+        )
+    if holding_sink is not None and moderator is None:
+        raise ValueError(
+            "holding_sink was given without a moderator, so nothing would ever be "
+            "held; pass moderator=hold_all (or another moderator)"
+        )
+    if resolve_sink is not None and cfg.allowed_origins:
+        unresolved = [o for o in cfg.allowed_origins if resolve_sink(o) is None]
+        if unresolved and sink is None:
+            logger.warning(
+                "heed: allowed origins with no sink (they will get 403): %s",
+                unresolved,
+            )
+
+    def _sink_for(origin: str) -> Optional[Sink]:
+        if resolve_sink is None:
+            return sink
+        resolved = resolve_sink(origin)
+        return resolved if resolved is not None else sink
 
     def _limiter(per_window: int, namespace: str) -> RateLimiter:
         return make_rate_limiter(
@@ -358,8 +418,16 @@ def make_router(
             raise _fail(
                 429, "rate limit exceeded", origin, **{"Retry-After": retry_after}
             )
+        site_sink = _sink_for(origin)
+        if site_sink is None:
+            # Same answer as a disallowed origin (no CORS echo), so a page cannot
+            # probe which sites this backend serves.
+            raise HTTPException(
+                status_code=403, detail="origin not allowed", headers=_RESPONSE_HEADERS
+            )
         request.state.heed_origin = origin
         request.state.heed_ip = ip
+        request.state.heed_sink = site_sink
 
     @router.post(
         "/report",
@@ -376,7 +444,13 @@ def make_router(
         if cfg.honeypot_field and fields.get(cfg.honeypot_field):
             # Look like success so the bot learns nothing; route nowhere.
             return JSONResponse(
-                {"id": new_report_id(), "ok": True, "ref": None, "url": None},
+                {
+                    "id": new_report_id(),
+                    "ok": True,
+                    "ref": None,
+                    "url": None,
+                    "status": Status.received.value,
+                },
                 headers=_cors(origin),
             )
 
@@ -429,20 +503,26 @@ def make_router(
         report, result = await run_in_threadpool(
             process_submission,
             submission,
-            sink,
+            request.state.heed_sink,
             origin=origin,
             user=user,
             screenshot=shot,
             screenshot_media_type=shot_type,
             attachment_store=attachment_store,
             config=cfg,
+            moderator=moderator or accept_all,
+            holding_sink=holding_sink,
         )
+        # A rejected report looks received, like a honeypot hit; a held one says so,
+        # so the widget can tell a real visitor their report awaits review.
+        held = report.status is Status.held
         return JSONResponse(
             {
                 "id": report.id,
                 "ok": result.ok,
-                "ref": result.external_ref,
-                "url": result.url,
+                "ref": None if held else result.external_ref,
+                "url": None if held else result.url,
+                "status": Status.held.value if held else Status.received.value,
             },
             headers=_cors(origin),
         )
@@ -451,7 +531,7 @@ def make_router(
 
 
 def make_app(
-    sink: Sink,
+    sink: Optional[Sink],
     *,
     config: Optional[HeedConfig] = None,
     attachment_store: Optional[MutableMapping] = None,

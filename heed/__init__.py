@@ -17,6 +17,8 @@ Public API (Phase 1):
     Hardening RateLimiter, InMemoryRateLimiter, RedisRateLimiter, make_rate_limiter,
               BotVerifier, SiteverifyBotVerifier, make_bot_verifier
               (see misc/docs/embedding-security.md)
+    Routing   sinks_by_origin, Verdict, accept_all, hold_all,
+              make_heuristic_moderator, chain_moderators, release_held
     Storage   make_report_store, make_attachment_store
 
 Example:
@@ -43,6 +45,15 @@ from heed.base import (
 )
 from heed.config import HeedConfig
 from heed.ingest import make_app, make_router, process_submission
+from heed.routing import (
+    Verdict,
+    accept_all,
+    chain_moderators,
+    hold_all,
+    make_heuristic_moderator,
+    release_held,
+    sinks_by_origin,
+)
 from heed.security import (
     BotVerifier,
     InMemoryRateLimiter,
@@ -97,6 +108,14 @@ __all__ = [
     "BotVerifier",
     "SiteverifyBotVerifier",
     "make_bot_verifier",
+    # routing (site resolution + moderation)
+    "sinks_by_origin",
+    "Verdict",
+    "accept_all",
+    "hold_all",
+    "make_heuristic_moderator",
+    "chain_moderators",
+    "release_held",
     # storage
     "make_report_store",
     "make_attachment_store",

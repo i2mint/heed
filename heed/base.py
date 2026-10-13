@@ -126,6 +126,7 @@ class Status(str, Enum):
     """Lifecycle of a report (flattened; see misc/docs/design.md for the full map)."""
 
     received = "received"
+    held = "held"  # parked by moderation until a human releases it
     triaged = "triaged"
     planned = "planned"
     started = "started"
