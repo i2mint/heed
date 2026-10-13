@@ -25,6 +25,7 @@
       make_heuristic_moderator
       chain_moderators
       release_held
+      recover_claimed
       make_report_store
       make_attachment_store
    

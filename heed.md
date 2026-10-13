@@ -1,4 +1,4 @@
-> built 2026-10-13 04:56 UTC from 4fff6c8 (main) · heed 0.0.1. Details: build_info.json
+> built 2026-10-13 05:42 UTC from ce26c19 (main) · heed 0.0.1. Details: build_info.json
 
 # index.html.md
 
@@ -308,7 +308,8 @@ Public API (Phase 1):
   > (see misc/docs/embedding-security.md)
   <br/>
   Routing   sinks_by_origin, Verdict, accept_all, hold_all,
-  : make_heuristic_moderator, chain_moderators, release_held
+  : make_heuristic_moderator, chain_moderators, release_held,
+    recover_claimed
   <br/>
   Storage   make_report_store, make_attachment_store
 
@@ -344,6 +345,7 @@ True
 | [`make_heuristic_moderator`](_autosummary/heed.html.md#heed.make_heuristic_moderator)(\*[, max_links, ...])     | Hold reports with more than `max_links` links or any of `blocked_terms`.      |
 | [`chain_moderators`](_autosummary/heed.html.md#heed.chain_moderators)(\*moderators)                     | Combine moderators; the most severe verdict wins (reject > hold > accept).    |
 | [`release_held`](_autosummary/heed.html.md#heed.release_held)(report_id, \*, holding_store[, ...])  | Release a held report: route it on and remove it from holding.                |
+| [`recover_claimed`](_autosummary/heed.html.md#heed.recover_claimed)(\*, holding_store[, ...])          | Return every claimed report to holding, and the ids returned.                 |
 | [`make_report_store`](_autosummary/heed.html.md#heed.make_report_store)([rootdir])                       | A text store for report JSON.                                                 |
 | [`make_attachment_store`](_autosummary/heed.html.md#heed.make_attachment_store)([rootdir])                   | A bytes store for attachments.                                                |
 
@@ -765,6 +767,25 @@ unless enabled in `config`. `moderator` decides first: `hold` sends the report
 * **Return type:**
   [`tuple`](https://docs.python.org/3/builtins/stdtypes.html#tuple)[[`Report`](_autosummary/heed.base.html.md#heed.base.Report), [`SinkResult`](_autosummary/heed.sinks.base.html.md#heed.sinks.base.SinkResult)]
 
+### heed.recover_claimed(, holding_store, claimed_store=None)
+
+Return every claimed report to holding, and the ids returned.
+
+A claim outlives its [`release_held()`](_autosummary/heed.html.md#heed.release_held) only if the process died mid-release
+(the sink may or may not have accepted the report, so a recovered report may be
+sent twice – never zero times). Call this when no release is running – e.g. at
+startup – since an in-flight release’s claim looks the same. Pass the same
+`claimed_store` as to [`release_held()`](_autosummary/heed.html.md#heed.release_held).
+
+Only a valid report (whose own id matches its claim key) is ever written to
+holding, and a valid holding copy is never replaced: a claim whose report is
+intact in holding is just dropped (even a torn one), and one whose holding copy
+is torn or missing restores it. Otherwise a claim that is not a valid report is
+left in place, and not returned.
+
+* **Return type:**
+  [`list`](https://docs.python.org/3/builtins/stdtypes.html#list)[[`str`](https://docs.python.org/3/builtins/stdtypes.html#str)]
+
 ### heed.reencode_image(data, media_type, , max_pixels=25000000)
 
 Strip `data`, then decode it and save its first frame afresh, same format.
@@ -777,15 +798,23 @@ malformed, oversized or too costly image.
 * **Return type:**
   [`bytes`](https://docs.python.org/3/builtins/stdtypes.html#bytes)
 
-### heed.release_held(report_id, , holding_store, sink=None, resolve_sink=None)
+### heed.release_held(report_id, , holding_store, sink=None, resolve_sink=None, claimed_store=None)
 
 Release a held report: route it on and remove it from holding.
 
 `holding_store` is the store behind the holding sink (a `StoreSink`’s
 `.store`). The destination is `sink`, or — for a multi-site backend — the sink
-`resolve_sink` gives for the report’s own origin (pass exactly one). The report
-is claimed (popped) before submitting, so two concurrent releases cannot both
-send it, and it is put back if the sink fails, so a failed release can be retried.
+`resolve_sink` gives for the report’s own origin (pass exactly one).
+
+The report is claimed before submitting, so a second release while the first is in
+flight finds nothing to send. Claiming *moves* it: it is written under a claim key
+of its own (`claimed--<id>--<token>` in `holding_store`, or `<id>--<token>`
+in `claimed_store`, a store used for nothing else) and only then deleted from
+holding. If the sink fails the report is put back in holding; a release only ever
+deletes its own claim, and only once the sink has accepted the report or it is
+back in holding. So a crash at any point leaves the report in holding, in the
+claims, or in both – never lost – and [`recover_claimed()`](_autosummary/heed.html.md#heed.recover_claimed) returns stranded
+claims to holding. A report with a claim is not released again until then.
 
 * **Return type:**
   [`SinkResult`](_autosummary/heed.sinks.base.html.md#heed.sinks.base.SinkResult)
@@ -1042,6 +1071,11 @@ Two seams, both decided on the server, never by the browser:
   [`accept_all()`](_autosummary/heed.routing.html.md#heed.routing.accept_all) is the default, [`hold_all()`](_autosummary/heed.routing.html.md#heed.routing.hold_all) gives full pre-moderation, and
   [`make_heuristic_moderator()`](_autosummary/heed.routing.html.md#heed.routing.make_heuristic_moderator) holds link floods and blocked terms.
 
+### Module Attributes
+
+| [`CLAIM_PREFIX`](_autosummary/heed.routing.html.md#heed.routing.CLAIM_PREFIX)   | Prefix of the keys reports are claimed under, in the holding store itself, while they are being released (when no separate `claimed_store` is given).   |
+|-----------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------|
+
 ### Functions
 
 | [`accept_all`](_autosummary/heed.routing.html.md#heed.routing.accept_all)(report)                                | The default moderator: everything goes straight to the sink.                 |
@@ -1050,6 +1084,7 @@ Two seams, both decided on the server, never by the browser:
 | [`fold_text`](_autosummary/heed.routing.html.md#heed.routing.fold_text)(text)                                   | Normalise text for matching: NFKC, drop format chars (zero-width), casefold. |
 | [`hold_all`](_autosummary/heed.routing.html.md#heed.routing.hold_all)(report)                                  | Full pre-moderation: every report waits for a human.                         |
 | [`make_heuristic_moderator`](_autosummary/heed.routing.html.md#heed.routing.make_heuristic_moderator)(\*[, max_links, ...])    | Hold reports with more than `max_links` links or any of `blocked_terms`.     |
+| [`recover_claimed`](_autosummary/heed.routing.html.md#heed.routing.recover_claimed)(\*, holding_store[, ...])         | Return every claimed report to holding, and the ids returned.                |
 | [`release_held`](_autosummary/heed.routing.html.md#heed.routing.release_held)(report_id, \*, holding_store[, ...]) | Release a held report: route it on and remove it from holding.               |
 | [`sinks_by_origin`](_autosummary/heed.routing.html.md#heed.routing.sinks_by_origin)(sinks, \*[, default])             | A resolver from an `{origin: sink}` mapping (origins compared normalized).   |
 
@@ -1057,6 +1092,11 @@ Two seams, both decided on the server, never by the browser:
 
 | [`Verdict`](_autosummary/heed.routing.html.md#heed.routing.Verdict)(\*values)   | A moderator's decision about one report.   |
 |----------------------------------------------------------------------|--------------------------------------------|
+
+### heed.routing.CLAIM_PREFIX *= 'claimed--'*
+
+Prefix of the keys reports are claimed under, in the holding store itself, while
+they are being released (when no separate `claimed_store` is given).
 
 ### *class* heed.routing.Verdict(\*values)
 
@@ -1118,15 +1158,42 @@ false positive costs a human click, not a lost report.
 ['accept', 'hold', 'hold']
 ```
 
-### heed.routing.release_held(report_id, , holding_store, sink=None, resolve_sink=None)
+### heed.routing.recover_claimed(, holding_store, claimed_store=None)
+
+Return every claimed report to holding, and the ids returned.
+
+A claim outlives its [`release_held()`](_autosummary/heed.routing.html.md#heed.routing.release_held) only if the process died mid-release
+(the sink may or may not have accepted the report, so a recovered report may be
+sent twice – never zero times). Call this when no release is running – e.g. at
+startup – since an in-flight release’s claim looks the same. Pass the same
+`claimed_store` as to [`release_held()`](_autosummary/heed.routing.html.md#heed.routing.release_held).
+
+Only a valid report (whose own id matches its claim key) is ever written to
+holding, and a valid holding copy is never replaced: a claim whose report is
+intact in holding is just dropped (even a torn one), and one whose holding copy
+is torn or missing restores it. Otherwise a claim that is not a valid report is
+left in place, and not returned.
+
+* **Return type:**
+  [`list`](https://docs.python.org/3/builtins/stdtypes.html#list)[[`str`](https://docs.python.org/3/builtins/stdtypes.html#str)]
+
+### heed.routing.release_held(report_id, , holding_store, sink=None, resolve_sink=None, claimed_store=None)
 
 Release a held report: route it on and remove it from holding.
 
 `holding_store` is the store behind the holding sink (a `StoreSink`’s
 `.store`). The destination is `sink`, or — for a multi-site backend — the sink
-`resolve_sink` gives for the report’s own origin (pass exactly one). The report
-is claimed (popped) before submitting, so two concurrent releases cannot both
-send it, and it is put back if the sink fails, so a failed release can be retried.
+`resolve_sink` gives for the report’s own origin (pass exactly one).
+
+The report is claimed before submitting, so a second release while the first is in
+flight finds nothing to send. Claiming *moves* it: it is written under a claim key
+of its own (`claimed--<id>--<token>` in `holding_store`, or `<id>--<token>`
+in `claimed_store`, a store used for nothing else) and only then deleted from
+holding. If the sink fails the report is put back in holding; a release only ever
+deletes its own claim, and only once the sink has accepted the report or it is
+back in holding. So a crash at any point leaves the report in holding, in the
+claims, or in both – never lost – and [`recover_claimed()`](_autosummary/heed.routing.html.md#heed.routing.recover_claimed) returns stranded
+claims to holding. A report with a claim is not released again until then.
 
 * **Return type:**
   [`SinkResult`](_autosummary/heed.sinks.base.html.md#heed.sinks.base.SinkResult)
@@ -1716,7 +1783,7 @@ A text store for report JSON. In-memory unless `rootdir` is given.
 
 # About this build
 
-This documentation was built on **2026-10-13 04:56 UTC** from commit <a href="https://github.com/i2mint/heed/commit/4fff6c88bfc4d74c000ced6046e429d5fb56b7b2"><code>4fff6c8</code></a> on branch <code>main</code>, for **heed 0.0.1** (from <code>pyproject.toml</code>).
+This documentation was built on **2026-10-13 05:42 UTC** from commit <a href="https://github.com/i2mint/heed/commit/ce26c19af9a007908f7e00e0c80687ffb93e23dc"><code>ce26c19</code></a> on branch <code>main</code>, for **heed 0.0.1** (from <code>pyproject.toml</code>).
 
 #### WARNING
 The documentation and the package may be misaligned:
@@ -1727,7 +1794,7 @@ The documentation and the package may be misaligned:
 
 |                     |                                                                                                                                                    |
 |---------------------|----------------------------------------------------------------------------------------------------------------------------------------------------|
-| Commit              | <a href="https://github.com/i2mint/heed/commit/4fff6c88bfc4d74c000ced6046e429d5fb56b7b2"><code>4fff6c88bfc4d74c000ced6046e429d5fb56b7b2</code></a> |
+| Commit              | <a href="https://github.com/i2mint/heed/commit/ce26c19af9a007908f7e00e0c80687ffb93e23dc"><code>ce26c19af9a007908f7e00e0c80687ffb93e23dc</code></a> |
 | Branch              | <code>main</code>                                                                                                                                  |
 | Tags at this commit | none                                                                                                                                               |
 | Working tree        | clean                                                                                                                                              |
@@ -1738,9 +1805,9 @@ The documentation and the package may be misaligned:
 |              |                                                                                            |
 |--------------|--------------------------------------------------------------------------------------------|
 | Repository   | <code>i2mint/heed</code>                                                                   |
-| Run          | <a href="https://github.com/i2mint/heed/actions/runs/38348740029">38348740029</a>          |
+| Run          | <a href="https://github.com/i2mint/heed/actions/runs/38352630021">38352630021</a>          |
 | Ref          | <code>refs/heads/main</code>                                                               |
-| Event commit | <code>4fff6c88bfc4d74c000ced6046e429d5fb56b7b2</code> (in the history of the built commit) |
+| Event commit | <code>ce26c19af9a007908f7e00e0c80687ffb93e23dc</code> (in the history of the built commit) |
 
 ## Tools
 
@@ -1771,7 +1838,7 @@ Latest release: <a href="https://pypi.org/project/heed/0.1.0/">0.1.0</a>, newer 
 
 ```bash
 git clone https://github.com/i2mint/heed && cd heed
-git checkout 4fff6c88bfc4d74c000ced6046e429d5fb56b7b2
+git checkout ce26c19af9a007908f7e00e0c80687ffb93e23dc
 pip install "epythet==0.2.13"
 epythet quickstart . --ignore tests/ scrap/ examples/
 ```

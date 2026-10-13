@@ -4,6 +4,12 @@ heed.routing
 .. automodule:: heed.routing
 
    
+   .. rubric:: Module Attributes
+
+   .. autosummary::
+   
+      CLAIM_PREFIX
+   
    .. rubric:: Functions
 
    .. autosummary::
@@ -13,6 +19,7 @@ heed.routing
       fold_text
       hold_all
       make_heuristic_moderator
+      recover_claimed
       release_held
       sinks_by_origin
    

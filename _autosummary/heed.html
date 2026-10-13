@@ -418,7 +418,8 @@ make_image_sanitizer, strip_image, reencode_image, attachment_headers
 (see misc/docs/embedding-security.md)</p>
 </div></blockquote>
 <dl class="simple">
-<dt>Routing   sinks_by_origin, Verdict, accept_all, hold_all,</dt><dd><p>make_heuristic_moderator, chain_moderators, release_held</p>
+<dt>Routing   sinks_by_origin, Verdict, accept_all, hold_all,</dt><dd><p>make_heuristic_moderator, chain_moderators, release_held,
+recover_claimed</p>
 </dd>
 </dl>
 <p>Storage   make_report_store, make_attachment_store</p>
@@ -488,10 +489,13 @@ make_image_sanitizer, strip_image, reencode_image, attachment_headers
 <tr class="row-odd"><td><p><a class="reference internal" href="#heed.release_held" title="heed.release_held"><code class="xref py py-obj docutils literal notranslate"><span class="pre">release_held</span></code></a>(report_id, *, holding_store[, ...])</p></td>
 <td><p>Release a held report: route it on and remove it from holding.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#heed.make_report_store" title="heed.make_report_store"><code class="xref py py-obj docutils literal notranslate"><span class="pre">make_report_store</span></code></a>([rootdir])</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#heed.recover_claimed" title="heed.recover_claimed"><code class="xref py py-obj docutils literal notranslate"><span class="pre">recover_claimed</span></code></a>(*, holding_store[, ...])</p></td>
+<td><p>Return every claimed report to holding, and the ids returned.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#heed.make_report_store" title="heed.make_report_store"><code class="xref py py-obj docutils literal notranslate"><span class="pre">make_report_store</span></code></a>([rootdir])</p></td>
 <td><p>A text store for report JSON.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#heed.make_attachment_store" title="heed.make_attachment_store"><code class="xref py py-obj docutils literal notranslate"><span class="pre">make_attachment_store</span></code></a>([rootdir])</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#heed.make_attachment_store" title="heed.make_attachment_store"><code class="xref py py-obj docutils literal notranslate"><span class="pre">make_attachment_store</span></code></a>([rootdir])</p></td>
 <td><p>A bytes store for attachments.</p></td>
 </tr>
 </tbody>
@@ -1088,6 +1092,27 @@ unless enabled in <code class="docutils literal notranslate"><span class="pre">c
 </dd></dl>
 
 <dl class="py function">
+<dt class="sig sig-object py" id="heed.recover_claimed">
+<span class="sig-prename descclassname"><span class="pre">heed.</span></span><span class="sig-name descname"><span class="pre">recover_claimed</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">holding_store</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">claimed_store</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/routing.html#recover_claimed"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.recover_claimed" title="Link to this definition">#</a></dt>
+<dd><p>Return every claimed report to holding, and the ids returned.</p>
+<p>A claim outlives its <a class="reference internal" href="#heed.release_held" title="heed.release_held"><code class="xref py py-func docutils literal notranslate"><span class="pre">release_held()</span></code></a> only if the process died mid-release
+(the sink may or may not have accepted the report, so a recovered report may be
+sent twice – never zero times). Call this when no release is running – e.g. at
+startup – since an in-flight release’s claim looks the same. Pass the same
+<code class="docutils literal notranslate"><span class="pre">claimed_store</span></code> as to <a class="reference internal" href="#heed.release_held" title="heed.release_held"><code class="xref py py-func docutils literal notranslate"><span class="pre">release_held()</span></code></a>.</p>
+<p>Only a valid report (whose own id matches its claim key) is ever written to
+holding, and a valid holding copy is never replaced: a claim whose report is
+intact in holding is just dropped (even a torn one), and one whose holding copy
+is torn or missing restores it. Otherwise a claim that is not a valid report is
+left in place, and not returned.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a>[<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>]</span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
 <dt class="sig sig-object py" id="heed.reencode_image">
 <span class="sig-prename descclassname"><span class="pre">heed.</span></span><span class="sig-name descname"><span class="pre">reencode_image</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">media_type</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_pixels</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">25000000</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/images.html#reencode_image"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.reencode_image" title="Link to this definition">#</a></dt>
 <dd><p>Strip <code class="docutils literal notranslate"><span class="pre">data</span></code>, then decode it and save its first frame afresh, same format.</p>
@@ -1104,13 +1129,20 @@ malformed, oversized or too costly image.</p>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="heed.release_held">
-<span class="sig-prename descclassname"><span class="pre">heed.</span></span><span class="sig-name descname"><span class="pre">release_held</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">report_id</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">holding_store</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sink</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">resolve_sink</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/routing.html#release_held"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.release_held" title="Link to this definition">#</a></dt>
+<span class="sig-prename descclassname"><span class="pre">heed.</span></span><span class="sig-name descname"><span class="pre">release_held</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">report_id</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">holding_store</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sink</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">resolve_sink</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">claimed_store</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/routing.html#release_held"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.release_held" title="Link to this definition">#</a></dt>
 <dd><p>Release a held report: route it on and remove it from holding.</p>
 <p><code class="docutils literal notranslate"><span class="pre">holding_store</span></code> is the store behind the holding sink (a <code class="docutils literal notranslate"><span class="pre">StoreSink</span></code>’s
 <code class="docutils literal notranslate"><span class="pre">.store</span></code>). The destination is <code class="docutils literal notranslate"><span class="pre">sink</span></code>, or — for a multi-site backend — the sink
-<code class="docutils literal notranslate"><span class="pre">resolve_sink</span></code> gives for the report’s own origin (pass exactly one). The report
-is claimed (popped) before submitting, so two concurrent releases cannot both
-send it, and it is put back if the sink fails, so a failed release can be retried.</p>
+<code class="docutils literal notranslate"><span class="pre">resolve_sink</span></code> gives for the report’s own origin (pass exactly one).</p>
+<p>The report is claimed before submitting, so a second release while the first is in
+flight finds nothing to send. Claiming <em>moves</em> it: it is written under a claim key
+of its own (<code class="docutils literal notranslate"><span class="pre">claimed--&lt;id&gt;--&lt;token&gt;</span></code> in <code class="docutils literal notranslate"><span class="pre">holding_store</span></code>, or <code class="docutils literal notranslate"><span class="pre">&lt;id&gt;--&lt;token&gt;</span></code>
+in <code class="docutils literal notranslate"><span class="pre">claimed_store</span></code>, a store used for nothing else) and only then deleted from
+holding. If the sink fails the report is put back in holding; a release only ever
+deletes its own claim, and only once the sink has accepted the report or it is
+back in holding. So a crash at any point leaves the report in holding, in the
+claims, or in both – never lost – and <a class="reference internal" href="#heed.recover_claimed" title="heed.recover_claimed"><code class="xref py py-func docutils literal notranslate"><span class="pre">recover_claimed()</span></code></a> returns stranded
+claims to holding. A report with a claim is not released again until then.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference internal" href="heed.sinks.base.html#heed.sinks.base.SinkResult" title="heed.sinks.base.SinkResult"><code class="xref py py-class docutils literal notranslate"><span class="pre">SinkResult</span></code></a></span></p>
@@ -1304,6 +1336,7 @@ one too costly to decode (over <code class="docutils literal notranslate"><span 
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.make_router"><code class="docutils literal notranslate"><span class="pre">make_router()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.new_report_id"><code class="docutils literal notranslate"><span class="pre">new_report_id()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.process_submission"><code class="docutils literal notranslate"><span class="pre">process_submission()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.recover_claimed"><code class="docutils literal notranslate"><span class="pre">recover_claimed()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.reencode_image"><code class="docutils literal notranslate"><span class="pre">reencode_image()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.release_held"><code class="docutils literal notranslate"><span class="pre">release_held()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.sinks_by_origin"><code class="docutils literal notranslate"><span class="pre">sinks_by_origin()</span></code></a></li>

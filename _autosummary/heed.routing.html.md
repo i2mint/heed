@@ -15,6 +15,11 @@ Two seams, both decided on the server, never by the browser:
   [`accept_all()`](#heed.routing.accept_all) is the default, [`hold_all()`](#heed.routing.hold_all) gives full pre-moderation, and
   [`make_heuristic_moderator()`](#heed.routing.make_heuristic_moderator) holds link floods and blocked terms.
 
+### Module Attributes
+
+| [`CLAIM_PREFIX`](#heed.routing.CLAIM_PREFIX)   | Prefix of the keys reports are claimed under, in the holding store itself, while they are being released (when no separate `claimed_store` is given).   |
+|-----------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------|
+
 ### Functions
 
 | [`accept_all`](#heed.routing.accept_all)(report)                                | The default moderator: everything goes straight to the sink.                 |
@@ -23,6 +28,7 @@ Two seams, both decided on the server, never by the browser:
 | [`fold_text`](#heed.routing.fold_text)(text)                                   | Normalise text for matching: NFKC, drop format chars (zero-width), casefold. |
 | [`hold_all`](#heed.routing.hold_all)(report)                                  | Full pre-moderation: every report waits for a human.                         |
 | [`make_heuristic_moderator`](#heed.routing.make_heuristic_moderator)(\*[, max_links, ...])    | Hold reports with more than `max_links` links or any of `blocked_terms`.     |
+| [`recover_claimed`](#heed.routing.recover_claimed)(\*, holding_store[, ...])         | Return every claimed report to holding, and the ids returned.                |
 | [`release_held`](#heed.routing.release_held)(report_id, \*, holding_store[, ...]) | Release a held report: route it on and remove it from holding.               |
 | [`sinks_by_origin`](#heed.routing.sinks_by_origin)(sinks, \*[, default])             | A resolver from an `{origin: sink}` mapping (origins compared normalized).   |
 
@@ -30,6 +36,11 @@ Two seams, both decided on the server, never by the browser:
 
 | [`Verdict`](#heed.routing.Verdict)(\*values)   | A moderator's decision about one report.   |
 |----------------------------------------------------------------------|--------------------------------------------|
+
+### heed.routing.CLAIM_PREFIX *= 'claimed--'*
+
+Prefix of the keys reports are claimed under, in the holding store itself, while
+they are being released (when no separate `claimed_store` is given).
 
 ### *class* heed.routing.Verdict(\*values)
 
@@ -91,15 +102,42 @@ false positive costs a human click, not a lost report.
 ['accept', 'hold', 'hold']
 ```
 
-### heed.routing.release_held(report_id, , holding_store, sink=None, resolve_sink=None)
+### heed.routing.recover_claimed(, holding_store, claimed_store=None)
+
+Return every claimed report to holding, and the ids returned.
+
+A claim outlives its [`release_held()`](#heed.routing.release_held) only if the process died mid-release
+(the sink may or may not have accepted the report, so a recovered report may be
+sent twice – never zero times). Call this when no release is running – e.g. at
+startup – since an in-flight release’s claim looks the same. Pass the same
+`claimed_store` as to [`release_held()`](#heed.routing.release_held).
+
+Only a valid report (whose own id matches its claim key) is ever written to
+holding, and a valid holding copy is never replaced: a claim whose report is
+intact in holding is just dropped (even a torn one), and one whose holding copy
+is torn or missing restores it. Otherwise a claim that is not a valid report is
+left in place, and not returned.
+
+* **Return type:**
+  [`list`](https://docs.python.org/3/builtins/stdtypes.html#list)[[`str`](https://docs.python.org/3/builtins/stdtypes.html#str)]
+
+### heed.routing.release_held(report_id, , holding_store, sink=None, resolve_sink=None, claimed_store=None)
 
 Release a held report: route it on and remove it from holding.
 
 `holding_store` is the store behind the holding sink (a `StoreSink`’s
 `.store`). The destination is `sink`, or — for a multi-site backend — the sink
-`resolve_sink` gives for the report’s own origin (pass exactly one). The report
-is claimed (popped) before submitting, so two concurrent releases cannot both
-send it, and it is put back if the sink fails, so a failed release can be retried.
+`resolve_sink` gives for the report’s own origin (pass exactly one).
+
+The report is claimed before submitting, so a second release while the first is in
+flight finds nothing to send. Claiming *moves* it: it is written under a claim key
+of its own (`claimed--<id>--<token>` in `holding_store`, or `<id>--<token>`
+in `claimed_store`, a store used for nothing else) and only then deleted from
+holding. If the sink fails the report is put back in holding; a release only ever
+deletes its own claim, and only once the sink has accepted the report or it is
+back in holding. So a crash at any point leaves the report in holding, in the
+claims, or in both – never lost – and [`recover_claimed()`](#heed.routing.recover_claimed) returns stranded
+claims to holding. A report with a claim is not released again until then.
 
 * **Return type:**
   [`SinkResult`](heed.sinks.base.html.md#heed.sinks.base.SinkResult)
