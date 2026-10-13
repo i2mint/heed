@@ -352,7 +352,62 @@ describe("<heed-feedback> with a bot gate", () => {
     await vi.waitFor(() => expect(button.disabled).toBe(false));
     expect(fake.api.execute).toHaveBeenCalledTimes(1); // only the first send's challenge
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(root.querySelector(".status.error")!.textContent).toBe("");
+    expect(root.querySelector(".status.error")!.textContent).toContain("too large"); // not silent
+  });
+
+  it("still resends without the screenshot after the dialog closed when no challenge is involved", async () => {
+    scriptsLoad();
+    let answer!: (r: Response) => void;
+    const fetchMock = vi.fn(() => new Promise<Response>((r) => (answer = r)));
+    vi.stubGlobal("fetch", fetchMock);
+    const el = mount({ screenshot: "true" });
+    const root = await withShot(el);
+    (root.querySelector("form") as HTMLFormElement).requestSubmit();
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    el.close();
+    answer(tooLarge());
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+  });
+
+  it("a challenge that times out leaves the bot error on screen, not \"Sending…\"", async () => {
+    (window as unknown as Record<string, unknown>).turnstile = fakeTurnstile(() => {}).api; // never answered
+    scriptsLoad();
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.stubGlobal("fetch", okFetch());
+    const el = mount({ "bot-gate": "turnstile", "bot-sitekey": "SITE", "timeout-ms": "50" });
+    el.open();
+    const root = el.shadowRoot!;
+    (root.querySelector("input[name=title]") as HTMLInputElement).value = "t";
+    (root.querySelector("form") as HTMLFormElement).requestSubmit();
+    await vi.waitFor(() => expect(root.querySelector(".status.error")!.textContent).toContain("confirm you are human"));
+    await new Promise((r) => setTimeout(r, 20));
+    expect(root.querySelector(".status.error")!.textContent).toContain("confirm you are human");
+    expect(root.querySelector(".status")!.textContent).toBe("");
+    expect((root.querySelector("button[type=submit]") as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it("closing while the provider's script still loads cancels the send: no challenge runs", async () => {
+    const fake = fakeTurnstile();
+    (window as unknown as Record<string, unknown>).turnstile = fake.api;
+    let loaded!: () => void;
+    vi.spyOn(document.head, "append").mockImplementation(((s: HTMLScriptElement) => void (loaded = () => s.onload?.(new Event("load")))) as never);
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const fetchMock = okFetch();
+    vi.stubGlobal("fetch", fetchMock);
+    const el = mount({ "bot-gate": "turnstile", "bot-sitekey": "SITE", "timeout-ms": "5000" });
+    el.configure({ botGateScript: "https://gate.test/slow-script.js" }); // not cached by an earlier test
+    el.open();
+    const root = el.shadowRoot!;
+    (root.querySelector("input[name=title]") as HTMLInputElement).value = "t";
+    (root.querySelector("form") as HTMLFormElement).requestSubmit();
+    const button = root.querySelector("button[type=submit]") as HTMLButtonElement;
+    await vi.waitFor(() => expect(button.disabled).toBe(true));
+    el.close();
+    await vi.waitFor(() => expect(button.disabled).toBe(false));
+    loaded(); // the script arrives too late
+    await new Promise((r) => setTimeout(r, 20));
+    expect(fake.api.execute).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("is rebuilt when the sitekey changes and removed with the element", async () => {

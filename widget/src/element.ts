@@ -356,9 +356,9 @@ export class HeedFeedbackElement extends Base {
       };
       const sending = this.#withGate(o);
       outcome = await sendReport(input, sending);
-      if (!outcome.ok && outcome.kind === "too_large" && screenshot) {
-        // The server's cap is lower than ours: the words matter more than the picture.
-        if (!ui.dialog.open) return this.#setStatus("", false); // the visitor left meanwhile: no challenge behind a closed dialog
+      // The server's cap is lower than ours: the words matter more than the picture. A challenge needs the
+      // dialog open, so with a built-in gate and a closed dialog there is no resend (the error below says so).
+      if (!outcome.ok && outcome.kind === "too_large" && screenshot && (ui.dialog.open || !this.#currentGate(o))) {
         // The screenshot check comes after the token is verified, so a second challenge runs;
         // keep saying why the visitor is waiting.
         droppedShot = true;
@@ -456,7 +456,7 @@ export class HeedFeedbackElement extends Base {
         // An interactive challenge waits on the visitor: say so instead of "Sending…".
         const say = (m: string) => ui && this.#setStatus(note ? `${note} ${m}` : m, false);
         say(this.#msgs().gateWaiting);
-        return gate.token().finally(() => say(this.#msgs().sending));
+        return gate.token().then((token) => (say(this.#msgs().sending), token)); // a failure is reported by the send, not here
       },
     };
   }

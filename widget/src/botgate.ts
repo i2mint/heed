@@ -169,14 +169,17 @@ export function createBotGate(win: Window, container: HTMLElement, options: BotG
   };
   return {
     warm,
-    async token() {
-      await warm();
-      if (gone) throw new Error("the bot gate was removed");
+    token() {
       cancel("a newer challenge replaced this one");
+      // Pending from the start, so a cancel() while the script still loads is heard.
       return new Promise<string>((resolve, reject) => {
-        pending = { resolve, reject };
-        provider.run(win, handle, used, callbacks);
-        used = true;
+        const request = { resolve, reject };
+        pending = request;
+        warm().then(() => {
+          if (pending !== request) return; // cancelled, replaced or removed meanwhile: already rejected
+          provider.run(win, handle, used, callbacks);
+          used = true;
+        }).catch((e) => pending === request && (settle()!.reject(e), undefined));
       });
     },
     cancel: () => cancel("the challenge was cancelled"),
