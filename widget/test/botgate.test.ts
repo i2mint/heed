@@ -98,11 +98,25 @@ describe("createBotGate", () => {
     const box = document.createElement("div");
     const gate = createBotGate(window, box, { provider: "turnstile", sitekey: "S", load: loadOk })!;
     expect(box.hidden).toBe(true); // a hidden input inside would otherwise leave a gap in the form
+    gate.token().catch(() => {}); // a challenge being waited on
     await gate.warm();
     const params = fake.params() as Record<string, () => void>;
     params["before-interactive-callback"]();
     expect(box.hidden).toBe(false);
     params["after-interactive-callback"]();
+    expect(box.hidden).toBe(true);
+  });
+
+  it("does not show its box for a challenge nobody is waiting on any more", async () => {
+    const fake = fakeTurnstile(() => {});
+    (window as unknown as Record<string, unknown>).turnstile = fake.api;
+    const box = document.createElement("div");
+    const gate = createBotGate(window, box, { provider: "turnstile", sitekey: "S", load: loadOk })!;
+    const t = gate.token();
+    t.catch(() => {});
+    await vi.waitFor(() => expect(fake.api.execute).toHaveBeenCalled());
+    gate.cancel();
+    (fake.params() as Record<string, () => void>)["before-interactive-callback"]();
     expect(box.hidden).toBe(true);
   });
 
@@ -135,6 +149,7 @@ describe("createBotGate", () => {
     };
     const box = document.createElement("div");
     const gate = createBotGate(window, box, { provider: "hcaptcha", sitekey: "S", load: loadOk })!;
+    gate.token().catch(() => {});
     await gate.warm();
     expect(seen[0]["challenge-container"]).toBe(box);
     (seen[0]["open-callback"] as () => void)();

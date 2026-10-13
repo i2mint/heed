@@ -140,7 +140,7 @@ export function createBotGate(win: Window, container: HTMLElement, options: BotG
     // The request is settled (and forgotten) at once: a later cancel() must not touch a send that has its token.
     onToken: (t) => settle()?.resolve(t),
     onError: (code) => settle()?.reject(new Error(`challenge failed: ${code}`)),
-    onInteractive: (on) => (container.hidden = !on),
+    onInteractive: (on) => (container.hidden = !(on && pending)), // nobody is waiting on a cancelled challenge
   };
   const settle = () => {
     const had = pending;
