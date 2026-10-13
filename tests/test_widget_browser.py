@@ -7,11 +7,15 @@ Skipped when Playwright or its Chromium is not installed.
 """
 
 import json
+import os
+import shutil
 import socket
+import subprocess
 import threading
 import time
 from contextlib import contextmanager
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 
 import pytest
 
@@ -135,20 +139,34 @@ def _open_page(browser, url):
 
 
 @contextmanager
-def _site(browser, *, page=_embed_page, allow_page=True, router_kwargs=None, **config):
+def _site(
+    browser,
+    *,
+    page=_embed_page,
+    allow_page=True,
+    router_kwargs=None,
+    static_dir=None,
+    **config,
+):
     """A page on one origin embedding the widget from a backend on another.
 
     The page server starts first so the backend can allow exactly its origin (or,
-    with ``allow_page=False``, only some other site). Yields (page, console problems,
-    the sink's store, the page origin).
+    with ``allow_page=False``, only some other site). ``static_dir`` serves its ``.js``
+    files beside the page (an app bundle). Yields (page, console problems, the sink's
+    store, the page origin).
     """
     holder: dict = {}
 
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self):
-            body = holder["html"].encode()
+            path = self.path.split("?")[0].lstrip("/")
+            asset = static_dir / path if static_dir and path.endswith(".js") else None
+            if asset is not None and asset.is_file():
+                body, kind = asset.read_bytes(), "text/javascript"
+            else:
+                body, kind = holder["html"].encode(), "text/html; charset=utf-8"
             self.send_response(200)
-            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Type", kind)
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             self.wfile.write(body)
@@ -646,3 +664,81 @@ def test_masked_images_inside_an_iframe_with_mask_inputs_off(browser):
 
     png, _problems = _shot_report(browser, page)
     assert _red_pixels(png) == 0
+
+
+WIDGET_DIR = Path(__file__).resolve().parent.parent / "widget"
+_REACT_APP = """
+import { StrictMode, createElement } from "react";
+import { createRoot } from "react-dom/client";
+import { HeedFeedback } from "heed-widget/react";
+
+createRoot(document.getElementById("root")).render(
+  createElement(StrictMode, null, createElement(HeedFeedback, {
+    endpoint: document.body.dataset.endpoint,
+    label: "React feedback",
+    "data-testid": "feedback",
+    onSubmitted: (report) => { document.title = "sent " + report.status; },
+  })),
+);
+"""
+
+
+@pytest.fixture(scope="module")
+def react_app(tmp_path_factory):
+    """The shipped ES module package (build-lib.mjs), resolved through its
+    ``exports`` map, inside a small React app in StrictMode."""
+    esbuild = WIDGET_DIR / "node_modules" / ".bin" / "esbuild"
+    node = shutil.which("node")
+    if not (node and esbuild.exists()):
+        pytest.skip("needs node and widget/node_modules (npm ci in widget/)")
+    root = tmp_path_factory.mktemp("react-app")
+    package = root / "node_modules" / "heed-widget"
+    subprocess.run(
+        [node, str(WIDGET_DIR / "build-lib.mjs"), str(package / "dist")],
+        check=True,
+        capture_output=True,
+    )
+    shutil.copy(WIDGET_DIR / "package.json", package / "package.json")
+    (root / "main.js").write_text(_REACT_APP)
+    out = root / "out"
+    subprocess.run(
+        [
+            str(esbuild),
+            str(root / "main.js"),
+            "--bundle",
+            "--format=esm",
+            "--splitting",
+            f"--outdir={out}",
+            "--log-level=error",
+        ],
+        check=True,
+        env={**os.environ, "NODE_PATH": str(WIDGET_DIR / "node_modules")},
+    )
+    return out
+
+
+def test_react_wrapper_in_a_bundled_app(browser, react_app):
+    pytest.importorskip("PIL")
+
+    def page(backend):
+        csp = (
+            "default-src 'none'; script-src 'self'; "
+            f"connect-src {backend}; style-src 'unsafe-inline'; img-src data: blob:"
+        )
+        return f"""<!doctype html><html><head><meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="{csp}"><title>react</title></head>
+<body data-endpoint="{backend}/heed/report"><div id="root"></div>
+<script type="module" src="/main.js"></script></body></html>"""
+
+    with _site(browser, page=page, static_dir=react_app) as (tab, problems, store, _o):
+        assert tab.get_by_test_id("feedback").count() == 1  # StrictMode: one element
+        tab.get_by_role("button", name="React feedback").click()
+        # The rasterizer comes from the app's own lazily loaded chunk.
+        tab.get_by_role("img", name="Screenshot to be sent").wait_for(timeout=20_000)
+        tab.get_by_label("Title").fill("from a React app")
+        tab.get_by_role("button", name="Send").click()
+        sync_api.expect(tab).to_have_title("sent received")
+        assert problems == []
+        (saved,) = [json.loads(v) for v in store.values()]
+        assert saved["title"] == "from a React app"
+        assert len(saved["attachments"]) == 1

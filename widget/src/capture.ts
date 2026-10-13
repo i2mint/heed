@@ -7,9 +7,9 @@
  * the SRI hash baked in at build time (the same chain as loader → bundle). Code that
  * bundles heed itself (no `<script>` to locate) passes its own `takeScreenshot`.
  */
-import { CONTRACT } from "./contract.gen";
-import type { ScreenshotTaker } from "./options";
-import type { CaptureOptions, Raster } from "./raster";
+import { CONTRACT } from "./contract.gen.js";
+import type { ScreenshotTaker } from "./options.js";
+import type { CaptureOptions, Raster } from "./raster.js";
 
 declare const __HEED_RASTER__: string;
 declare const __HEED_RASTER_INTEGRITY__: string;
@@ -91,9 +91,19 @@ function scriptUrl(w: HeedGlobals, url: string): string {
   return (w.__heedTT ? w.__heedTT.createScriptURL(url) : url) as string;
 }
 
-/** The built-in strategy: the lazily loaded rasterizer. */
+/** The built-in strategy for the served bundle: the rasterizer file, loaded on first use. */
 export const builtinScreenshot: ScreenshotTaker = async (win, options) =>
   screenshotsAllowed(win.document) ? (await loadRaster(win)).capture(win, options) : null;
+
+let defaultScreenshot: ScreenshotTaker = builtinScreenshot;
+
+/** The strategy used when an element has no `takeScreenshot` of its own. */
+export const screenshotStrategy = (): ScreenshotTaker => defaultScreenshot;
+
+/** Replace the default strategy (lib.ts does, for apps that bundle heed). */
+export function setScreenshotStrategy(take: ScreenshotTaker): void {
+  defaultScreenshot = take;
+}
 
 /**
  * The widget stays well under the server's cap: the server re-encodes JPEGs at a

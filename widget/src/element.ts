@@ -17,7 +17,7 @@
  * The DOM is built with `createElement`, never `innerHTML`, so the widget also runs
  * under a Trusted Types policy.
  */
-import { collectEnvironment, reportPageUrl } from "./env";
+import { collectEnvironment, reportPageUrl } from "./env.js";
 import {
   type BotTokenProvider,
   type Category,
@@ -27,11 +27,11 @@ import {
   cleanOptions,
   defaultOptions,
   optionsFromAttributes,
-} from "./options";
-import { CONTRACT } from "./contract.gen";
-import { MESSAGES, type SubmitOutcome, sendReport } from "./submit";
-import { builtinScreenshot, captureWithin } from "./capture";
-import { applyStyles } from "./styles";
+} from "./options.js";
+import { CONTRACT } from "./contract.gen.js";
+import { MESSAGES, type SubmitOutcome, sendReport } from "./submit.js";
+import { captureWithin, screenshotStrategy } from "./capture.js";
+import { applyStyles } from "./styles.js";
 
 export const TAG = "heed-feedback";
 
@@ -93,7 +93,11 @@ interface Ui {
   doneLink: HTMLAnchorElement;
 }
 
-export class HeedFeedbackElement extends HTMLElement {
+// Importing this module must not fail where there is no DOM (server-side rendering):
+// the class then extends a stand-in and is never registered.
+const Base = (typeof HTMLElement === "undefined" ? class {} : HTMLElement) as typeof HTMLElement;
+
+export class HeedFeedbackElement extends Base {
   static get observedAttributes(): string[] {
     return OPTION_ATTRIBUTES;
   }
@@ -368,7 +372,7 @@ export class HeedFeedbackElement extends HTMLElement {
     shot.settled = new Promise((r) => setTimeout(r, 50))
       .then(() =>
         captureWithin(
-          o.takeScreenshot ?? builtinScreenshot,
+          o.takeScreenshot ?? screenshotStrategy(),
           win,
           { maskInputs: o.maskInputs, maskSelector: o.maskSelector, maxNodes: o.screenshotMaxNodes },
           o.screenshotTimeoutMs,
@@ -439,6 +443,14 @@ function isModal(dialog: HTMLDialogElement): boolean {
 }
 
 /** Register `<heed-feedback>` once (loading the bundle twice is harmless). */
-export function defineHeedElement(registry: CustomElementRegistry = customElements): void {
-  if (!registry.get(TAG)) registry.define(TAG, HeedFeedbackElement);
+export function defineHeedElement(registry?: CustomElementRegistry): void {
+  const reg = registry ?? (typeof customElements === "undefined" ? undefined : customElements);
+  if (!reg) return; // no DOM (server-side rendering)
+  const existing = reg.get(TAG);
+  if (!existing) reg.define(TAG, HeedFeedbackElement);
+  else if (existing !== HeedFeedbackElement) {
+    console.warn(
+      "heed: <heed-feedback> was already defined by another copy of heed (the served script, or another version); that copy is the one in use",
+    );
+  }
 }

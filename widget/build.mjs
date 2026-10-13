@@ -16,6 +16,7 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { gzipSync } from "node:zlib";
+import { licence } from "./licence.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const OUT_DIR = join(here, "..", "heed", "static", "widget");
@@ -28,7 +29,7 @@ const RETAIN_VERSIONS = 5;
 const ENTRIES = {
   // Only ever loaded by the bundle, by its hashed name: no stable name.
   // It bundles modern-screenshot (MIT), whose licence travels inside the file.
-  raster: { src: "src/raster.ts", stem: "heed-raster", stable: false, define: () => ({}), banner: licence("modern-screenshot") },
+  raster: { src: "src/raster-entry.ts", stem: "heed-raster", stable: false, define: () => ({}), banner: licence("modern-screenshot") },
   widget: {
     src: "src/index.ts",
     stem: "heed-widget",
@@ -128,7 +129,3 @@ function compareVersions(a, b) {
   return 0;
 }
 
-function licence(pkgName) {
-  const text = readFileSync(join(here, "node_modules", pkgName, "LICENSE"), "utf8").trim();
-  return `/*! Includes ${pkgName}:\n${text.replaceAll("*/", "* /")}\n*/`;
-}

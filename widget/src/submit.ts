@@ -4,9 +4,9 @@
  * payload caps, honeypot, bot gate, rate limits, moderation) into an outcome the
  * dialog can show. No DOM here, so it is tested without a browser.
  */
-import { CONTRACT } from "./contract.gen";
-import type { EnvironmentPayload } from "./env";
-import type { Category, HeedOptions } from "./options";
+import { CONTRACT } from "./contract.gen.js";
+import type { EnvironmentPayload } from "./env.js";
+import type { Category, HeedOptions } from "./options.js";
 
 const F = CONTRACT.fields;
 const L = CONTRACT.limits;

@@ -1,7 +1,8 @@
 /**
- * The screenshot rasterizer: its own file (`heed-raster-<hash>.js`), loaded only when
- * a visitor opens the widget with screenshots on, so pages that never open it never
- * pay for it.
+ * The screenshot rasterizer. Served as its own file (`heed-raster-<hash>.js`, built
+ * from raster-entry.ts), loaded only when a visitor opens the widget with screenshots
+ * on, so pages that never open it never pay for it; apps that bundle heed import it
+ * lazily instead (lib.ts).
  *
  * It re-renders the visible part of the page from the DOM (modern-screenshot: SVG
  * foreignObject → canvas). That is a re-rendering, not true pixels: cross-origin
@@ -264,7 +265,8 @@ function isBlank(canvas: HTMLCanvasElement): boolean {
   return true;
 }
 
-async function capture(win: Window, o: CaptureOptions): Promise<Blob | null> {
+/** Render the visible page, masked, as a PNG or JPEG under `o.maxBytes` (null if none can be taken). */
+export async function capture(win: Window, o: CaptureOptions): Promise<Blob | null> {
   const doc = win.document;
   let count = 0;
   for (const _ of allElements(doc)) {
@@ -319,4 +321,3 @@ async function capture(win: Window, o: CaptureOptions): Promise<Blob | null> {
   return blob && blob.size <= o.maxBytes ? blob : null;
 }
 
-(window as unknown as { __heedRaster?: Raster }).__heedRaster = { capture };
