@@ -1,0 +1,24 @@
+heed.routing
+============
+
+.. automodule:: heed.routing
+
+   
+   .. rubric:: Functions
+
+   .. autosummary::
+   
+      accept_all
+      chain_moderators
+      fold_text
+      hold_all
+      make_heuristic_moderator
+      release_held
+      sinks_by_origin
+   
+   .. rubric:: Classes
+
+   .. autosummary::
+   
+      Verdict
+   

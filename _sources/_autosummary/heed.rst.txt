@@ -15,6 +15,12 @@
       make_app
       make_rate_limiter
       make_bot_verifier
+      sinks_by_origin
+      accept_all
+      hold_all
+      make_heuristic_moderator
+      chain_moderators
+      release_held
       make_report_store
       make_attachment_store
    
@@ -42,6 +48,7 @@
       RedisRateLimiter
       BotVerifier
       SiteverifyBotVerifier
+      Verdict
    
 .. rubric:: Modules
 
@@ -52,6 +59,7 @@
    base
    config
    ingest
+   routing
    security
    sinks
    storage

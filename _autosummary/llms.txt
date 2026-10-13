@@ -9,6 +9,7 @@
 - [heed.base](heed.base.html.md): Domain model for heed — the single source of truth shared by widget and backend.
 - [heed.config](heed.config.html.md): Configuration for the heed backend (smart defaults; keyword-only).
 - [heed.ingest](heed.ingest.html.md): The ingest layer — build a Report from a submission and route it to a sink.
+- [heed.routing](heed.routing.html.md): Where a report goes: server-side site resolution and moderation (holding state).
 - [heed.security](heed.security.html.md): Public-endpoint hardening (the ingest endpoint is unauthenticated and hostile).
 - [heed.sinks](heed.sinks.html.md): Sinks: pluggable report destinations (strategy pattern).
 - [heed.sinks.base](heed.sinks.base.html.md): The sink abstraction — where a report goes (strategy pattern).

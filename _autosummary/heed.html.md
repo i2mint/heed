@@ -23,6 +23,9 @@ Public API (Phase 1):
   > BotVerifier, SiteverifyBotVerifier, make_bot_verifier
   > (see misc/docs/embedding-security.md)
   <br/>
+  Routing   sinks_by_origin, Verdict, accept_all, hold_all,
+  : make_heuristic_moderator, chain_moderators, release_held
+  <br/>
   Storage   make_report_store, make_attachment_store
 
 ### Example
@@ -47,6 +50,12 @@ True
 | [`make_app`](#heed.make_app)(sink, \*[, config, ...])                 | A standalone FastAPI app serving the heed router under `prefix`.              |
 | [`make_rate_limiter`](#heed.make_rate_limiter)([backend, window_seconds, ...]) | Build a limiter from the `rate_limiter_backends` registry by name.            |
 | [`make_bot_verifier`](#heed.make_bot_verifier)(provider, secret, \*\*kwargs)   | Return a verifier, or `None` (gate off) when no secret is configured.         |
+| [`sinks_by_origin`](#heed.sinks_by_origin)(sinks, \*[, default])             | A resolver from an `{origin: sink}` mapping (origins compared normalized).    |
+| [`accept_all`](#heed.accept_all)(report)                                | The default moderator: everything goes straight to the sink.                  |
+| [`hold_all`](#heed.hold_all)(report)                                  | Full pre-moderation: every report waits for a human.                          |
+| [`make_heuristic_moderator`](#heed.make_heuristic_moderator)(\*[, max_links, ...])    | Hold reports with more than `max_links` links or any of `blocked_terms`.      |
+| [`chain_moderators`](#heed.chain_moderators)(\*moderators)                    | Combine moderators; the most severe verdict wins (reject > hold > accept).    |
+| [`release_held`](#heed.release_held)(report_id, \*, holding_store[, ...]) | Release a held report: route it on and remove it from holding.                |
 | [`make_report_store`](#heed.make_report_store)([rootdir])                      | A text store for report JSON.                                                 |
 | [`make_attachment_store`](#heed.make_attachment_store)([rootdir])                  | A bytes store for attachments.                                                |
 
@@ -73,6 +82,7 @@ True
 | [`RedisRateLimiter`](#heed.RedisRateLimiter)(client, \*[, ...])            | Fixed-window limiter in Redis — one count shared by every worker and host.   |
 | [`BotVerifier`](#heed.BotVerifier)(\*args, \*\*kwargs)                | Verify a human-challenge token server-side; True means "looks human".        |
 | [`SiteverifyBotVerifier`](#heed.SiteverifyBotVerifier)(secret, \*[, ...])       | Turnstile / hCaptcha verification (both speak the same siteverify protocol). |
+| [`Verdict`](#heed.Verdict)(\*values)                              | A moderator's decision about one report.                                     |
 
 ### *class* heed.Attachment(\*\*data)
 
@@ -302,6 +312,26 @@ Cheap title-equality duplicate scan over stored reports.
 * **Return type:**
   [`list`](https://docs.python.org/3/builtins/stdtypes.html#list)[[`DupCandidate`](heed.sinks.base.html.md#heed.sinks.base.DupCandidate)]
 
+### *class* heed.Verdict(\*values)
+
+Bases: [`str`](https://docs.python.org/3/builtins/stdtypes.html#str), [`Enum`](https://docs.python.org/3/library/enum.html#enum.Enum)
+
+A moderator’s decision about one report.
+
+### heed.accept_all(report)
+
+The default moderator: everything goes straight to the sink.
+
+* **Return type:**
+  [`Verdict`](heed.routing.html.md#heed.routing.Verdict)
+
+### heed.chain_moderators(\*moderators)
+
+Combine moderators; the most severe verdict wins (reject > hold > accept).
+
+* **Return type:**
+  [`Callable`](https://docs.python.org/3/library/collections.abc.html#collections.abc.Callable)[[[`Report`](heed.base.html.md#heed.base.Report)], [`Verdict`](heed.routing.html.md#heed.routing.Verdict)]
+
 ### heed.github_sink_from_token(repo, token, \*\*kwargs)
 
 Build a GitHubIssuesSink that creates issues in `repo` (‘owner/name’).
@@ -311,6 +341,13 @@ App installation token or a PAT) — never shipped to the browser.
 
 * **Return type:**
   [`GitHubIssuesSink`](heed.sinks.github.html.md#heed.sinks.github.GitHubIssuesSink)
+
+### heed.hold_all(report)
+
+Full pre-moderation: every report waits for a human.
+
+* **Return type:**
+  [`Verdict`](heed.routing.html.md#heed.routing.Verdict)
 
 ### heed.make_app(sink, , config=None, attachment_store=None, prefix='/heed', \*\*router_kwargs)
 
@@ -335,6 +372,24 @@ Return a verifier, or `None` (gate off) when no secret is configured.
 * **Return type:**
   [`BotVerifier`](heed.security.html.md#heed.security.BotVerifier) | [`None`](https://docs.python.org/3/builtins/constants.html#None)
 
+### heed.make_heuristic_moderator(, max_links=3, blocked_terms=(), on_blocked_term=Verdict.hold)
+
+Hold reports with more than `max_links` links or any of `blocked_terms`.
+
+Cheap, dependency-free spam signals. Holding (not rejecting) is the default so a
+false positive costs a human click, not a lost report.
+
+* **Return type:**
+  [`Callable`](https://docs.python.org/3/library/collections.abc.html#collections.abc.Callable)[[[`Report`](heed.base.html.md#heed.base.Report)], [`Verdict`](heed.routing.html.md#heed.routing.Verdict)]
+
+```pycon
+>>> mod = make_heuristic_moderator(max_links=1, blocked_terms=["casino"])
+>>> from heed.base import Identity
+>>> def r(body): return Report(title="t", body=body, identity=Identity(anon_id="a"))
+>>> [mod(r(b)).value for b in ["ok", "http://a http://b", "best CASINO"]]
+['accept', 'hold', 'hold']
+```
+
 ### heed.make_rate_limiter(backend='memory', , max_per_window, window_seconds=60.0, namespace='ip', redis_url=None)
 
 Build a limiter from the `rate_limiter_backends` registry by name.
@@ -349,7 +404,7 @@ A text store for report JSON. In-memory unless `rootdir` is given.
 * **Return type:**
   [`MutableMapping`](https://docs.python.org/3/library/collections.abc.html#collections.abc.MutableMapping)
 
-### heed.make_router(sink, , config=None, attachment_store=None, rate_limiter=None, origin_rate_limiter=None, bot_verifier=None, user_dependency=None)
+### heed.make_router(sink, , config=None, attachment_store=None, rate_limiter=None, origin_rate_limiter=None, bot_verifier=None, user_dependency=None, resolve_sink=None, moderator=None, holding_sink=None)
 
 Build a FastAPI APIRouter exposing `POST /report` (and its CORS preflight).
 
@@ -362,6 +417,11 @@ Hardening defaults come from `config`; any piece can be injected instead:
 `bot_verifier` (by default built from `config.bot_secret`, i.e. off until a
 secret is configured).
 
+Routing is decided server-side, never by the browser: `resolve_sink` maps the
+validated origin to that site’s sink (`sink` is then the fallback and may be
+None; an origin resolving to no sink gets 403). `moderator` may hold reports in
+`holding_sink` (required with a moderator) or reject them; see `routing.py`.
+
 * **Return type:**
   `APIRouter`
 
@@ -372,16 +432,49 @@ Return a fresh opaque report id (uuid4 hex).
 * **Return type:**
   [`str`](https://docs.python.org/3/builtins/stdtypes.html#str)
 
-### heed.process_submission(submission, sink, \*, origin='', user=None, screenshot=None, screenshot_media_type='image/png', attachment_store=None, config=None, id_gen=<function new_report_id>, clock=<function utcnow>)
+### heed.process_submission(submission, sink, \*, origin='', user=None, screenshot=None, screenshot_media_type='image/png', attachment_store=None, config=None, id_gen=<function new_report_id>, clock=<function utcnow>, moderator=<function accept_all>, holding_sink=None)
 
 Enrich `submission` into a Report, store any screenshot, and route to `sink`.
 
 Returns the (report, sink-result) pair. The server owns id/created_at/identity/
-origin/status — never the client. Opt-in capture (console/network) is dropped unless
-enabled in `config`.
+origin/status — never the client. Opt-in capture (console/network) is dropped
+unless enabled in `config`. `moderator` decides first: `hold` sends the report
+(status `held`) to `holding_sink` instead, `reject` drops it (status
+`declined`).
 
 * **Return type:**
   [`tuple`](https://docs.python.org/3/builtins/stdtypes.html#tuple)[[`Report`](heed.base.html.md#heed.base.Report), [`SinkResult`](heed.sinks.base.html.md#heed.sinks.base.SinkResult)]
+
+### heed.release_held(report_id, , holding_store, sink=None, resolve_sink=None)
+
+Release a held report: route it on and remove it from holding.
+
+`holding_store` is the store behind the holding sink (a `StoreSink`’s
+`.store`). The destination is `sink`, or — for a multi-site backend — the sink
+`resolve_sink` gives for the report’s own origin (pass exactly one). The report
+is claimed (popped) before submitting, so two concurrent releases cannot both
+send it, and it is put back if the sink fails, so a failed release can be retried.
+
+* **Return type:**
+  [`SinkResult`](heed.sinks.base.html.md#heed.sinks.base.SinkResult)
+
+### heed.sinks_by_origin(sinks, , default=None)
+
+A resolver from an `{origin: sink}` mapping (origins compared normalized).
+
+Unknown origins resolve to `default`; with no default they resolve to None, and
+the router refuses them.
+
+* **Return type:**
+  [`Callable`](https://docs.python.org/3/library/collections.abc.html#collections.abc.Callable)[[[`str`](https://docs.python.org/3/builtins/stdtypes.html#str)], [`Optional`](https://docs.python.org/3/library/typing.html#typing.Optional)[[`Sink`](heed.sinks.base.html.md#heed.sinks.base.Sink)]]
+
+```pycon
+>>> from heed.sinks import StoreSink
+>>> a = StoreSink({})
+>>> resolve = sinks_by_origin({"https://a.example": a})
+>>> resolve("HTTPS://A.example/") is a, resolve("https://b.example")
+(True, None)
+```
 
 ### Modules
 
@@ -389,6 +482,7 @@ enabled in `config`.
 |--------------------------------------------------------------------------------|------------------------------------------------------------------------------------|
 | [`config`](heed.config.html.md#module-heed.config)     | Configuration for the heed backend (smart defaults; keyword-only).                 |
 | [`ingest`](heed.ingest.html.md#module-heed.ingest)     | The ingest layer — build a Report from a submission and route it to a sink.        |
+| [`routing`](heed.routing.html.md#module-heed.routing)   | Where a report goes: server-side site resolution and moderation (holding state).   |
 | [`security`](heed.security.html.md#module-heed.security) | Public-endpoint hardening (the ingest endpoint is unauthenticated and hostile).    |
 | [`sinks`](heed.sinks.html.md#module-heed.sinks)       | Sinks: pluggable report destinations (strategy pattern).                           |
 | [`storage`](heed.storage.html.md#module-heed.storage)   | Storage helpers — dol-backed stores for reports and binary attachments.            |
