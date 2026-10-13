@@ -74,6 +74,10 @@ class HeedConfig:
     # --- Capture policy -------------------------------------------------------------
     accept_console: bool = False  # opt-in heavy capture (privacy by default)
     accept_network: bool = False
+    # Categories taken as a light intake (a wish, a question): the screenshot, console,
+    # network and browser details are dropped on the server, whatever the client sent.
+    # The widget's `lightCategories` option mirrors this default.
+    light_categories: tuple[str, ...] = ("feature", "question")
 
     def __post_init__(self):
         if self.max_body_bytes < self.max_screenshot_bytes:

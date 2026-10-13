@@ -54,10 +54,11 @@ class CategorySink(BaseSink):
             hook(report)
 
     def public_items(self, *, category: Category | None = None) -> list[PublicItem]:
-        """The union of every distinct member sink's public items."""
-        items: list[PublicItem] = []
+        """Every distinct member sink's public items (a shared link once)."""
+        items: dict[str, PublicItem] = {}
         for sink in self._distinct():
             lister = getattr(sink, "public_items", None)
             if callable(lister):
-                items.extend(lister(category=category))
-        return items
+                for item in lister(category=category):
+                    items.setdefault(item.url or f"{id(sink)}:{item.ref}", item)
+        return list(items.values())

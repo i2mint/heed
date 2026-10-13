@@ -37,12 +37,12 @@ class CategoryTreatment:
     the browser/console/network dump or a screenshot, which say nothing about a wish.
     """
 
-    labels: tuple[str, ...] = ()
+    labels: tuple[str, ...] | None = None  # None: the category's default labels
     title_prefix: str = ""
-    detail: str = "full"  # "full" | "light"
+    detail: str | None = None  # "full" | "light"; None: the category's default
 
     def __post_init__(self) -> None:
-        if self.detail not in ("full", "light"):
+        if self.detail not in (None, "full", "light"):
             raise ValueError(f"detail must be 'full' or 'light', got {self.detail!r}")
 
 
@@ -99,11 +99,21 @@ class GitHubIssuesSink(BaseSink):
     ):
         self._create_issue = create_issue
         self._screenshot_url = screenshot_url
-        self._treatments = {**DEFAULT_TREATMENTS, **dict(treatments or {})}
-        for category, labels in (label_map or {}).items():
-            self._treatments[category] = _with_labels(
-                self._treatments.get(category, CategoryTreatment()), labels
-            )
+        # ``label_map`` is the labels-only spelling and, as before, replaces the whole
+        # label table (a category it omits gets no label).
+        base = dict(DEFAULT_TREATMENTS)
+        if label_map is not None:
+            base = {
+                category: CategoryTreatment(
+                    tuple(label_map.get(category, ())),
+                    detail=DEFAULT_TREATMENTS[category].detail,
+                )
+                for category in Category
+            }
+        self._treatments = {
+            category: _resolve(base.get(category), (treatments or {}).get(category))
+            for category in Category
+        }
         self._list_issues = list_issues
         self._public_label = public_label
         self._status_labels = dict(
@@ -112,7 +122,7 @@ class GitHubIssuesSink(BaseSink):
 
     def treatment(self, category: Category) -> CategoryTreatment:
         """The treatment applied to reports of ``category``."""
-        return self._treatments.get(category, CategoryTreatment())
+        return self._treatments[Category(category)]
 
     def submit(self, report: Report) -> SinkResult:
         treatment = self.treatment(report.category)
@@ -141,22 +151,23 @@ class GitHubIssuesSink(BaseSink):
         """
         if self._list_issues is None:
             return []
+        wanted = None if category is None else Category(category)
         items = []
         for issue in self._list_issues(labels=[self._public_label], state="all"):
-            if "pull_request" in issue:
+            if "pull_request" in issue or issue.get("number") is None:
                 continue  # the issues API also returns pull requests
-            labels = {_label_name(label) for label in issue.get("labels", ())}
-            if self._public_label not in labels:
+            names = [_label_name(label) for label in issue.get("labels", ())]
+            if self._public_label not in names:
                 continue
-            item_category = self._category_of(labels)
-            if category is not None and item_category is not category:
+            item_category = self._category_of(names)
+            if wanted is not None and item_category is not wanted:
                 continue
             items.append(
                 PublicItem(
-                    ref=str(issue.get("number")),
+                    ref=str(issue["number"]),
                     title=str(issue.get("title", "")),
                     category=item_category,
-                    status=self._status_of(issue, labels),
+                    status=self._status_of(issue, set(names)),
                     url=issue.get("html_url"),
                     votes=_votes(issue),
                     created_at=issue.get("created_at"),
@@ -165,24 +176,51 @@ class GitHubIssuesSink(BaseSink):
             )
         return items
 
-    def _category_of(self, labels: set[str]) -> Category:
-        for category, treatment in self._treatments.items():
-            if treatment.labels and set(treatment.labels) <= labels:
-                return category
+    def _category_of(self, names: list[str]) -> Category:
+        """The category whose labels the issue carries; the earliest label wins."""
+        have = set(names)
+        for name in names:
+            for category, treatment in self._treatments.items():
+                labels = treatment.labels or ()
+                if name in labels and set(labels) <= have:
+                    return category
         return Category.other
 
-    def _status_of(self, issue: Mapping[str, Any], labels: set[str]) -> Status:
-        for label, status in self._status_labels.items():
-            if label in labels:
-                return status
+    def _status_of(self, issue: Mapping[str, Any], names: set[str]) -> Status:
+        """Status from the issue's state and labels.
+
+        A closed issue is finished whatever stage label it still carries; a terminal
+        label (duplicate, wontfix) wins over the state; of several stage labels the
+        furthest along counts.
+        """
+        marked = [s for label, s in self._status_labels.items() if label in names]
+        terminal = [s for s in marked if s in _TERMINAL]
+        if terminal:
+            return terminal[0]
         if issue.get("state") == "closed":
             declined = issue.get("state_reason") == "not_planned"
             return Status.declined if declined else Status.completed
-        return Status.received
+        stages = [s for s in marked if s in _STAGES]
+        return max(stages, key=_STAGES.index) if stages else Status.received
 
 
-def _with_labels(treatment: CategoryTreatment, labels: tuple[str, ...]):
-    return CategoryTreatment(tuple(labels), treatment.title_prefix, treatment.detail)
+#: Open-issue stages, least to furthest along.
+_STAGES = (Status.received, Status.triaged, Status.planned, Status.started)
+_TERMINAL = (Status.duplicate, Status.declined, Status.completed)
+
+
+def _resolve(
+    default: CategoryTreatment | None, given: CategoryTreatment | None
+) -> CategoryTreatment:
+    """``given`` over ``default``, field by field (``None`` keeps the default)."""
+    default = default or CategoryTreatment(labels=(), detail="full")
+    if given is None:
+        return default
+    return CategoryTreatment(
+        labels=default.labels if given.labels is None else tuple(given.labels),
+        title_prefix=given.title_prefix,
+        detail=default.detail if given.detail is None else given.detail,
+    )
 
 
 def _label_name(label: Any) -> str:

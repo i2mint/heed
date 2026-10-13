@@ -34,6 +34,7 @@ from starlette.formparsers import MultiPartException
 
 from heed.base import (
     Attachment,
+    Environment,
     Identity,
     Report,
     ReportSubmission,
@@ -101,6 +102,16 @@ def process_submission(
     config = config or HeedConfig()
     report_id = id_gen()
 
+    light = submission.category.value in config.light_categories
+    if light:
+        submission = submission.model_copy(
+            update={
+                "env": Environment(extra=submission.env.extra),
+                "console": None,
+                "network": None,
+            }
+        )
+        screenshot = None  # nothing would use it, so it is not kept
     attachments: list[Attachment] = []
     if screenshot is not None and attachment_store is not None:
         ext = IMAGE_EXTENSIONS.get(screenshot_media_type, "bin")

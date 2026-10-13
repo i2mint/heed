@@ -79,7 +79,7 @@ ideas = github_sink_from_token("myorg/ideas", token, public_label="board")
 sink = CategorySink({"feature": ideas}, default=issues)  # or route a category to another sink
 ```
 
-`GitHubIssuesSink(treatments={Category.feature: CategoryTreatment(("idea",), title_prefix="[idea] ")})` changes labels, title prefix and `detail` ("full" | "light") per category. For a future public board, sinks that can list their items implement `public_items()`; the GitHub sink returns issues a maintainer labelled `public` as `PublicItem`s (title, category, status from labels or issue state, link, 👍 votes, dates, never the body or identity), and `heed.roadmap(items)` / `heed.changelog(items)` are the two views over them.
+`GitHubIssuesSink(treatments={Category.feature: CategoryTreatment(("idea",), title_prefix="[idea] ")})` changes labels, title prefix and `detail` ("full" | "light") per category. For a future public board, sinks that can list their items implement `public_items()`; the GitHub sink returns issues a maintainer labelled `public` as `PublicItem`s (title, category, status from labels or issue state, link, 👍 votes, dates, never the issue body or the reporter; the item's link opens the issue itself, so keep the tracker public-safe), and for feature and question reports the server also drops the screenshot, console, network and browser details (`HeedConfig.light_categories`). `heed.roadmap(items)` / `heed.changelog(items)` are the two views over them.
 
 ## Embedding the widget
 

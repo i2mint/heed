@@ -299,3 +299,111 @@ def test_roadmap_orders_by_stage_then_votes_and_drops_the_rest():
 
 def test_changelog_is_the_shipped_items_newest_first():
     assert [i.ref for i in changelog(_items())] == ["e", "d", "f"]
+
+
+# ------------------------------------------- review fixes (heed#50 review round 1)
+
+
+def test_a_closed_issue_is_finished_whatever_stage_label_it_keeps():
+    sink, _ = _board_sink(
+        [
+            _issue(1, "done", ["public", "planned"], state="closed"),
+            _issue(
+                2,
+                "no",
+                ["public", "in progress"],
+                state="closed",
+                state_reason="not_planned",
+            ),
+            _issue(3, "dup", ["public", "planned", "duplicate"], state="closed"),
+            _issue(4, "far", ["public", "triaged", "planned", "in progress"]),
+            _issue(5, "open dup", ["public", "duplicate"]),
+        ]
+    )
+    status = {i.title: i.status for i in sink.public_items()}
+    assert status == {
+        "done": Status.completed,
+        "no": Status.declined,
+        "dup": Status.duplicate,
+        "far": Status.started,
+        "open dup": Status.duplicate,
+    }
+
+
+def test_label_map_still_replaces_the_whole_label_table():
+    gh = FakeGitHub()
+    sink = GitHubIssuesSink(gh.create_issue, label_map={Category.bug: ("defect",)})
+    sink.submit(_report(category=Category.bug))
+    sink.submit(_report(category=Category.feature))
+    assert [c["labels"] for c in gh.created] == [["defect"], []]
+
+
+def test_a_partial_treatment_keeps_the_categorys_other_defaults():
+    gh = FakeGitHub()
+    sink = GitHubIssuesSink(
+        gh.create_issue,
+        treatments={Category.feature: CategoryTreatment(title_prefix="[idea] ")},
+    )
+    sink.submit(_report(category=Category.feature, title="Dark mode"))
+    assert gh.created[0]["labels"] == ["enhancement"]
+    assert gh.created[0]["title"] == "[idea] Dark mode"
+    assert "Firefox" not in gh.created[0]["body"]  # still the light intake
+
+
+def test_category_filters_accept_strings():
+    sink, _ = _board_sink([_issue(1, "idea", ["public", "enhancement"])])
+    assert len(sink.public_items(category="feature")) == 1
+    assert sink.public_items(category="bug") == []
+    combined = CategorySink({"feature": sink}, default=sink)
+    assert len(combined.public_items(category="feature")) == 1
+
+
+def test_the_earliest_label_decides_a_category_tie_and_unnumbered_issues_are_skipped():
+    sink, _ = _board_sink(
+        [
+            _issue(1, "a", ["public", "enhancement", "bug"]),
+            _issue(2, "b", ["public", "bug", "enhancement"]),
+            {**_issue(3, "c", ["public"]), "number": None},
+        ]
+    )
+    assert [(i.title, i.category) for i in sink.public_items()] == [
+        ("a", Category.feature),
+        ("b", Category.bug),
+    ]
+
+
+def test_two_sinks_on_one_repo_list_each_item_once():
+    one, _ = _board_sink([_issue(1, "idea", ["public", "enhancement"])])
+    two, _ = _board_sink([_issue(1, "idea", ["public", "enhancement"])])
+    combined = CategorySink({Category.feature: one}, default=two)
+    assert len(combined.public_items()) == 1
+
+
+def test_ingest_drops_screenshot_and_browser_details_for_light_categories():
+    from heed import HeedConfig, LogEntry, ReportSubmission, process_submission
+
+    attachments: dict = {}
+
+    def run(category, **config):
+        sub = ReportSubmission(
+            title="t",
+            category=category,
+            env=ENV.model_copy(update={"extra": {"version": "1"}}),
+            console=[LogEntry(level="error", message="boom")],
+        )
+        return process_submission(
+            sub,
+            StoreSink({}),
+            screenshot=b"PNG",
+            attachment_store=attachments,
+            config=HeedConfig(accept_console=True, **config),
+        )[0]
+
+    feature = run("feature")
+    assert feature.attachments == [] and attachments == {}
+    assert feature.env.browser is None and feature.env.extra == {"version": "1"}
+    assert feature.console is None
+    bug = run("bug")
+    assert bug.attachments and bug.env.browser == "Firefox" and bug.console
+    kept = run("feature", light_categories=())
+    assert kept.attachments and kept.env.browser == "Firefox"
