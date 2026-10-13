@@ -63,8 +63,13 @@ class HeedConfig:
     # HMAC key for signed attachment URLs; without one the route refuses to build.
     attachment_signing_key: str | None = field(default=None, repr=False)
     attachment_url_ttl_seconds: int | None = None  # None: URLs do not expire
+    # Keys that still verify (never sign) while a rotated-out key's URLs live on.
+    attachment_previous_keys: list[str] = field(default_factory=list, repr=False)
     # Hostnames the attachment route answers on: a dedicated origin, not the app's.
+    # Required to build the route; "*" says any host is fine.
     attachment_hosts: list[str] | None = None
+    # Cache-Control of served attachments; None keeps "private, no-store".
+    attachment_cache_control: str | None = None
 
     # --- Capture policy -------------------------------------------------------------
     accept_console: bool = False  # opt-in heavy capture (privacy by default)
@@ -92,6 +97,15 @@ class HeedConfig:
             parse_networks(self.trusted_proxies)
         except ValueError as e:
             raise ValueError(f"invalid trusted_proxies entry: {e}") from None
+        if isinstance(self.attachment_previous_keys, str):
+            raise TypeError(
+                "attachment_previous_keys must be a list of keys, not a string"
+            )
+        if self.attachment_previous_keys and not self.attachment_signing_key:
+            raise ValueError(
+                "attachment_previous_keys are set but attachment_signing_key is not; "
+                "a rotation keeps the old keys beside the new current one"
+            )
         if self.bot_gate is not None and not self.bot_secret:
             raise ValueError(
                 f"bot_gate={self.bot_gate!r} is set but bot_secret is empty; set "

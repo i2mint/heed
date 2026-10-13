@@ -29,18 +29,63 @@ def make_report_store(
     return TextFiles(rootdir, delete_func=delete_func)
 
 
+def _stays_under(path: str, rootdir: str) -> bool:
+    """Whether ``path``, with every symlink resolved, is inside ``rootdir``."""
+    root = os.path.realpath(rootdir)
+    return os.path.commonpath([root, os.path.realpath(path)]) == root
+
+
+def _confined_files(rootdir: str, **kwargs) -> MutableMapping:
+    from dol import Files
+
+    class ConfinedFiles(Files):
+        """Files that treat a key whose file resolves, through symlinks, to outside
+        ``rootdir`` as missing -- to read, write, delete, test and list -- so a
+        misconfigured root cannot make heed touch other files."""
+
+        def _id_of_key(self, k):
+            path = super()._id_of_key(k)
+            if not _stays_under(path, self.rootdir):
+                raise KeyError(k)
+            return path
+
+        def __contains__(self, k):
+            try:
+                return super().__contains__(k)
+            except KeyError:
+                return False
+
+        def __iter__(self):
+            for k in super().__iter__():
+                if _stays_under(os.path.join(self.rootdir, k), self.rootdir):
+                    yield k
+
+    return ConfinedFiles(rootdir, **kwargs)
+
+
 def make_attachment_store(
-    rootdir: str | None = None, *, delete_func: Callable[[str], None] = os.remove
+    rootdir: str | None = None,
+    *,
+    delete_func: Callable[[str], None] = os.remove,
+    follow_symlinks: bool = False,
 ) -> MutableMapping:
     """A bytes store for attachments. In-memory unless ``rootdir`` is given.
 
     Deletion is permanent by default, for the reason given in `make_report_store`.
+    Reading a key whose file is a symlink leading outside ``rootdir`` raises
+    ``KeyError``, so a misconfigured root cannot make the attachment route serve other
+    files; ``follow_symlinks=True`` opts out.
+
+    >>> make_attachment_store()
+    {}
     """
     if rootdir is None:
         return {}
-    from dol import Files
+    if follow_symlinks:
+        from dol import Files
 
-    return Files(rootdir, delete_func=delete_func)
+        return Files(rootdir, delete_func=delete_func)
+    return _confined_files(rootdir, delete_func=delete_func)
 
 
 class _HoldingDict(dict):
