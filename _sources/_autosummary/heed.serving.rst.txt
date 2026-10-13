@@ -9,6 +9,7 @@ heed.serving
    .. autosummary::
    
       DEFAULT_REF_PATTERN
+      ANY_HOST
    
    .. rubric:: Functions
 

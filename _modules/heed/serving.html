@@ -771,6 +771,8 @@ window.runMermaid = runMermaid;</script>
 <span class="n">DEFAULT_REF_PATTERN</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span>
     <span class="sa">r</span><span class="s2">"[0-9a-f]</span><span class="si">{32}</span><span class="s2">\.(?:</span><span class="si">%s</span><span class="s2">)"</span> <span class="o">%</span> <span class="s2">"|"</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="n">re</span><span class="o">.</span><span class="n">escape</span><span class="p">,</span> <span class="n">IMAGE_EXTENSIONS</span><span class="o">.</span><span class="n">values</span><span class="p">()))</span>
 <span class="p">)</span>
+<span class="c1">#: ``allowed_hosts=ANY_HOST`` (or ``["*"]``): the route answers on every host.</span>
+<span class="n">ANY_HOST</span> <span class="o">=</span> <span class="s2">"*"</span>
 <span class="n">MIN_SIGNING_KEY_BYTES</span> <span class="o">=</span> <span class="mi">32</span>
 <span class="n">_SIGNATURE_CONTEXT</span> <span class="o">=</span> <span class="sa">b</span><span class="s2">"heed-attachment-v1"</span>
 <span class="n">_SIG</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">"[A-Za-z0-9_-]</span><span class="si">{43}</span><span class="s2">"</span><span class="p">)</span>  <span class="c1"># urlsafe base64 of a SHA-256, unpadded</span>
@@ -834,6 +836,7 @@ window.runMermaid = runMermaid;</script>
 <span class="w">        </span><span class="sd">"""The signer ``config`` describes, or None if it has no signing key."""</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">config</span><span class="o">.</span><span class="n">attachment_signing_key</span><span class="p">:</span>
             <span class="k">return</span> <span class="kc">None</span>
+        <span class="n">kwargs</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">"previous_keys"</span><span class="p">,</span> <span class="n">config</span><span class="o">.</span><span class="n">attachment_previous_keys</span><span class="p">)</span>
         <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span>
             <span class="n">config</span><span class="o">.</span><span class="n">attachment_signing_key</span><span class="p">,</span>
             <span class="n">ttl_seconds</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">attachment_url_ttl_seconds</span><span class="p">,</span>
@@ -932,6 +935,8 @@ window.runMermaid = runMermaid;</script>
     <span class="n">allow_unsigned</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
     <span class="n">allowed_hosts</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">cross_origin</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="n">cache_control</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">max_bytes</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"/attachments"</span><span class="p">,</span>
     <span class="n">ref_pattern</span><span class="p">:</span> <span class="n">re</span><span class="o">.</span><span class="n">Pattern</span> <span class="o">=</span> <span class="n">DEFAULT_REF_PATTERN</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">APIRouter</span><span class="p">:</span>
@@ -953,9 +958,18 @@ window.runMermaid = runMermaid;</script>
 <span class="sd">        allow_unsigned: Serve any ref without a signature (a ref is then the</span>
 <span class="sd">            capability). Only for stores whose every screenshot may be public.</span>
 <span class="sd">        allowed_hosts: Hostnames this route answers on: the dedicated attachment origin.</span>
-<span class="sd">            ``None`` answers on any host (and logs a warning).</span>
+<span class="sd">            Required (here or as ``config.attachment_hosts``): ``ANY_HOST`` says any</span>
+<span class="sd">            host is fine, which is only right when the route has no origin of its own.</span>
 <span class="sd">        cross_origin: ``Cross-Origin-Resource-Policy: cross-origin``, which an image</span>
 <span class="sd">            embedded in a GitHub issue needs (GitHub's camo proxy fetches it).</span>
+<span class="sd">        cache_control: Replaces the ``Cache-Control`` of a served image (default</span>
+<span class="sd">            ``private, no-store``), e.g. ``public, max-age=300`` if GitHub's camo proxy</span>
+<span class="sd">            should cache signed, cross-origin images. Defaults to</span>
+<span class="sd">            ``config.attachment_cache_control``.</span>
+<span class="sd">        max_bytes: Stored values larger than this are not served (a bare 404 and a</span>
+<span class="sd">            warning). Defaults to ``config.max_screenshot_bytes``. It does not stop a</span>
+<span class="sd">            store from reading the value into memory; it keeps serving from relying on</span>
+<span class="sd">            the ingest cap alone.</span>
 <span class="sd">        ref_pattern: Refs to serve (full match); the default is what heed writes.</span>
 <span class="sd">    """</span>
     <span class="n">cfg</span> <span class="o">=</span> <span class="n">config</span> <span class="ow">or</span> <span class="n">HeedConfig</span><span class="p">()</span>
@@ -970,17 +984,44 @@ window.runMermaid = runMermaid;</script>
         <span class="p">)</span>
     <span class="k">if</span> <span class="n">allowed_hosts</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">allowed_hosts</span> <span class="o">=</span> <span class="n">cfg</span><span class="o">.</span><span class="n">attachment_hosts</span>
-    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">allowed_hosts</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">allowed_hosts</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s2">"make_attachment_router needs allowed_hosts: the hostnames of the "</span>
+            <span class="s2">"dedicated attachment origin (HeedConfig.attachment_hosts / "</span>
+            <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">ENV_PREFIX</span><span class="si">}</span><span class="s2">ATTACHMENT_HOSTS). Pass allowed_hosts=ANY_HOST to answer on "</span>
+            <span class="s2">"any host."</span>
+        <span class="p">)</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">allowed_hosts</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="ow">and</span> <span class="n">allowed_hosts</span> <span class="o">!=</span> <span class="n">ANY_HOST</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
             <span class="s2">"allowed_hosts must be a list of hostnames, not a string: "</span>
             <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">allowed_hosts</span><span class="si">!r}</span><span class="s2">"</span>
         <span class="p">)</span>
-    <span class="n">hosts</span> <span class="o">=</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">allowed_hosts</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="p">{</span><span class="n">h</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="k">for</span> <span class="n">h</span> <span class="ow">in</span> <span class="n">allowed_hosts</span><span class="p">}</span>
-    <span class="k">if</span> <span class="n">hosts</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-            <span class="s2">"heed: the attachment route answers on any host. Serve it from its own "</span>
-            <span class="s2">"origin and set allowed_hosts (HeedConfig.attachment_hosts)."</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">allowed_hosts</span><span class="p">,</span> <span class="nb">bytes</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"allowed_hosts must be a list of hostnames: </span><span class="si">{</span><span class="n">allowed_hosts</span><span class="si">!r}</span><span class="s2">"</span><span class="p">)</span>
+    <span class="n">hosts</span> <span class="o">=</span> <span class="p">{</span><span class="n">allowed_hosts</span><span class="p">}</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">allowed_hosts</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="k">else</span> <span class="nb">set</span><span class="p">(</span><span class="n">allowed_hosts</span><span class="p">)</span>
+    <span class="n">hosts</span> <span class="o">=</span> <span class="p">{</span><span class="n">h</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="k">for</span> <span class="n">h</span> <span class="ow">in</span> <span class="n">hosts</span> <span class="k">if</span> <span class="n">h</span><span class="o">.</span><span class="n">strip</span><span class="p">()}</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">hosts</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s2">"allowed_hosts is empty, so the route would refuse every request; give the "</span>
+            <span class="s2">"attachment origin's hostname(s), or ANY_HOST"</span>
         <span class="p">)</span>
+    <span class="k">if</span> <span class="n">ANY_HOST</span> <span class="ow">in</span> <span class="n">hosts</span><span class="p">:</span>
+        <span class="n">hosts</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="n">cache_control</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">cache_control</span> <span class="o">=</span> <span class="n">cfg</span><span class="o">.</span><span class="n">attachment_cache_control</span>
+    <span class="k">if</span> <span class="n">cache_control</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="p">(</span>
+        <span class="nb">isinstance</span><span class="p">(</span><span class="n">cache_control</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span>
+        <span class="ow">and</span> <span class="n">cache_control</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+        <span class="ow">and</span> <span class="n">cache_control</span><span class="o">.</span><span class="n">isascii</span><span class="p">()</span>
+        <span class="ow">and</span> <span class="n">cache_control</span><span class="o">.</span><span class="n">isprintable</span><span class="p">()</span>
+    <span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"cache_control must be a non-empty single header line: </span><span class="si">{</span><span class="n">cache_control</span><span class="si">!r}</span><span class="s2">"</span>
+        <span class="p">)</span>
+    <span class="k">if</span> <span class="n">max_bytes</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">max_bytes</span> <span class="o">=</span> <span class="n">cfg</span><span class="o">.</span><span class="n">max_screenshot_bytes</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">max_bytes</span><span class="p">,</span> <span class="nb">bool</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">max_bytes</span><span class="p">,</span> <span class="nb">int</span><span class="p">)</span> <span class="ow">or</span> <span class="n">max_bytes</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"max_bytes must be a positive int, got </span><span class="si">{</span><span class="n">max_bytes</span><span class="si">!r}</span><span class="s2">"</span><span class="p">)</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">pillow_available</span><span class="p">():</span>
         <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
             <span class="s2">"heed: Pillow is not installed, so screenshots ingested here with the "</span>
@@ -1006,12 +1047,19 @@ window.runMermaid = runMermaid;</script>
             <span class="n">data</span> <span class="o">=</span> <span class="n">attachment_store</span><span class="p">[</span><span class="n">ref</span><span class="p">]</span>
         <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">not_found</span><span class="p">()</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">data</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">max_bytes</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                <span class="s2">"heed: </span><span class="si">%s</span><span class="s2"> is </span><span class="si">%d</span><span class="s2"> bytes, over max_bytes=</span><span class="si">%d</span><span class="s2">: not served"</span><span class="p">,</span> <span class="n">ref</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">data</span><span class="p">),</span> <span class="n">max_bytes</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="n">not_found</span><span class="p">()</span>
         <span class="n">media_type</span> <span class="o">=</span> <span class="n">sniff_image_type</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">media_type</span> <span class="o">!=</span> <span class="n">_MEDIA_TYPE_OF_EXTENSION</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">ref</span><span class="o">.</span><span class="n">rsplit</span><span class="p">(</span><span class="s2">"."</span><span class="p">,</span> <span class="mi">1</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]):</span>
             <span class="n">media_type</span> <span class="o">=</span> <span class="s2">"application/octet-stream"</span>
         <span class="n">headers</span> <span class="o">=</span> <span class="n">attachment_headers</span><span class="p">(</span>
             <span class="n">media_type</span><span class="p">,</span> <span class="n">filename</span><span class="o">=</span><span class="n">ref</span><span class="p">,</span> <span class="n">cross_origin</span><span class="o">=</span><span class="n">cross_origin</span>
         <span class="p">)</span>
+        <span class="k">if</span> <span class="n">cache_control</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">headers</span><span class="p">[</span><span class="s2">"Cache-Control"</span><span class="p">]</span> <span class="o">=</span> <span class="n">cache_control</span>
         <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="n">content</span><span class="o">=</span><span class="n">data</span><span class="p">,</span> <span class="n">headers</span><span class="o">=</span><span class="n">headers</span><span class="p">)</span>
 
     <span class="k">return</span> <span class="n">router</span></div>

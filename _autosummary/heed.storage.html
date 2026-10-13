@@ -416,7 +416,7 @@
 <p class="rubric">Functions</p>
 <div class="pst-scrollable-table-container"><table class="autosummary longtable table">
 <tbody>
-<tr class="row-odd"><td><p><a class="reference internal" href="#heed.storage.make_attachment_store" title="heed.storage.make_attachment_store"><code class="xref py py-obj docutils literal notranslate"><span class="pre">make_attachment_store</span></code></a>([rootdir, delete_func])</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#heed.storage.make_attachment_store" title="heed.storage.make_attachment_store"><code class="xref py py-obj docutils literal notranslate"><span class="pre">make_attachment_store</span></code></a>([rootdir, ...])</p></td>
 <td><p>A bytes store for attachments.</p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="#heed.storage.make_holding_store" title="heed.storage.make_holding_store"><code class="xref py py-obj docutils literal notranslate"><span class="pre">make_holding_store</span></code></a>([rootdir, delete_func])</p></td>
@@ -442,14 +442,21 @@ reports are claimed in while <code class="code docutils literal notranslate"><sp
 
 <dl class="py function">
 <dt class="sig sig-object py" id="heed.storage.make_attachment_store">
-<span class="sig-prename descclassname"><span class="pre">heed.storage.</span></span><span class="sig-name descname"><span class="pre">make_attachment_store</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">rootdir</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">delete_func</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;built-in</span> <span class="pre">function</span> <span class="pre">remove&gt;</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/storage.html#make_attachment_store"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.storage.make_attachment_store" title="Link to this definition">#</a></dt>
+<span class="sig-prename descclassname"><span class="pre">heed.storage.</span></span><span class="sig-name descname"><span class="pre">make_attachment_store</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">rootdir</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">delete_func</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;built-in</span> <span class="pre">function</span> <span class="pre">remove&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">follow_symlinks</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/storage.html#make_attachment_store"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.storage.make_attachment_store" title="Link to this definition">#</a></dt>
 <dd><p>A bytes store for attachments. In-memory unless <code class="docutils literal notranslate"><span class="pre">rootdir</span></code> is given.</p>
-<p>Deletion is permanent by default, for the reason given in <code class="code docutils literal notranslate"><span class="pre">make_report_store</span></code>.</p>
+<p>Deletion is permanent by default, for the reason given in <code class="code docutils literal notranslate"><span class="pre">make_report_store</span></code>.
+Reading a key whose file is a symlink leading outside <code class="docutils literal notranslate"><span class="pre">rootdir</span></code> raises
+<code class="docutils literal notranslate"><span class="pre">KeyError</span></code>, so a misconfigured root cannot make the attachment route serve other
+files; <code class="docutils literal notranslate"><span class="pre">follow_symlinks=True</span></code> opts out.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.MutableMapping" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">MutableMapping</span></code></a></span></p>
 </dd>
 </dl>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">make_attachment_store</span><span class="p">()</span>
+<span class="go">{}</span>
+</pre></div>
+</div>
 </dd></dl>
 
 <dl class="py function">

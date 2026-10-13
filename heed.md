@@ -1,4 +1,4 @@
-> built 2026-10-13 09:03 UTC from 5cc1c05 (main) · heed 0.0.1. Details: build_info.json
+> built 2026-10-13 12:49 UTC from 8ce885a (main) · heed 0.0.1. Details: build_info.json
 
 # index.html.md
 
@@ -249,7 +249,7 @@ infrastructure (the Redis URL) belong.
 | [`HeedConfig`](_autosummary/heed.config.html.md#heed.config.HeedConfig)(\*[, allowed_origins, ...])   | Knobs for the ingest endpoint.   |
 |-------------------------------------------------------------------------------------------|----------------------------------|
 
-### *class* heed.config.HeedConfig(\*, allowed_origins=None, handle_cors=True, cors_allow_credentials=False, cors_max_age_seconds=600, max_body_bytes=6000000, max_screenshot_bytes=5000000, screenshot_sanitizer='auto', max_screenshot_pixels=25000000, max_concurrent_reencodes=2, max_field_bytes=100000, max_form_fields=16, rate_limit_per_minute=30, origin_rate_limit_per_minute=600, rate_limit_window_seconds=60.0, rate_limit_backend='memory', redis_url=None, trusted_proxies=<factory>, ipv6_rate_limit_prefix=64, bot_gate=None, bot_secret=None, bot_expected_hostnames=None, bot_token_field='bot_token', honeypot_field='hp_website', attachment_signing_key=None, attachment_url_ttl_seconds=None, attachment_hosts=None, accept_console=False, accept_network=False)
+### *class* heed.config.HeedConfig(\*, allowed_origins=None, handle_cors=True, cors_allow_credentials=False, cors_max_age_seconds=600, max_body_bytes=6000000, max_screenshot_bytes=5000000, screenshot_sanitizer='auto', max_screenshot_pixels=25000000, max_concurrent_reencodes=2, max_field_bytes=100000, max_form_fields=16, rate_limit_per_minute=30, origin_rate_limit_per_minute=600, rate_limit_window_seconds=60.0, rate_limit_backend='memory', redis_url=None, trusted_proxies=<factory>, ipv6_rate_limit_prefix=64, bot_gate=None, bot_secret=None, bot_expected_hostnames=None, bot_token_field='bot_token', honeypot_field='hp_website', attachment_signing_key=None, attachment_url_ttl_seconds=None, attachment_previous_keys=<factory>, attachment_hosts=None, attachment_cache_control=None, accept_console=False, accept_network=False)
 
 Bases: [`object`](https://docs.python.org/3/builtins/functions.html#object)
 
@@ -354,7 +354,7 @@ True
 | [`recover_claimed`](_autosummary/heed.html.md#heed.recover_claimed)(\*, holding_store[, ...])          | Return every claimed report to holding, and the ids returned.                                                                       |
 | [`discard_held`](_autosummary/heed.html.md#heed.discard_held)(report_id, \*, holding_store[, ...])  | Delete a held report for good, with its attachments (e.g. a screenshot).                                                            |
 | [`make_report_store`](_autosummary/heed.html.md#heed.make_report_store)([rootdir, delete_func])          | A text store for report JSON.                                                                                                       |
-| [`make_attachment_store`](_autosummary/heed.html.md#heed.make_attachment_store)([rootdir, delete_func])      | A bytes store for attachments.                                                                                                      |
+| [`make_attachment_store`](_autosummary/heed.html.md#heed.make_attachment_store)([rootdir, ...])              | A bytes store for attachments.                                                                                                      |
 | [`make_holding_store`](_autosummary/heed.html.md#heed.make_holding_store)([rootdir, delete_func])         | A report store for held reports, with a dedicated claims store beside it.                                                           |
 
 ### Classes
@@ -490,7 +490,7 @@ Bases: [`BaseSink`](_autosummary/heed.sinks.base.html.md#heed.sinks.base.BaseSin
 
 Route a report to a GitHub issue via an injected `create_issue` callable.
 
-### *class* heed.HeedConfig(\*, allowed_origins=None, handle_cors=True, cors_allow_credentials=False, cors_max_age_seconds=600, max_body_bytes=6000000, max_screenshot_bytes=5000000, screenshot_sanitizer='auto', max_screenshot_pixels=25000000, max_concurrent_reencodes=2, max_field_bytes=100000, max_form_fields=16, rate_limit_per_minute=30, origin_rate_limit_per_minute=600, rate_limit_window_seconds=60.0, rate_limit_backend='memory', redis_url=None, trusted_proxies=<factory>, ipv6_rate_limit_prefix=64, bot_gate=None, bot_secret=None, bot_expected_hostnames=None, bot_token_field='bot_token', honeypot_field='hp_website', attachment_signing_key=None, attachment_url_ttl_seconds=None, attachment_hosts=None, accept_console=False, accept_network=False)
+### *class* heed.HeedConfig(\*, allowed_origins=None, handle_cors=True, cors_allow_credentials=False, cors_max_age_seconds=600, max_body_bytes=6000000, max_screenshot_bytes=5000000, screenshot_sanitizer='auto', max_screenshot_pixels=25000000, max_concurrent_reencodes=2, max_field_bytes=100000, max_form_fields=16, rate_limit_per_minute=30, origin_rate_limit_per_minute=600, rate_limit_window_seconds=60.0, rate_limit_backend='memory', redis_url=None, trusted_proxies=<factory>, ipv6_rate_limit_prefix=64, bot_gate=None, bot_secret=None, bot_expected_hostnames=None, bot_token_field='bot_token', honeypot_field='hp_website', attachment_signing_key=None, attachment_url_ttl_seconds=None, attachment_previous_keys=<factory>, attachment_hosts=None, attachment_cache_control=None, accept_console=False, accept_network=False)
 
 Bases: [`object`](https://docs.python.org/3/builtins/functions.html#object)
 
@@ -748,7 +748,7 @@ on the dedicated attachment origin. Keyword arguments go to
 * **Return type:**
   `FastAPI`
 
-### heed.make_attachment_router(attachment_store, , config=None, signer=None, allow_unsigned=False, allowed_hosts=None, cross_origin=False, path='/attachments', ref_pattern=re.compile('[0-9a-f]{32}\\\\\\\\.(?:png|jpg|webp)'))
+### heed.make_attachment_router(attachment_store, , config=None, signer=None, allow_unsigned=False, allowed_hosts=None, cross_origin=False, cache_control=None, max_bytes=None, path='/attachments', ref_pattern=re.compile('[0-9a-f]{32}\\\\\\\\.(?:png|jpg|webp)'))
 
 A router serving `GET {path}/{ref}` from `attachment_store`, read-only.
 
@@ -768,21 +768,38 @@ one the proxy forwards: keep it the browser’s (Caddy and nginx can).
   * **allow_unsigned** ([`bool`](https://docs.python.org/3/builtins/functions.html#bool)) – Serve any ref without a signature (a ref is then the
     capability). Only for stores whose every screenshot may be public.
   * **allowed_hosts** ([`Iterable`](https://docs.python.org/3/library/collections.abc.html#collections.abc.Iterable)[[`str`](https://docs.python.org/3/builtins/stdtypes.html#str)] | [`None`](https://docs.python.org/3/builtins/constants.html#None)) – Hostnames this route answers on: the dedicated attachment origin.
-    `None` answers on any host (and logs a warning).
+    Required (here or as `config.attachment_hosts`): `ANY_HOST` says any
+    host is fine, which is only right when the route has no origin of its own.
   * **cross_origin** ([`bool`](https://docs.python.org/3/builtins/functions.html#bool)) – `Cross-Origin-Resource-Policy: cross-origin`, which an image
     embedded in a GitHub issue needs (GitHub’s camo proxy fetches it).
+  * **cache_control** ([`str`](https://docs.python.org/3/builtins/stdtypes.html#str) | [`None`](https://docs.python.org/3/builtins/constants.html#None)) – Replaces the `Cache-Control` of a served image (default
+    `private, no-store`), e.g. `public, max-age=300` if GitHub’s camo proxy
+    should cache signed, cross-origin images. Defaults to
+    `config.attachment_cache_control`.
+  * **max_bytes** ([`int`](https://docs.python.org/3/builtins/functions.html#int) | [`None`](https://docs.python.org/3/builtins/constants.html#None)) – Stored values larger than this are not served (a bare 404 and a
+    warning). Defaults to `config.max_screenshot_bytes`. It does not stop a
+    store from reading the value into memory; it keeps serving from relying on
+    the ingest cap alone.
   * **ref_pattern** ([`Pattern`](https://docs.python.org/3/library/re.html#re.Pattern)) – Refs to serve (full match); the default is what heed writes.
 * **Return type:**
   `APIRouter`
 
-### heed.make_attachment_store(rootdir=None, \*, delete_func=<built-in function remove>)
+### heed.make_attachment_store(rootdir=None, \*, delete_func=<built-in function remove>, follow_symlinks=False)
 
 A bytes store for attachments. In-memory unless `rootdir` is given.
 
 Deletion is permanent by default, for the reason given in `make_report_store`.
+Reading a key whose file is a symlink leading outside `rootdir` raises
+`KeyError`, so a misconfigured root cannot make the attachment route serve other
+files; `follow_symlinks=True` opts out.
 
 * **Return type:**
   [`MutableMapping`](https://docs.python.org/3/library/collections.abc.html#collections.abc.MutableMapping)
+
+```pycon
+>>> make_attachment_store()
+{}
+```
 
 ### heed.make_bot_verifier(provider, secret, \*\*kwargs)
 
@@ -1709,6 +1726,7 @@ issue can only show one through a URL (design.md §9). This module is that URL�
 
 | [`DEFAULT_REF_PATTERN`](_autosummary/heed.serving.html.md#heed.serving.DEFAULT_REF_PATTERN)   | `{uuid4 hex}.{image extension}` (`process_submission`).   |
 |------------------------------------------------------------------------|-----------------------------------------------------------|
+| [`ANY_HOST`](_autosummary/heed.serving.html.md#heed.serving.ANY_HOST)              | the route answers on every host.                          |
 
 ### Functions
 
@@ -1721,6 +1739,13 @@ issue can only show one through a URL (design.md §9). This module is that URL�
 
 | [`AttachmentSigner`](_autosummary/heed.serving.html.md#heed.serving.AttachmentSigner)(key, \*[, previous_keys, ...])   | Mint and check signed attachment URLs (HMAC-SHA256 over the ref and expiry).   |
 |----------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------|
+
+### heed.serving.ANY_HOST *= '\*'*
+
+the route answers on every host.
+
+* **Type:**
+  `allowed_hosts=ANY_HOST` (or `["*"]`)
 
 ### *class* heed.serving.AttachmentSigner(key, \*, previous_keys=(), ttl_seconds=None, clock=<built-in function time>)
 
@@ -1789,7 +1814,7 @@ on the dedicated attachment origin. Keyword arguments go to
 * **Return type:**
   `FastAPI`
 
-### heed.serving.make_attachment_router(attachment_store, , config=None, signer=None, allow_unsigned=False, allowed_hosts=None, cross_origin=False, path='/attachments', ref_pattern=re.compile('[0-9a-f]{32}\\\\\\\\.(?:png|jpg|webp)'))
+### heed.serving.make_attachment_router(attachment_store, , config=None, signer=None, allow_unsigned=False, allowed_hosts=None, cross_origin=False, cache_control=None, max_bytes=None, path='/attachments', ref_pattern=re.compile('[0-9a-f]{32}\\\\\\\\.(?:png|jpg|webp)'))
 
 A router serving `GET {path}/{ref}` from `attachment_store`, read-only.
 
@@ -1809,9 +1834,18 @@ one the proxy forwards: keep it the browser’s (Caddy and nginx can).
   * **allow_unsigned** ([`bool`](https://docs.python.org/3/builtins/functions.html#bool)) – Serve any ref without a signature (a ref is then the
     capability). Only for stores whose every screenshot may be public.
   * **allowed_hosts** ([`Iterable`](https://docs.python.org/3/library/collections.abc.html#collections.abc.Iterable)[[`str`](https://docs.python.org/3/builtins/stdtypes.html#str)] | [`None`](https://docs.python.org/3/builtins/constants.html#None)) – Hostnames this route answers on: the dedicated attachment origin.
-    `None` answers on any host (and logs a warning).
+    Required (here or as `config.attachment_hosts`): `ANY_HOST` says any
+    host is fine, which is only right when the route has no origin of its own.
   * **cross_origin** ([`bool`](https://docs.python.org/3/builtins/functions.html#bool)) – `Cross-Origin-Resource-Policy: cross-origin`, which an image
     embedded in a GitHub issue needs (GitHub’s camo proxy fetches it).
+  * **cache_control** ([`str`](https://docs.python.org/3/builtins/stdtypes.html#str) | [`None`](https://docs.python.org/3/builtins/constants.html#None)) – Replaces the `Cache-Control` of a served image (default
+    `private, no-store`), e.g. `public, max-age=300` if GitHub’s camo proxy
+    should cache signed, cross-origin images. Defaults to
+    `config.attachment_cache_control`.
+  * **max_bytes** ([`int`](https://docs.python.org/3/builtins/functions.html#int) | [`None`](https://docs.python.org/3/builtins/constants.html#None)) – Stored values larger than this are not served (a bare 404 and a
+    warning). Defaults to `config.max_screenshot_bytes`. It does not stop a
+    store from reading the value into memory; it keeps serving from relying on
+    the ingest cap alone.
   * **ref_pattern** ([`Pattern`](https://docs.python.org/3/library/re.html#re.Pattern)) – Refs to serve (full match); the default is what heed writes.
 * **Return type:**
   `APIRouter`
@@ -2117,10 +2151,10 @@ inject any ``dol` store (S3, Mongo, …).
 
 ### Functions
 
-| [`make_attachment_store`](_autosummary/heed.storage.html.md#heed.storage.make_attachment_store)([rootdir, delete_func])   | A bytes store for attachments.                                            |
-|--------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------|
-| [`make_holding_store`](_autosummary/heed.storage.html.md#heed.storage.make_holding_store)([rootdir, delete_func])      | A report store for held reports, with a dedicated claims store beside it. |
-| [`make_report_store`](_autosummary/heed.storage.html.md#heed.storage.make_report_store)([rootdir, delete_func])       | A text store for report JSON.                                             |
+| [`make_attachment_store`](_autosummary/heed.storage.html.md#heed.storage.make_attachment_store)([rootdir, ...])      | A bytes store for attachments.                                            |
+|---------------------------------------------------------------------------------------------|---------------------------------------------------------------------------|
+| [`make_holding_store`](_autosummary/heed.storage.html.md#heed.storage.make_holding_store)([rootdir, delete_func]) | A report store for held reports, with a dedicated claims store beside it. |
+| [`make_report_store`](_autosummary/heed.storage.html.md#heed.storage.make_report_store)([rootdir, delete_func])  | A text store for report JSON.                                             |
 
 ### heed.storage.CLAIMS_ATTR *= 'heed_claims'*
 
@@ -2130,14 +2164,22 @@ reports are claimed in while `heed.routing.release_held` sends them.
 * **Type:**
   Attribute a holding store made by `make_holding_store` carries
 
-### heed.storage.make_attachment_store(rootdir=None, \*, delete_func=<built-in function remove>)
+### heed.storage.make_attachment_store(rootdir=None, \*, delete_func=<built-in function remove>, follow_symlinks=False)
 
 A bytes store for attachments. In-memory unless `rootdir` is given.
 
 Deletion is permanent by default, for the reason given in `make_report_store`.
+Reading a key whose file is a symlink leading outside `rootdir` raises
+`KeyError`, so a misconfigured root cannot make the attachment route serve other
+files; `follow_symlinks=True` opts out.
 
 * **Return type:**
   [`MutableMapping`](https://docs.python.org/3/library/collections.abc.html#collections.abc.MutableMapping)
+
+```pycon
+>>> make_attachment_store()
+{}
+```
 
 ### heed.storage.make_holding_store(rootdir=None, \*, delete_func=<built-in function remove>)
 
@@ -2178,7 +2220,7 @@ report – and reports can carry personal data. Pass `delete_func` to opt back i
 
 # About this build
 
-This documentation was built on **2026-10-13 09:03 UTC** from commit <a href="https://github.com/i2mint/heed/commit/5cc1c05dcb4c63571e7a924316f38ba0fe571837"><code>5cc1c05</code></a> on branch <code>main</code>, for **heed 0.0.1** (from <code>pyproject.toml</code>).
+This documentation was built on **2026-10-13 12:49 UTC** from commit <a href="https://github.com/i2mint/heed/commit/8ce885a00e914b13b948831593e8145a18f38b1e"><code>8ce885a</code></a> on branch <code>main</code>, for **heed 0.0.1** (from <code>pyproject.toml</code>).
 
 #### WARNING
 The documentation and the package may be misaligned:
@@ -2189,7 +2231,7 @@ The documentation and the package may be misaligned:
 
 |                     |                                                                                                                                                    |
 |---------------------|----------------------------------------------------------------------------------------------------------------------------------------------------|
-| Commit              | <a href="https://github.com/i2mint/heed/commit/5cc1c05dcb4c63571e7a924316f38ba0fe571837"><code>5cc1c05dcb4c63571e7a924316f38ba0fe571837</code></a> |
+| Commit              | <a href="https://github.com/i2mint/heed/commit/8ce885a00e914b13b948831593e8145a18f38b1e"><code>8ce885a00e914b13b948831593e8145a18f38b1e</code></a> |
 | Branch              | <code>main</code>                                                                                                                                  |
 | Tags at this commit | none                                                                                                                                               |
 | Working tree        | clean                                                                                                                                              |
@@ -2200,9 +2242,9 @@ The documentation and the package may be misaligned:
 |              |                                                                                            |
 |--------------|--------------------------------------------------------------------------------------------|
 | Repository   | <code>i2mint/heed</code>                                                                   |
-| Run          | <a href="https://github.com/i2mint/heed/actions/runs/38373407650">38373407650</a>          |
+| Run          | <a href="https://github.com/i2mint/heed/actions/runs/38399917016">38399917016</a>          |
 | Ref          | <code>refs/heads/main</code>                                                               |
-| Event commit | <code>5cc1c05dcb4c63571e7a924316f38ba0fe571837</code> (in the history of the built commit) |
+| Event commit | <code>8ce885a00e914b13b948831593e8145a18f38b1e</code> (in the history of the built commit) |
 
 ## Tools
 
@@ -2233,7 +2275,7 @@ Latest release: <a href="https://pypi.org/project/heed/0.1.0/">0.1.0</a>, newer 
 
 ```bash
 git clone https://github.com/i2mint/heed && cd heed
-git checkout 5cc1c05dcb4c63571e7a924316f38ba0fe571837
+git checkout 8ce885a00e914b13b948831593e8145a18f38b1e
 pip install "epythet==0.2.15"
 epythet quickstart . --ignore tests/ scrap/ examples/
 ```

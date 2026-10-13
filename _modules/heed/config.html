@@ -778,8 +778,13 @@ window.runMermaid = runMermaid;</script>
     <span class="c1"># HMAC key for signed attachment URLs; without one the route refuses to build.</span>
     <span class="n">attachment_signing_key</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="nb">repr</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
     <span class="n">attachment_url_ttl_seconds</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># None: URLs do not expire</span>
+    <span class="c1"># Keys that still verify (never sign) while a rotated-out key's URLs live on.</span>
+    <span class="n">attachment_previous_keys</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">list</span><span class="p">,</span> <span class="nb">repr</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
     <span class="c1"># Hostnames the attachment route answers on: a dedicated origin, not the app's.</span>
+    <span class="c1"># Required to build the route; "*" says any host is fine.</span>
     <span class="n">attachment_hosts</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="c1"># Cache-Control of served attachments; None keeps "private, no-store".</span>
+    <span class="n">attachment_cache_control</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
 
     <span class="c1"># --- Capture policy -------------------------------------------------------------</span>
     <span class="n">accept_console</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>  <span class="c1"># opt-in heavy capture (privacy by default)</span>
@@ -807,6 +812,15 @@ window.runMermaid = runMermaid;</script>
             <span class="n">parse_networks</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">trusted_proxies</span><span class="p">)</span>
         <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"invalid trusted_proxies entry: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="kc">None</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">attachment_previous_keys</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+                <span class="s2">"attachment_previous_keys must be a list of keys, not a string"</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">attachment_previous_keys</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">attachment_signing_key</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">"attachment_previous_keys are set but attachment_signing_key is not; "</span>
+                <span class="s2">"a rotation keeps the old keys beside the new current one"</span>
+            <span class="p">)</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">bot_gate</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">bot_secret</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
                 <span class="sa">f</span><span class="s2">"bot_gate=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">bot_gate</span><span class="si">!r}</span><span class="s2"> is set but bot_secret is empty; set "</span>

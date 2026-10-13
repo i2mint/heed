@@ -745,20 +745,65 @@ window.runMermaid = runMermaid;</script>
 
 
 
+<span class="k">def</span><span class="w"> </span><span class="nf">_stays_under</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">rootdir</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Whether ``path``, with every symlink resolved, is inside ``rootdir``."""</span>
+    <span class="n">root</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">realpath</span><span class="p">(</span><span class="n">rootdir</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">commonpath</span><span class="p">([</span><span class="n">root</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">realpath</span><span class="p">(</span><span class="n">path</span><span class="p">)])</span> <span class="o">==</span> <span class="n">root</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_confined_files</span><span class="p">(</span><span class="n">rootdir</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MutableMapping</span><span class="p">:</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">dol</span><span class="w"> </span><span class="kn">import</span> <span class="n">Files</span>
+
+    <span class="k">class</span><span class="w"> </span><span class="nc">ConfinedFiles</span><span class="p">(</span><span class="n">Files</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Files that treat a key whose file resolves, through symlinks, to outside</span>
+<span class="sd">        ``rootdir`` as missing -- to read, write, delete, test and list -- so a</span>
+<span class="sd">        misconfigured root cannot make heed touch other files."""</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">_id_of_key</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">k</span><span class="p">):</span>
+            <span class="n">path</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">_id_of_key</span><span class="p">(</span><span class="n">k</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">_stays_under</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">rootdir</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span><span class="n">k</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">path</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="fm">__contains__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">k</span><span class="p">):</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__contains__</span><span class="p">(</span><span class="n">k</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+                <span class="k">return</span> <span class="kc">False</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="fm">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__iter__</span><span class="p">():</span>
+                <span class="k">if</span> <span class="n">_stays_under</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">rootdir</span><span class="p">,</span> <span class="n">k</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">rootdir</span><span class="p">):</span>
+                    <span class="k">yield</span> <span class="n">k</span>
+
+    <span class="k">return</span> <span class="n">ConfinedFiles</span><span class="p">(</span><span class="n">rootdir</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+
 <div class="viewcode-block" id="make_attachment_store">
 <a class="viewcode-back" href="../../_autosummary/heed.storage.html#heed.make_attachment_store">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">make_attachment_store</span><span class="p">(</span>
-    <span class="n">rootdir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">delete_func</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="nb">str</span><span class="p">],</span> <span class="kc">None</span><span class="p">]</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">remove</span>
+    <span class="n">rootdir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">delete_func</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="nb">str</span><span class="p">],</span> <span class="kc">None</span><span class="p">]</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">,</span>
+    <span class="n">follow_symlinks</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MutableMapping</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""A bytes store for attachments. In-memory unless ``rootdir`` is given.</span>
 
 <span class="sd">    Deletion is permanent by default, for the reason given in `make_report_store`.</span>
+<span class="sd">    Reading a key whose file is a symlink leading outside ``rootdir`` raises</span>
+<span class="sd">    ``KeyError``, so a misconfigured root cannot make the attachment route serve other</span>
+<span class="sd">    files; ``follow_symlinks=True`` opts out.</span>
+
+<span class="sd">    &gt;&gt;&gt; make_attachment_store()</span>
+<span class="sd">    {}</span>
 <span class="sd">    """</span>
     <span class="k">if</span> <span class="n">rootdir</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">return</span> <span class="p">{}</span>
-    <span class="kn">from</span><span class="w"> </span><span class="nn">dol</span><span class="w"> </span><span class="kn">import</span> <span class="n">Files</span>
+    <span class="k">if</span> <span class="n">follow_symlinks</span><span class="p">:</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">dol</span><span class="w"> </span><span class="kn">import</span> <span class="n">Files</span>
 
-    <span class="k">return</span> <span class="n">Files</span><span class="p">(</span><span class="n">rootdir</span><span class="p">,</span> <span class="n">delete_func</span><span class="o">=</span><span class="n">delete_func</span><span class="p">)</span></div>
+        <span class="k">return</span> <span class="n">Files</span><span class="p">(</span><span class="n">rootdir</span><span class="p">,</span> <span class="n">delete_func</span><span class="o">=</span><span class="n">delete_func</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">_confined_files</span><span class="p">(</span><span class="n">rootdir</span><span class="p">,</span> <span class="n">delete_func</span><span class="o">=</span><span class="n">delete_func</span><span class="p">)</span></div>
 
 
 

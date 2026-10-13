@@ -35,6 +35,7 @@ issue can only show one through a URL (design.md §9). This module is that URL�
 
 | [`DEFAULT_REF_PATTERN`](#heed.serving.DEFAULT_REF_PATTERN)   | `{uuid4 hex}.{image extension}` (`process_submission`).   |
 |------------------------------------------------------------------------|-----------------------------------------------------------|
+| [`ANY_HOST`](#heed.serving.ANY_HOST)              | the route answers on every host.                          |
 
 ### Functions
 
@@ -47,6 +48,13 @@ issue can only show one through a URL (design.md §9). This module is that URL�
 
 | [`AttachmentSigner`](#heed.serving.AttachmentSigner)(key, \*[, previous_keys, ...])   | Mint and check signed attachment URLs (HMAC-SHA256 over the ref and expiry).   |
 |----------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------|
+
+### heed.serving.ANY_HOST *= '\*'*
+
+the route answers on every host.
+
+* **Type:**
+  `allowed_hosts=ANY_HOST` (or `["*"]`)
 
 ### *class* heed.serving.AttachmentSigner(key, \*, previous_keys=(), ttl_seconds=None, clock=<built-in function time>)
 
@@ -115,7 +123,7 @@ on the dedicated attachment origin. Keyword arguments go to
 * **Return type:**
   `FastAPI`
 
-### heed.serving.make_attachment_router(attachment_store, , config=None, signer=None, allow_unsigned=False, allowed_hosts=None, cross_origin=False, path='/attachments', ref_pattern=re.compile('[0-9a-f]{32}\\\\\\\\.(?:png|jpg|webp)'))
+### heed.serving.make_attachment_router(attachment_store, , config=None, signer=None, allow_unsigned=False, allowed_hosts=None, cross_origin=False, cache_control=None, max_bytes=None, path='/attachments', ref_pattern=re.compile('[0-9a-f]{32}\\\\\\\\.(?:png|jpg|webp)'))
 
 A router serving `GET {path}/{ref}` from `attachment_store`, read-only.
 
@@ -135,9 +143,18 @@ one the proxy forwards: keep it the browser’s (Caddy and nginx can).
   * **allow_unsigned** ([`bool`](https://docs.python.org/3/builtins/functions.html#bool)) – Serve any ref without a signature (a ref is then the
     capability). Only for stores whose every screenshot may be public.
   * **allowed_hosts** ([`Iterable`](https://docs.python.org/3/library/collections.abc.html#collections.abc.Iterable)[[`str`](https://docs.python.org/3/builtins/stdtypes.html#str)] | [`None`](https://docs.python.org/3/builtins/constants.html#None)) – Hostnames this route answers on: the dedicated attachment origin.
-    `None` answers on any host (and logs a warning).
+    Required (here or as `config.attachment_hosts`): `ANY_HOST` says any
+    host is fine, which is only right when the route has no origin of its own.
   * **cross_origin** ([`bool`](https://docs.python.org/3/builtins/functions.html#bool)) – `Cross-Origin-Resource-Policy: cross-origin`, which an image
     embedded in a GitHub issue needs (GitHub’s camo proxy fetches it).
+  * **cache_control** ([`str`](https://docs.python.org/3/builtins/stdtypes.html#str) | [`None`](https://docs.python.org/3/builtins/constants.html#None)) – Replaces the `Cache-Control` of a served image (default
+    `private, no-store`), e.g. `public, max-age=300` if GitHub’s camo proxy
+    should cache signed, cross-origin images. Defaults to
+    `config.attachment_cache_control`.
+  * **max_bytes** ([`int`](https://docs.python.org/3/builtins/functions.html#int) | [`None`](https://docs.python.org/3/builtins/constants.html#None)) – Stored values larger than this are not served (a bare 404 and a
+    warning). Defaults to `config.max_screenshot_bytes`. It does not stop a
+    store from reading the value into memory; it keeps serving from relying on
+    the ingest cap alone.
   * **ref_pattern** ([`Pattern`](https://docs.python.org/3/library/re.html#re.Pattern)) – Refs to serve (full match); the default is what heed writes.
 * **Return type:**
   `APIRouter`

@@ -13,10 +13,10 @@ inject any ``dol` store (S3, Mongo, …).
 
 ### Functions
 
-| [`make_attachment_store`](#heed.storage.make_attachment_store)([rootdir, delete_func])   | A bytes store for attachments.                                            |
-|--------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------|
-| [`make_holding_store`](#heed.storage.make_holding_store)([rootdir, delete_func])      | A report store for held reports, with a dedicated claims store beside it. |
-| [`make_report_store`](#heed.storage.make_report_store)([rootdir, delete_func])       | A text store for report JSON.                                             |
+| [`make_attachment_store`](#heed.storage.make_attachment_store)([rootdir, ...])      | A bytes store for attachments.                                            |
+|---------------------------------------------------------------------------------------------|---------------------------------------------------------------------------|
+| [`make_holding_store`](#heed.storage.make_holding_store)([rootdir, delete_func]) | A report store for held reports, with a dedicated claims store beside it. |
+| [`make_report_store`](#heed.storage.make_report_store)([rootdir, delete_func])  | A text store for report JSON.                                             |
 
 ### heed.storage.CLAIMS_ATTR *= 'heed_claims'*
 
@@ -26,14 +26,22 @@ reports are claimed in while `heed.routing.release_held` sends them.
 * **Type:**
   Attribute a holding store made by `make_holding_store` carries
 
-### heed.storage.make_attachment_store(rootdir=None, \*, delete_func=<built-in function remove>)
+### heed.storage.make_attachment_store(rootdir=None, \*, delete_func=<built-in function remove>, follow_symlinks=False)
 
 A bytes store for attachments. In-memory unless `rootdir` is given.
 
 Deletion is permanent by default, for the reason given in `make_report_store`.
+Reading a key whose file is a symlink leading outside `rootdir` raises
+`KeyError`, so a misconfigured root cannot make the attachment route serve other
+files; `follow_symlinks=True` opts out.
 
 * **Return type:**
   [`MutableMapping`](https://docs.python.org/3/library/collections.abc.html#collections.abc.MutableMapping)
+
+```pycon
+>>> make_attachment_store()
+{}
+```
 
 ### heed.storage.make_holding_store(rootdir=None, \*, delete_func=<built-in function remove>)
 

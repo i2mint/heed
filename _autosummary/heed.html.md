@@ -71,7 +71,7 @@ True
 | [`recover_claimed`](#heed.recover_claimed)(\*, holding_store[, ...])          | Return every claimed report to holding, and the ids returned.                                                                       |
 | [`discard_held`](#heed.discard_held)(report_id, \*, holding_store[, ...])  | Delete a held report for good, with its attachments (e.g. a screenshot).                                                            |
 | [`make_report_store`](#heed.make_report_store)([rootdir, delete_func])          | A text store for report JSON.                                                                                                       |
-| [`make_attachment_store`](#heed.make_attachment_store)([rootdir, delete_func])      | A bytes store for attachments.                                                                                                      |
+| [`make_attachment_store`](#heed.make_attachment_store)([rootdir, ...])              | A bytes store for attachments.                                                                                                      |
 | [`make_holding_store`](#heed.make_holding_store)([rootdir, delete_func])         | A report store for held reports, with a dedicated claims store beside it.                                                           |
 
 ### Classes
@@ -207,7 +207,7 @@ Bases: [`BaseSink`](heed.sinks.base.html.md#heed.sinks.base.BaseSink)
 
 Route a report to a GitHub issue via an injected `create_issue` callable.
 
-### *class* heed.HeedConfig(\*, allowed_origins=None, handle_cors=True, cors_allow_credentials=False, cors_max_age_seconds=600, max_body_bytes=6000000, max_screenshot_bytes=5000000, screenshot_sanitizer='auto', max_screenshot_pixels=25000000, max_concurrent_reencodes=2, max_field_bytes=100000, max_form_fields=16, rate_limit_per_minute=30, origin_rate_limit_per_minute=600, rate_limit_window_seconds=60.0, rate_limit_backend='memory', redis_url=None, trusted_proxies=<factory>, ipv6_rate_limit_prefix=64, bot_gate=None, bot_secret=None, bot_expected_hostnames=None, bot_token_field='bot_token', honeypot_field='hp_website', attachment_signing_key=None, attachment_url_ttl_seconds=None, attachment_hosts=None, accept_console=False, accept_network=False)
+### *class* heed.HeedConfig(\*, allowed_origins=None, handle_cors=True, cors_allow_credentials=False, cors_max_age_seconds=600, max_body_bytes=6000000, max_screenshot_bytes=5000000, screenshot_sanitizer='auto', max_screenshot_pixels=25000000, max_concurrent_reencodes=2, max_field_bytes=100000, max_form_fields=16, rate_limit_per_minute=30, origin_rate_limit_per_minute=600, rate_limit_window_seconds=60.0, rate_limit_backend='memory', redis_url=None, trusted_proxies=<factory>, ipv6_rate_limit_prefix=64, bot_gate=None, bot_secret=None, bot_expected_hostnames=None, bot_token_field='bot_token', honeypot_field='hp_website', attachment_signing_key=None, attachment_url_ttl_seconds=None, attachment_previous_keys=<factory>, attachment_hosts=None, attachment_cache_control=None, accept_console=False, accept_network=False)
 
 Bases: [`object`](https://docs.python.org/3/builtins/functions.html#object)
 
@@ -465,7 +465,7 @@ on the dedicated attachment origin. Keyword arguments go to
 * **Return type:**
   `FastAPI`
 
-### heed.make_attachment_router(attachment_store, , config=None, signer=None, allow_unsigned=False, allowed_hosts=None, cross_origin=False, path='/attachments', ref_pattern=re.compile('[0-9a-f]{32}\\\\\\\\.(?:png|jpg|webp)'))
+### heed.make_attachment_router(attachment_store, , config=None, signer=None, allow_unsigned=False, allowed_hosts=None, cross_origin=False, cache_control=None, max_bytes=None, path='/attachments', ref_pattern=re.compile('[0-9a-f]{32}\\\\\\\\.(?:png|jpg|webp)'))
 
 A router serving `GET {path}/{ref}` from `attachment_store`, read-only.
 
@@ -485,21 +485,38 @@ one the proxy forwards: keep it the browser’s (Caddy and nginx can).
   * **allow_unsigned** ([`bool`](https://docs.python.org/3/builtins/functions.html#bool)) – Serve any ref without a signature (a ref is then the
     capability). Only for stores whose every screenshot may be public.
   * **allowed_hosts** ([`Iterable`](https://docs.python.org/3/library/collections.abc.html#collections.abc.Iterable)[[`str`](https://docs.python.org/3/builtins/stdtypes.html#str)] | [`None`](https://docs.python.org/3/builtins/constants.html#None)) – Hostnames this route answers on: the dedicated attachment origin.
-    `None` answers on any host (and logs a warning).
+    Required (here or as `config.attachment_hosts`): `ANY_HOST` says any
+    host is fine, which is only right when the route has no origin of its own.
   * **cross_origin** ([`bool`](https://docs.python.org/3/builtins/functions.html#bool)) – `Cross-Origin-Resource-Policy: cross-origin`, which an image
     embedded in a GitHub issue needs (GitHub’s camo proxy fetches it).
+  * **cache_control** ([`str`](https://docs.python.org/3/builtins/stdtypes.html#str) | [`None`](https://docs.python.org/3/builtins/constants.html#None)) – Replaces the `Cache-Control` of a served image (default
+    `private, no-store`), e.g. `public, max-age=300` if GitHub’s camo proxy
+    should cache signed, cross-origin images. Defaults to
+    `config.attachment_cache_control`.
+  * **max_bytes** ([`int`](https://docs.python.org/3/builtins/functions.html#int) | [`None`](https://docs.python.org/3/builtins/constants.html#None)) – Stored values larger than this are not served (a bare 404 and a
+    warning). Defaults to `config.max_screenshot_bytes`. It does not stop a
+    store from reading the value into memory; it keeps serving from relying on
+    the ingest cap alone.
   * **ref_pattern** ([`Pattern`](https://docs.python.org/3/library/re.html#re.Pattern)) – Refs to serve (full match); the default is what heed writes.
 * **Return type:**
   `APIRouter`
 
-### heed.make_attachment_store(rootdir=None, \*, delete_func=<built-in function remove>)
+### heed.make_attachment_store(rootdir=None, \*, delete_func=<built-in function remove>, follow_symlinks=False)
 
 A bytes store for attachments. In-memory unless `rootdir` is given.
 
 Deletion is permanent by default, for the reason given in `make_report_store`.
+Reading a key whose file is a symlink leading outside `rootdir` raises
+`KeyError`, so a misconfigured root cannot make the attachment route serve other
+files; `follow_symlinks=True` opts out.
 
 * **Return type:**
   [`MutableMapping`](https://docs.python.org/3/library/collections.abc.html#collections.abc.MutableMapping)
+
+```pycon
+>>> make_attachment_store()
+{}
+```
 
 ### heed.make_bot_verifier(provider, secret, \*\*kwargs)
 
