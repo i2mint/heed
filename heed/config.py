@@ -71,6 +71,11 @@ class HeedConfig:
                 "list; reflecting any origin with credentials lets every site on the "
                 "web submit as your logged-in users"
             )
+        if not 0 <= self.ipv6_rate_limit_prefix <= 128:
+            raise ValueError(
+                f"ipv6_rate_limit_prefix must be in 0..128, "
+                f"got {self.ipv6_rate_limit_prefix}"
+            )
         try:
             parse_networks(self.trusted_proxies)
         except ValueError as e:

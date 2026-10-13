@@ -25,6 +25,7 @@ from typing import Any, Optional
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request, Response
 from fastapi.responses import JSONResponse
 from pydantic import ValidationError
+from python_multipart.exceptions import MultipartParseError
 from starlette.concurrency import run_in_threadpool
 from starlette.datastructures import UploadFile
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -311,7 +312,11 @@ def make_router(
                 max_fields=cfg.max_form_fields,
                 max_part_size=cfg.max_field_bytes,
             )
-        except (MultiPartException, StarletteHTTPException) as e:
+        except (
+            MultiPartException,
+            MultipartParseError,
+            StarletteHTTPException,
+        ) as e:
             # malformed multipart, too many parts/files, a part over max_part_size
             raise _fail(400, "malformed form data", origin) from e
         try:

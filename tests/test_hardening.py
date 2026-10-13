@@ -410,3 +410,18 @@ def test_redis_from_url_sets_socket_timeouts(monkeypatch):
     monkeypatch.setattr(redis.Redis, "from_url", staticmethod(fake_from_url))
     RedisRateLimiter.from_url("redis://x:6379/0")
     assert seen["socket_timeout"] == seen["socket_connect_timeout"] == 0.5
+
+
+def test_ipv6_prefix_validated():
+    with pytest.raises(ValueError, match="ipv6_rate_limit_prefix"):
+        HeedConfig(ipv6_rate_limit_prefix=200)
+
+
+def test_garbled_multipart_is_400():
+    client = _client()
+    resp = client.post(
+        "/report",
+        content=b"--XYZ\r\ngarbage-without-headers\r\n\r\n--XYZ--",
+        headers={"origin": ORIGIN, "content-type": "multipart/form-data; boundary=XYZ"},
+    )
+    assert resp.status_code == 400

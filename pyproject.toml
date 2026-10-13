@@ -21,10 +21,10 @@ keywords = [
 authors = [{ name = "Thor Whalen" }]
 dependencies = [
     "pydantic>=2.0.0",
-    "fastapi>=0.115.3",
-    # Request.form(max_part_size=...) and urlencoded field limits (payload caps).
-    "starlette>=0.40",
-    "python-multipart>=0.0.9",
+    "fastapi>=0.115.7",
+    # Request.form(max_part_size=...) (starlette 0.44) for the payload caps.
+    "starlette>=0.44",
+    "python-multipart>=0.0.18",
     "dol>=0.2",
 ]
 
