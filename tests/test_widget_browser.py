@@ -399,3 +399,16 @@ def test_earlier_builds_stay_served(browser):
                 )
         finally:
             tab.close()
+
+
+def test_an_element_with_id_heed_does_not_stop_the_embed(browser):
+    def page(backend):
+        return _page(
+            backend,
+            '<div id="heed">the page\'s own</div>'
+            f'<script async src="{backend}/heed/widget/heed.js"></script>',
+        )
+
+    with _site(browser, page=page) as (tab, problems, _store, _origin):
+        tab.get_by_role("button", name="Feedback").wait_for()
+        assert problems == []

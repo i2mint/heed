@@ -55,10 +55,25 @@ export function installApi(win: HeedWindow = window as HeedWindow): HeedApi {
   };
   const attach = (el: HeedFeedbackElement) =>
     whenParsed(() => {
-      if (managed === el && !el.isConnected && doc.body) doc.body.append(el);
+      if (managed !== el || el.isConnected || !doc.body) return;
+      // A restored snapshot of an old <body> (Turbo's cache) carries a dead copy.
+      doc.querySelectorAll(`${TAG}[data-heed-managed]`).forEach((copy) => copy.remove());
+      doc.body.append(el);
     });
-  // Pages that swap <body> on navigation detach the widget: put it back.
-  new MutationObserver(() => managed && attach(managed)).observe(doc.documentElement, { childList: true });
+  // Pages that swap <body>, or its contents, on navigation detach the widget: put it back.
+  let watchedBody: HTMLElement | null = null;
+  const observer = new MutationObserver(() => {
+    if (doc.body && doc.body !== watchedBody) {
+      watchedBody = doc.body;
+      observer.observe(watchedBody, { childList: true });
+    }
+    if (managed && !managed.isConnected) attach(managed);
+  });
+  observer.observe(doc.documentElement, { childList: true });
+  whenParsed(() => {
+    watchedBody = doc.body;
+    if (watchedBody) observer.observe(watchedBody, { childList: true });
+  });
 
   const init = (options: Partial<HeedOptions> = {}): HeedFeedbackElement | null => {
     if (!managed) {
@@ -125,7 +140,10 @@ export function installApi(win: HeedWindow = window as HeedWindow): HeedApi {
     }
   };
 
-  const queued: Entry[] = Array.from(win.heed?.q ?? []);
+  const stubQueue = win.heed?.q;
+  const queued: Entry[] = Array.from(stubQueue ?? []);
+  // Empty the stub's queue, so an unsubscribe it handed out finds the real listener.
+  if (Array.isArray(stubQueue)) stubQueue.length = 0;
   const api: HeedApi = Object.assign((command: string, ...args: unknown[]) => run(command, ...args), {
     init: (o?: Partial<HeedOptions>) => run("init", o) as HeedFeedbackElement | null,
     open: () => void run("open"),

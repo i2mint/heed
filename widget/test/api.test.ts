@@ -12,6 +12,7 @@ beforeEach(() => {
   delete w.heed;
 });
 afterEach(() => {
+  w.heed?.destroy?.(); // stop this test's API from re-attaching its widget
   document.body.replaceChildren();
   delete w.heed;
 });
@@ -129,5 +130,43 @@ describe("window.heed", () => {
     w.heed = { q: [entry] };
     installApi(w);
     expect(typeof entry.off).toBe("function");
+  });
+  it("puts the widget back when the page swaps the body's contents (htmx boost)", async () => {
+    const api = installApi(w);
+    api.init({ endpoint: "/r" });
+    await new Promise((r) => setTimeout(r, 0));
+    document.body.replaceChildren(document.createElement("main"));
+    await new Promise((r) => setTimeout(r, 0));
+    expect(managed()?.isConnected).toBe(true);
+  });
+
+  it("drops the dead copy a restored body snapshot carries", async () => {
+    const api = installApi(w);
+    api.init({ endpoint: "/r" });
+    await new Promise((r) => setTimeout(r, 0));
+    document.body.replaceWith(document.body.cloneNode(true));
+    await new Promise((r) => setTimeout(r, 0));
+    expect(document.querySelectorAll(TAG)).toHaveLength(1);
+    expect(managed()!.options.endpoint).toBe("/r");
+  });
+
+  it("an unsubscribe handed out by the stub removes the real listener after load", () => {
+    const seen = vi.fn();
+    const entry: unknown[] & { off?: () => void } = ["on", "open", seen];
+    const q = [entry];
+    w.heed = { q };
+    const api = installApi(w);
+    expect(q).toHaveLength(0);
+    entry.off!();
+    api.open();
+    expect(seen).not.toHaveBeenCalled();
+  });
+
+  it("ignores an element named heed", () => {
+    const el = document.createElement("div");
+    el.id = "heed";
+    document.body.append(el);
+    const api = installApi(w);
+    expect(api.loaded).toBe(true);
   });
 });

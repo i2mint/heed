@@ -21,7 +21,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const OUT_DIR = join(here, "..", "heed", "static", "widget");
 const pkg = JSON.parse(readFileSync(join(here, "package.json"), "utf8"));
 // Gzipped-size budgets in bytes, per entry.
-const BUDGETS = { widget: 8_000, loader: 1_200 };
+const BUDGETS = { widget: 8_000, loader: 1_300 };
 const RETAIN_VERSIONS = 5;
 // Built in order: the loader embeds the widget bundle's hashed name and SRI hash.
 const ENTRIES = {

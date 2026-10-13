@@ -26,20 +26,23 @@ type TT = { createPolicy(n: string, p: object): { createScriptURL(u: string): un
   const w = window as unknown as Window & { heed?: Stub; trustedTypes?: TT };
   const d = document;
   const warn = (m: string) => console.warn(`heed: ${m}`);
+  const TWICE = "loader included twice; ignoring this one";
   const self = (d.currentScript as HTMLScriptElement | null) ?? findSelf();
-  if (!self?.src) return warn("could not find the loader's <script> tag; give it a data-heed-loader attribute");
+  if (!self?.src) return warn("loader tag not found; add data-heed-loader to it");
   const data: Record<string, string> = {};
   for (const a of Array.from(self.attributes)) if (a.name.startsWith("data-")) data[a.name.slice(5)] = a.value;
   const boot = ["_boot", { base: self.src, data }];
-  const existing = w.heed;
+  // An element with id="heed" shows up as window.heed (named access): not a real one.
+  const named = w.heed instanceof Element || w.heed instanceof HTMLCollection;
+  const existing = named ? undefined : w.heed;
   if (existing !== undefined && (typeof existing !== "function" || (existing.q !== undefined && !Array.isArray(existing.q)))) {
-    return warn("window.heed is already used by something else; the widget is not loaded");
+    return warn("window.heed is taken; not loading");
   }
   if (existing?.loaded) {
     // The bundle was loaded directly before this loader: hand it our options once.
-    return existing.booted ? warn("the loader is included twice; the second one is ignored") : void existing(...boot);
+    return existing.booted ? warn(TWICE) : void existing(...boot);
   }
-  if (existing?.loading) return warn("the loader is included twice; the second one is ignored");
+  if (existing?.loading) return warn(TWICE);
 
   const queue: Entry[] = existing?.q ?? [];
   const stub = ((...args: unknown[]) => {
@@ -80,7 +83,7 @@ type TT = { createPolicy(n: string, p: object): { createScriptURL(u: string): un
     try {
       s.src = (policy ? policy.createScriptURL(url) : url) as string;
     } catch {
-      return warn("Trusted Types blocked the widget; add `heed` to the page's CSP trusted-types list (or 'allow-duplicates')");
+      return warn("blocked by Trusted Types; allow the policy `heed` in the CSP trusted-types list");
     }
     s.integrity = __HEED_INTEGRITY__;
     s.crossOrigin = "anonymous";
