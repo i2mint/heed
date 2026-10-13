@@ -169,6 +169,114 @@ describe("<heed-feedback> language", () => {
     vi.unstubAllGlobals();
   });
 
+  const fail429 = () => vi.stubGlobal("fetch", vi.fn(async () => new Response("{}", { status: 429, headers: { "Retry-After": "7" } })));
+  const sendTitled = (el: HeedFeedbackElement) => {
+    ($(el, "input[name=title]") as HTMLInputElement).value = "t";
+    ($(el, "form") as HTMLFormElement).requestSubmit();
+  };
+
+  it("says the status and error lines again in the new language", async () => {
+    const el = mount({ lang: "fr" });
+    await vi.waitFor(() => expect($(el, "button[type=submit]").textContent).toBe("Envoyer"));
+    fail429();
+    sendTitled(el);
+    await vi.waitFor(() => expect($(el, ".status.error").textContent).toContain(LOCALES.fr.rate_limited));
+    el.setAttribute("lang", "de");
+    await vi.waitFor(() => expect($(el, ".status.error").textContent).toContain(LOCALES.de.rate_limited));
+    expect($(el, ".status.error").textContent).toContain("7 Sekunden");
+    el.setAttribute("lang", "en");
+    expect($(el, ".status.error").textContent).toBe(`${MESSAGES.rate_limited} ${MESSAGES.retryIn(7)}`);
+    vi.unstubAllGlobals();
+  });
+
+  it("says the done message again in the new language", async () => {
+    const el = mount({ lang: "fr" });
+    await vi.waitFor(() => expect($(el, "button[type=submit]").textContent).toBe("Envoyer"));
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ ok: true, id: "r", status: "received" }), { status: 200 })));
+    sendTitled(el);
+    await vi.waitFor(() => expect($(el, ".done p").textContent).toBe(LOCALES.fr.received));
+    el.setAttribute("lang", "de");
+    await vi.waitFor(() => expect($(el, ".done p").textContent).toBe(LOCALES.de.received));
+    vi.unstubAllGlobals();
+  });
+
+  it("follows a change of the page's lang while it is mounted", async () => {
+    document.documentElement.lang = "es";
+    const el = mount();
+    await vi.waitFor(() => expect($(el, "button[type=submit]").textContent).toBe("Enviar"));
+    document.documentElement.lang = "de";
+    await vi.waitFor(() => expect($(el, "button[type=submit]").textContent).toBe("Senden"));
+    el.remove();
+    document.documentElement.lang = "fr"; // not watched any more: nothing throws
+    await nextTick();
+  });
+
+  it("sees the page's lang from inside another component's shadow root", async () => {
+    document.documentElement.lang = "de";
+    const host = document.createElement("div");
+    document.body.append(host);
+    const inner = host.attachShadow({ mode: "open" });
+    const el = document.createElement(TAG) as HeedFeedbackElement;
+    el.setAttribute("endpoint", "https://h.example/r");
+    el.setAttribute("screenshot", "false");
+    inner.append(el);
+    await vi.waitFor(() => expect($(el, "button[type=submit]").textContent).toBe("Senden"));
+    document.documentElement.lang = "es";
+    await vi.waitFor(() => expect($(el, "button[type=submit]").textContent).toBe("Enviar"));
+    host.setAttribute("lang", "fr"); // the nearest lang wins, even set on the host
+    await vi.waitFor(() => expect($(el, "button[type=submit]").textContent).toBe("Envoyer"));
+  });
+
+  it("an embedder's label that equals the English default still beats the translation", async () => {
+    const el = mount({ lang: "fr", label: "Feedback", heading: "Send feedback" });
+    await vi.waitFor(() => expect($(el, "button[type=submit]").textContent).toBe("Envoyer"));
+    expect($(el, ".launcher").textContent).toBe("Feedback");
+    expect($(el, "dialog h2").textContent).toBe("Send feedback");
+  });
+
+  it("an empty lang option on the element follows the page's lang, not English", async () => {
+    document.documentElement.lang = "fr";
+    const el = mount({ lang: "" });
+    await vi.waitFor(() => expect($(el, "button[type=submit]").textContent).toBe("Envoyer"));
+  });
+
+  it("does not rewrite an unchanged error line (an alert region may be announced again)", async () => {
+    const el = mount({ lang: "fr" });
+    await vi.waitFor(() => expect($(el, "button[type=submit]").textContent).toBe("Envoyer"));
+    fail429();
+    sendTitled(el);
+    await vi.waitFor(() => expect($(el, ".status.error").textContent).toContain(LOCALES.fr.rate_limited));
+    const writes = vi.fn();
+    new MutationObserver(writes).observe($(el, ".status.error"), { childList: true, characterData: true, subtree: true });
+    el.configure({ position: "bottom-left" });
+    document.body.append(Object.assign(document.createElement("span"), { lang: "ja" }));
+    await nextTick();
+    expect(writes).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
+  });
+
+  it("a retryIn that answers with something else than text falls back to the English hint", async () => {
+    const el = mount();
+    el.configure({ messages: { retryIn: (() => undefined) as unknown as (s: number) => string } });
+    fail429();
+    sendTitled(el);
+    await vi.waitFor(() => expect($(el, ".status.error").textContent).toBe(`${MESSAGES.rate_limited} ${MESSAGES.retryIn(7)}`));
+    vi.unstubAllGlobals();
+  });
+
+  it("an embedder's retryIn that throws does not hide the error or heed:error", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const el = mount();
+    el.configure({ messages: { retryIn: () => { throw new Error("bug"); } } });
+    const errors: string[] = [];
+    el.addEventListener("heed:error", (e) => errors.push((e as CustomEvent).detail.kind));
+    fail429();
+    sendTitled(el);
+    await vi.waitFor(() => expect(errors).toEqual(["rate_limited"]));
+    expect($(el, ".status.error").textContent).toContain(MESSAGES.rate_limited);
+    vi.unstubAllGlobals();
+  });
+
   // Last: it relies on fr and de having been loaded by the tests above (the cache is per module).
   it("marks its content with the language it speaks, and inherits the page's when unsure", async () => {
     const el = mount({ lang: "de" });

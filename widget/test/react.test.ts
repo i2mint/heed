@@ -41,7 +41,7 @@ describe("<HeedFeedback>", () => {
     render({ endpoint: "/r", label: "Two" });
     expect(element().options.label).toBe("Two");
     render({ endpoint: "/r" });
-    expect(element().options.label).toBe("Feedback");
+    expect(element().options.label).toBe("");
   });
 
   it("messages follow the prop and are cleared when it is removed", () => {

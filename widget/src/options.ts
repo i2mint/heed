@@ -10,7 +10,7 @@
  * (heed's Pydantic models). This table is the widget's schema.
  */
 import { CONTRACT } from "./contract.gen.js";
-import { MESSAGES, type MessageOverrides, cleanMessages } from "./i18n.js";
+import { type MessageOverrides, cleanMessages } from "./i18n.js";
 
 export type Category = (typeof CONTRACT.categories)[number];
 export type Position = "bottom-right" | "bottom-left" | "none";
@@ -29,15 +29,15 @@ export type ExtraProvider = () => Record<string, string>;
 export interface HeedOptions {
   /** Absolute or relative URL of heed's `POST /report` route. Required. */
   endpoint: string;
-  /** Text of the floating launcher button. */
+  /** Text of the floating launcher button; empty (the default) shows "Feedback" in the visitor's language. */
   label: string;
   /** Where the launcher sits; "none" hides it (open with `open()` instead). */
   position: Position;
-  /** The dialog's heading. */
+  /** The dialog's heading; empty (the default) shows "Send feedback" in the visitor's language. */
   heading: string;
   /** Language of the widget's texts: a tag like "fr" or "pt-BR"; empty follows the page's `lang`, then the browser's. Built in: en, es, fr, de, pt. */
   lang: string;
-  /** Overrides for single texts (any language), by key (see `MESSAGES`); code-only. A `label`/`heading` option, when changed from its default, takes precedence over the translation. */
+  /** Overrides for single texts (any language), by key (see `MESSAGES`); code-only. A non-empty `label`/`heading` option takes precedence over the translation. */
   messages: MessageOverrides;
   /** Categories offered to the visitor, in order; the first is preselected. */
   categories: Category[];
@@ -121,9 +121,9 @@ const categories: Parse<Category[]> = (s) => {
 
 export const OPTION_SPECS: Specs = {
   endpoint: { default: "", attr: "endpoint", parse: text },
-  label: { default: MESSAGES.label, attr: "label", parse: text },
+  label: { default: "", attr: "label", parse: text },
   position: { default: "bottom-right", attr: "position", parse: oneOf("bottom-right", "bottom-left", "none") },
-  heading: { default: MESSAGES.heading, attr: "heading", parse: text },
+  heading: { default: "", attr: "heading", parse: text },
   lang: { default: "", attr: "lang", parse: text },
   messages: { default: {}, clean: cleanMessages },
   categories: { default: [...CONTRACT.categories], attr: "categories", parse: categories },

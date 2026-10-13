@@ -109,6 +109,12 @@ export class HeedFeedbackElement extends Base {
   #gate: { key: string; gate: BotGate | null } | null = null;
   /** The visitor left while the send waited on its challenge: that send ends without a word. */
   #abandoned = false;
+  /** What the status and error lines say (kept as a picker, not as text, to be re-said when the language changes). */
+  #status: { pick: (m: Messages) => string; error: boolean } | null = null;
+  /** Likewise the "done" message. */
+  #done: ((m: Messages) => string) | null = null;
+  /** Watches `lang` attributes above the element: a page that changes its language changes the widget's. */
+  #langWatch: MutationObserver | null = null;
   /** Static texts of the UI, re-rendered when the language changes. */
   #texts: [Text, TextKey][] = [];
   /** The language whose translations were last asked for. */
@@ -151,9 +157,11 @@ export class HeedFeedbackElement extends Base {
     }
     this.#ui ??= this.#build();
     this.#sync();
+    this.#watchLang();
   }
 
   disconnectedCallback(): void {
+    this.#langWatch?.disconnect();
     this.#dropGate();
     // A modal dialog that leaves the document stops being modal but stays "open";
     // close it so the next open() shows it properly again.
@@ -269,7 +277,26 @@ export class HeedFeedbackElement extends Base {
 
   /** The visitor's language: `lang`, else the nearest `lang` above the element, else the browser's. */
   #language(o: HeedOptions): string {
-    return pickLanguage(o.lang, this.closest("[lang]")?.getAttribute("lang"), globalThis.navigator?.language);
+    return pickLanguage(o.lang, this.#pageLang(), globalThis.navigator?.language);
+  }
+
+  /** The nearest `lang` above the element, looking out through the shadow roots it may sit in. */
+  #pageLang(): string | null | undefined {
+    // (from above the element: its own `lang` option is read separately, and an empty one means "follow the page")
+    let node: Element | null = this.parentElement ?? (this.getRootNode() as ShadowRoot).host ?? null;
+    for (; node; node = (node.getRootNode() as ShadowRoot).host ?? null) {
+      const lang = node.closest("[lang]:not([lang=''])")?.getAttribute("lang");
+      if (lang) return lang;
+    }
+    return null;
+  }
+
+  #watchLang(): void {
+    this.#langWatch?.disconnect();
+    this.#langWatch = new MutationObserver(() => this.#sync());
+    for (let node: Node | undefined = this; node; node = (node.getRootNode() as ShadowRoot).host) {
+      this.#langWatch.observe(node.getRootNode(), { attributes: true, attributeFilter: ["lang"], subtree: true });
+    }
   }
 
   /** Every text, in the current language, with the embedder's overrides applied. */
@@ -295,11 +322,11 @@ export class HeedFeedbackElement extends Base {
     if (spoken) ui.root.lang = spoken;
     else ui.root.removeAttribute("lang");
     for (const [node, key] of this.#texts) node.data = m[key];
-    // An explicit label or heading beats the translation; the English default does not.
-    ui.launcher.textContent = o.label !== MESSAGES.label ? o.label : m.label;
+    // An explicit label or heading (any non-empty one, even the English default) beats the translation.
+    ui.launcher.textContent = o.label || m.label;
     ui.launcher.className = `launcher ${o.position}`;
     ui.launcher.hidden = o.position === "none";
-    ui.heading.textContent = o.heading !== MESSAGES.heading ? o.heading : m.heading;
+    ui.heading.textContent = o.heading || m.heading;
     ui.body.placeholder = m.bodyPlaceholder;
     ui.preview.alt = m.shotAlt;
     ui.title.maxLength = CONTRACT.limits.title_chars;
@@ -318,6 +345,9 @@ export class HeedFeedbackElement extends Base {
       ui.category.dataset.categories = wanted;
     }
     ui.categoryLabel.hidden = o.categories.length < 2;
+    if (this.#status) this.#setStatus(this.#status.pick, this.#status.error);
+    const done = this.#done?.(m);
+    if (done !== undefined && ui.doneMessage.textContent !== done) ui.doneMessage.textContent = done;
   }
 
   async #submit(): Promise<void> {
@@ -325,12 +355,12 @@ export class HeedFeedbackElement extends Base {
     if (!ui || this.#sending) return;
     const o = this.options;
     if (!ui.title.value.trim()) {
-      this.#setStatus(this.#msgs().titleRequired, true);
+      this.#setStatus((m) => m.titleRequired, true);
       ui.title.focus();
       return;
     }
     if (!o.endpoint) {
-      this.#setStatus(this.#msgs().noEndpoint, true);
+      this.#setStatus((m) => m.noEndpoint, true);
       return;
     }
     this.#sending = true;
@@ -342,10 +372,10 @@ export class HeedFeedbackElement extends Base {
     try {
       const screenshot = await this.#screenshotToSend();
       if (screenshot === "review") {
-        this.#setStatus(this.#msgs().shotReview, false);
+        this.#setStatus((m) => m.shotReview, false);
         return;
       }
-      this.#setStatus(this.#msgs().sending, false);
+      this.#setStatus((m) => m.sending, false);
       const win = this.ownerDocument.defaultView ?? window;
       const input = {
         draft: { category: (ui.category.value || o.categories[0]) as Category, title: ui.title.value, body: ui.body.value },
@@ -362,9 +392,8 @@ export class HeedFeedbackElement extends Base {
         // The screenshot check comes after the token is verified, so a second challenge runs;
         // keep saying why the visitor is waiting.
         droppedShot = true;
-        const why = this.#msgs().shotDropped;
-        this.#setStatus(`${why} ${this.#msgs().sending}`, false);
-        outcome = await sendReport({ ...input, screenshot: null }, this.#withGate(o, why));
+        this.#setStatus((m) => `${m.shotDropped} ${m.sending}`, false);
+        outcome = await sendReport({ ...input, screenshot: null }, this.#withGate(o, true));
       }
     } finally {
       this.#gate?.gate?.cancel(); // a token still awaited (the send timed out) is no longer wanted
@@ -381,8 +410,9 @@ export class HeedFeedbackElement extends Base {
     if (outcome.ok) {
       ui.form.reset();
       this.#clearScreenshot();
-      ui.doneMessage.textContent =
-        (outcome.status === "held" ? this.#msgs().held : this.#msgs().received) + (droppedShot ? ` ${this.#msgs().shotDropped}` : "");
+      const held = outcome.status === "held";
+      this.#done = (m) => (held ? m.held : m.received) + (droppedShot ? ` ${m.shotDropped}` : "");
+      ui.doneMessage.textContent = this.#done(this.#msgs());
       ui.doneLink.hidden = !outcome.url;
       if (outcome.url) ui.doneLink.href = outcome.url;
       else ui.doneLink.removeAttribute("href");
@@ -392,8 +422,8 @@ export class HeedFeedbackElement extends Base {
       ui.doneClose.focus();
       this.#emit("heed:submitted", { id: outcome.id, status: outcome.status, url: outcome.url });
     } else {
-      const retry = outcome.retryAfterSeconds ? ` ${this.#msgs().retryIn(outcome.retryAfterSeconds)}` : "";
-      this.#setStatus(this.#msgs()[outcome.kind] + retry, true);
+      const { kind, retryAfterSeconds } = outcome;
+      this.#setStatus((m) => m[kind] + (retryAfterSeconds ? ` ${safeRetryIn(m, retryAfterSeconds)}` : ""), true);
       this.#emit("heed:error", { kind: outcome.kind });
     }
   }
@@ -407,7 +437,7 @@ export class HeedFeedbackElement extends Base {
     const shot = this.#shot;
     if (!ui || !this.options.screenshot || !shot || !ui.shotBox.checked) return null;
     if (shot.shown) return shot.blob;
-    this.#setStatus(this.#msgs().shotFinishing, false);
+    this.#setStatus((m) => m.shotFinishing, false);
     await shot.settled;
     return shot.shown && ui.shotBox.checked && this.#shot === shot ? "review" : null;
   }
@@ -445,8 +475,8 @@ export class HeedFeedbackElement extends Base {
     this.#currentGate(this.options)?.warm().catch((e) => console.warn("heed: the bot gate could not start", e));
   }
 
-  /** `o` with the gate's token as `botToken`; `note` stays in front of the status lines while it runs. */
-  #withGate(o: HeedOptions, note = ""): HeedOptions {
+  /** `o` with the gate's token as `botToken`; the "screenshot dropped" note (`withNote`) stays in front of the status lines while it runs. */
+  #withGate(o: HeedOptions, withNote = false): HeedOptions {
     const gate = this.#currentGate(o);
     if (!gate) return o;
     const ui = this.#ui;
@@ -454,9 +484,9 @@ export class HeedFeedbackElement extends Base {
       ...o,
       botToken: () => {
         // An interactive challenge waits on the visitor: say so instead of "Sending…".
-        const say = (m: string) => ui && this.#setStatus(note ? `${note} ${m}` : m, false);
-        say(this.#msgs().gateWaiting);
-        return gate.token().then((token) => (say(this.#msgs().sending), token)); // a failure is reported by the send, not here
+        const say = (pick: (m: Messages) => string) => ui && this.#setStatus((m) => (withNote ? `${m.shotDropped} ${pick(m)}` : pick(m)), false);
+        say((m) => m.gateWaiting);
+        return gate.token().then((token) => (say((m) => m.sending), token)); // a failure is reported by the send, not here
       },
     };
   }
@@ -530,18 +560,35 @@ export class HeedFeedbackElement extends Base {
     if (!this.#ui) return;
     this.#ui.form.hidden = false;
     this.#ui.done.hidden = true;
+    this.#done = null;
   }
 
   /** Progress goes to a polite status region, failures to an alert region. */
-  #setStatus(message: string, isError: boolean): void {
+  #setStatus(message: string | ((m: Messages) => string), isError: boolean): void {
     if (!this.#ui) return;
-    this.#ui.status.textContent = isError ? "" : message;
-    this.#ui.error.textContent = isError ? message : "";
+    const pick = typeof message === "string" ? () => message : message;
+    this.#status = message === "" ? null : { pick, error: isError };
+    const text = message === "" ? "" : pick(this.#msgs());
+    // (only when it changed: a role="alert" line rewritten with the same text may be announced again)
+    const [status, error] = isError ? ["", text] : [text, ""];
+    if (this.#ui.status.textContent !== status) this.#ui.status.textContent = status;
+    if (this.#ui.error.textContent !== error) this.#ui.error.textContent = error;
   }
 
   #emit(type: string, detail: unknown): void {
     this.dispatchEvent(new CustomEvent(type, { detail, bubbles: true, composed: true }));
   }
+}
+
+/** The embedder's `retryIn`, which may throw: the report's failure is still reported, with the English hint. */
+function safeRetryIn(m: Messages, seconds: number): string {
+  try {
+    const text = m.retryIn(seconds);
+    if (typeof text === "string") return text;
+  } catch (e) {
+    console.warn("heed: the retryIn message threw", e);
+  }
+  return MESSAGES.retryIn(seconds);
 }
 
 function isModal(dialog: HTMLDialogElement): boolean {
