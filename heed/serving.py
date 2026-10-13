@@ -83,7 +83,7 @@ class AttachmentSigner:
     ``ttl_seconds=None`` (the default) signs URLs that never expire: a GitHub issue
     keeps showing its screenshot, and access is revoked by deleting the attachment or
     rotating the key. A ttl makes URLs expire, which suits links handed to people rather
-    than embedded in issues. ``previous_keys`` still verify (but never sign), for rotation.
+    than embedded in issues. ``previous_keys`` still verify (never sign), for rotation.
 
     >>> s = AttachmentSigner("k" * 32, ttl_seconds=60, clock=lambda: 1000)
     >>> q = s.sign("ab.png")
