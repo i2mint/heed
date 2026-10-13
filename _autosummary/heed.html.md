@@ -63,8 +63,8 @@ True
 | [`chain_moderators`](#heed.chain_moderators)(\*moderators)                     | Combine moderators; the most severe verdict wins (reject > hold > accept).    |
 | [`release_held`](#heed.release_held)(report_id, \*, holding_store[, ...])  | Release a held report: route it on and remove it from holding.                |
 | [`recover_claimed`](#heed.recover_claimed)(\*, holding_store[, ...])          | Return every claimed report to holding, and the ids returned.                 |
-| [`make_report_store`](#heed.make_report_store)([rootdir])                       | A text store for report JSON.                                                 |
-| [`make_attachment_store`](#heed.make_attachment_store)([rootdir])                   | A bytes store for attachments.                                                |
+| [`make_report_store`](#heed.make_report_store)([rootdir, delete_func])          | A text store for report JSON.                                                 |
+| [`make_attachment_store`](#heed.make_attachment_store)([rootdir, delete_func])      | A bytes store for attachments.                                                |
 
 ### Classes
 
@@ -384,9 +384,11 @@ A standalone FastAPI app serving the heed router under `prefix`.
 * **Return type:**
   `FastAPI`
 
-### heed.make_attachment_store(rootdir=None)
+### heed.make_attachment_store(rootdir=None, \*, delete_func=<built-in function remove>)
 
 A bytes store for attachments. In-memory unless `rootdir` is given.
+
+Deletion is permanent by default, for the reason given in `make_report_store`.
 
 * **Return type:**
   [`MutableMapping`](https://docs.python.org/3/library/collections.abc.html#collections.abc.MutableMapping)
@@ -435,9 +437,13 @@ Build a limiter from the `rate_limiter_backends` registry by name.
 * **Return type:**
   [`RateLimiter`](heed.security.html.md#heed.security.RateLimiter)
 
-### heed.make_report_store(rootdir=None)
+### heed.make_report_store(rootdir=None, \*, delete_func=<built-in function remove>)
 
 A text store for report JSON. In-memory unless `rootdir` is given.
+
+Deleting a key removes the file for good (`os.remove`). dol’s own default moves it
+to the OS trash, which would keep a copy of every deleted, claimed or released
+report – and reports can carry personal data. Pass `delete_func` to opt back in.
 
 * **Return type:**
   [`MutableMapping`](https://docs.python.org/3/library/collections.abc.html#collections.abc.MutableMapping)

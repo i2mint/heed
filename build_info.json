@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "built_at": "2026-10-13T05:42:16Z",
+  "built_at": "2026-10-13T06:11:48Z",
   "package": {
     "name": "heed",
     "version": "0.0.1",
@@ -9,28 +9,28 @@
   },
   "git": {
     "available": true,
-    "commit": "ce26c19af9a007908f7e00e0c80687ffb93e23dc",
-    "short_commit": "ce26c19",
+    "commit": "9c18f99bc548c23b6d9689e8965852a174b98d37",
+    "short_commit": "9c18f99",
     "branch": "main",
     "tags": [],
     "dirty": false,
     "remote_url": "https://github.com/i2mint/heed",
-    "commit_url": "https://github.com/i2mint/heed/commit/ce26c19af9a007908f7e00e0c80687ffb93e23dc",
+    "commit_url": "https://github.com/i2mint/heed/commit/9c18f99bc548c23b6d9689e8965852a174b98d37",
     "error": null
   },
   "ci": {
     "provider": "github",
     "repository": "i2mint/heed",
-    "sha": "ce26c19af9a007908f7e00e0c80687ffb93e23dc",
+    "sha": "9c18f99bc548c23b6d9689e8965852a174b98d37",
     "sha_in_history": true,
     "ref": "refs/heads/main",
     "ref_name": "main",
-    "run_id": "38352630021",
-    "run_url": "https://github.com/i2mint/heed/actions/runs/38352630021",
+    "run_id": "38355231439",
+    "run_url": "https://github.com/i2mint/heed/actions/runs/38355231439",
     "server_url": "https://github.com"
   },
   "tools": {
-    "epythet": "0.2.13",
+    "epythet": "0.2.14",
     "sphinx": "9.1.0",
     "docutils": "0.22.4",
     "python": "3.12.15"
@@ -64,7 +64,7 @@
     "relation": "behind",
     "error": null
   },
-  "reproduce": "git clone https://github.com/i2mint/heed && cd heed\ngit checkout ce26c19af9a007908f7e00e0c80687ffb93e23dc\npip install \"epythet==0.2.13\"\nepythet quickstart . --ignore tests/ scrap/ examples/",
+  "reproduce": "git clone https://github.com/i2mint/heed && cd heed\ngit checkout 9c18f99bc548c23b6d9689e8965852a174b98d37\npip install \"epythet==0.2.14\"\nepythet quickstart . --ignore tests/ scrap/ examples/",
   "warnings": [],
   "alignment": {
     "aligned": false,

@@ -1,4 +1,4 @@
-> built 2026-10-13 05:42 UTC from ce26c19 (main) · heed 0.0.1. Details: build_info.json
+> built 2026-10-13 06:11 UTC from 9c18f99 (main) · heed 0.0.1. Details: build_info.json
 
 # index.html.md
 
@@ -346,8 +346,8 @@ True
 | [`chain_moderators`](_autosummary/heed.html.md#heed.chain_moderators)(\*moderators)                     | Combine moderators; the most severe verdict wins (reject > hold > accept).    |
 | [`release_held`](_autosummary/heed.html.md#heed.release_held)(report_id, \*, holding_store[, ...])  | Release a held report: route it on and remove it from holding.                |
 | [`recover_claimed`](_autosummary/heed.html.md#heed.recover_claimed)(\*, holding_store[, ...])          | Return every claimed report to holding, and the ids returned.                 |
-| [`make_report_store`](_autosummary/heed.html.md#heed.make_report_store)([rootdir])                       | A text store for report JSON.                                                 |
-| [`make_attachment_store`](_autosummary/heed.html.md#heed.make_attachment_store)([rootdir])                   | A bytes store for attachments.                                                |
+| [`make_report_store`](_autosummary/heed.html.md#heed.make_report_store)([rootdir, delete_func])          | A text store for report JSON.                                                 |
+| [`make_attachment_store`](_autosummary/heed.html.md#heed.make_attachment_store)([rootdir, delete_func])      | A bytes store for attachments.                                                |
 
 ### Classes
 
@@ -667,9 +667,11 @@ A standalone FastAPI app serving the heed router under `prefix`.
 * **Return type:**
   `FastAPI`
 
-### heed.make_attachment_store(rootdir=None)
+### heed.make_attachment_store(rootdir=None, \*, delete_func=<built-in function remove>)
 
 A bytes store for attachments. In-memory unless `rootdir` is given.
+
+Deletion is permanent by default, for the reason given in `make_report_store`.
 
 * **Return type:**
   [`MutableMapping`](https://docs.python.org/3/library/collections.abc.html#collections.abc.MutableMapping)
@@ -718,9 +720,13 @@ Build a limiter from the `rate_limiter_backends` registry by name.
 * **Return type:**
   [`RateLimiter`](_autosummary/heed.security.html.md#heed.security.RateLimiter)
 
-### heed.make_report_store(rootdir=None)
+### heed.make_report_store(rootdir=None, \*, delete_func=<built-in function remove>)
 
 A text store for report JSON. In-memory unless `rootdir` is given.
+
+Deleting a key removes the file for good (`os.remove`). dol’s own default moves it
+to the OS trash, which would keep a copy of every deleted, claimed or released
+report – and reports can carry personal data. Pass `delete_func` to opt back in.
 
 * **Return type:**
   [`MutableMapping`](https://docs.python.org/3/library/collections.abc.html#collections.abc.MutableMapping)
@@ -1758,20 +1764,26 @@ inject any ``dol` store (S3, Mongo, …).
 
 ### Functions
 
-| [`make_attachment_store`](_autosummary/heed.storage.html.md#heed.storage.make_attachment_store)([rootdir])   | A bytes store for attachments.   |
-|-------------------------------------------------------------------------------------|----------------------------------|
-| [`make_report_store`](_autosummary/heed.storage.html.md#heed.storage.make_report_store)([rootdir])       | A text store for report JSON.    |
+| [`make_attachment_store`](_autosummary/heed.storage.html.md#heed.storage.make_attachment_store)([rootdir, delete_func])   | A bytes store for attachments.   |
+|--------------------------------------------------------------------------------------------------|----------------------------------|
+| [`make_report_store`](_autosummary/heed.storage.html.md#heed.storage.make_report_store)([rootdir, delete_func])       | A text store for report JSON.    |
 
-### heed.storage.make_attachment_store(rootdir=None)
+### heed.storage.make_attachment_store(rootdir=None, \*, delete_func=<built-in function remove>)
 
 A bytes store for attachments. In-memory unless `rootdir` is given.
+
+Deletion is permanent by default, for the reason given in `make_report_store`.
 
 * **Return type:**
   [`MutableMapping`](https://docs.python.org/3/library/collections.abc.html#collections.abc.MutableMapping)
 
-### heed.storage.make_report_store(rootdir=None)
+### heed.storage.make_report_store(rootdir=None, \*, delete_func=<built-in function remove>)
 
 A text store for report JSON. In-memory unless `rootdir` is given.
+
+Deleting a key removes the file for good (`os.remove`). dol’s own default moves it
+to the OS trash, which would keep a copy of every deleted, claimed or released
+report – and reports can carry personal data. Pass `delete_func` to opt back in.
 
 * **Return type:**
   [`MutableMapping`](https://docs.python.org/3/library/collections.abc.html#collections.abc.MutableMapping)
@@ -1783,7 +1795,7 @@ A text store for report JSON. In-memory unless `rootdir` is given.
 
 # About this build
 
-This documentation was built on **2026-10-13 05:42 UTC** from commit <a href="https://github.com/i2mint/heed/commit/ce26c19af9a007908f7e00e0c80687ffb93e23dc"><code>ce26c19</code></a> on branch <code>main</code>, for **heed 0.0.1** (from <code>pyproject.toml</code>).
+This documentation was built on **2026-10-13 06:11 UTC** from commit <a href="https://github.com/i2mint/heed/commit/9c18f99bc548c23b6d9689e8965852a174b98d37"><code>9c18f99</code></a> on branch <code>main</code>, for **heed 0.0.1** (from <code>pyproject.toml</code>).
 
 #### WARNING
 The documentation and the package may be misaligned:
@@ -1794,7 +1806,7 @@ The documentation and the package may be misaligned:
 
 |                     |                                                                                                                                                    |
 |---------------------|----------------------------------------------------------------------------------------------------------------------------------------------------|
-| Commit              | <a href="https://github.com/i2mint/heed/commit/ce26c19af9a007908f7e00e0c80687ffb93e23dc"><code>ce26c19af9a007908f7e00e0c80687ffb93e23dc</code></a> |
+| Commit              | <a href="https://github.com/i2mint/heed/commit/9c18f99bc548c23b6d9689e8965852a174b98d37"><code>9c18f99bc548c23b6d9689e8965852a174b98d37</code></a> |
 | Branch              | <code>main</code>                                                                                                                                  |
 | Tags at this commit | none                                                                                                                                               |
 | Working tree        | clean                                                                                                                                              |
@@ -1805,15 +1817,15 @@ The documentation and the package may be misaligned:
 |              |                                                                                            |
 |--------------|--------------------------------------------------------------------------------------------|
 | Repository   | <code>i2mint/heed</code>                                                                   |
-| Run          | <a href="https://github.com/i2mint/heed/actions/runs/38352630021">38352630021</a>          |
+| Run          | <a href="https://github.com/i2mint/heed/actions/runs/38355231439">38355231439</a>          |
 | Ref          | <code>refs/heads/main</code>                                                               |
-| Event commit | <code>ce26c19af9a007908f7e00e0c80687ffb93e23dc</code> (in the history of the built commit) |
+| Event commit | <code>9c18f99bc548c23b6d9689e8965852a174b98d37</code> (in the history of the built commit) |
 
 ## Tools
 
 |          |         |
 |----------|---------|
-| epythet  | 0.2.13  |
+| epythet  | 0.2.14  |
 | Sphinx   | 9.1.0   |
 | docutils | 0.22.4  |
 | Python   | 3.12.15 |
@@ -1838,8 +1850,8 @@ Latest release: <a href="https://pypi.org/project/heed/0.1.0/">0.1.0</a>, newer 
 
 ```bash
 git clone https://github.com/i2mint/heed && cd heed
-git checkout ce26c19af9a007908f7e00e0c80687ffb93e23dc
-pip install "epythet==0.2.13"
+git checkout 9c18f99bc548c23b6d9689e8965852a174b98d37
+pip install "epythet==0.2.14"
 epythet quickstart . --ignore tests/ scrap/ examples/
 ```
 
