@@ -117,9 +117,13 @@ def process_submission(
         origin=origin,
         status=Status.received,
     )
-    verdict = Verdict(moderator(report))
+    verdict = _moderate(moderator, report)
     if verdict is Verdict.reject:
-        report = report.model_copy(update={"status": Status.declined})
+        for attachment in attachments:  # a rejected report keeps nothing
+            attachment_store.pop(attachment.ref, None)
+        report = report.model_copy(
+            update={"status": Status.declined, "attachments": []}
+        )
         return report, SinkResult(ok=True, detail="rejected by moderation")
     if verdict is Verdict.hold:
         if holding_sink is None:
@@ -127,6 +131,15 @@ def process_submission(
         report = report.model_copy(update={"status": Status.held})
         return report, holding_sink.submit(report)
     return report, sink.submit(report)
+
+
+def _moderate(moderator: Moderator, report: Report) -> Verdict:
+    """Run ``moderator``; a crash or an invalid answer holds the report (fail safe)."""
+    try:
+        return Verdict(moderator(report))
+    except Exception:  # noqa: BLE001 - operator code must not 500 the endpoint
+        logger.exception("heed: moderator failed; holding report %s", report.id)
+        return Verdict.hold
 
 
 def _build_submission(
@@ -260,14 +273,28 @@ def make_router(
         raise ValueError("make_router needs a sink, a resolve_sink, or both")
     if moderator is not None and holding_sink is None:
         raise ValueError(
-            "a moderator needs a holding_sink to park held reports in, "
-            "e.g. holding_sink=StoreSink(make_report_store('held/'))"
+            "a moderator needs a holding_sink to park held reports in (a failing "
+            "moderator also holds), e.g. holding_sink=StoreSink(make_report_store("
+            "'held/'))"
         )
+    if holding_sink is not None and moderator is None:
+        raise ValueError(
+            "holding_sink was given without a moderator, so nothing would ever be "
+            "held; pass moderator=hold_all (or another moderator)"
+        )
+    if resolve_sink is not None and cfg.allowed_origins:
+        unresolved = [o for o in cfg.allowed_origins if resolve_sink(o) is None]
+        if unresolved and sink is None:
+            logger.warning(
+                "heed: allowed origins with no sink (they will get 403): %s",
+                unresolved,
+            )
 
     def _sink_for(origin: str) -> Optional[Sink]:
         if resolve_sink is None:
             return sink
-        return resolve_sink(origin) or sink
+        resolved = resolve_sink(origin)
+        return resolved if resolved is not None else sink
 
     def _limiter(per_window: int, namespace: str) -> RateLimiter:
         return make_rate_limiter(
@@ -393,7 +420,11 @@ def make_router(
             )
         site_sink = _sink_for(origin)
         if site_sink is None:
-            raise _fail(403, "unknown site", origin)
+            # Same answer as a disallowed origin (no CORS echo), so a page cannot
+            # probe which sites this backend serves.
+            raise HTTPException(
+                status_code=403, detail="origin not allowed", headers=_RESPONSE_HEADERS
+            )
         request.state.heed_origin = origin
         request.state.heed_ip = ip
         request.state.heed_sink = site_sink

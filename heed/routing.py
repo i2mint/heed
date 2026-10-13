@@ -16,6 +16,7 @@ Two seams, both decided on the server, never by the browser:
 from __future__ import annotations
 
 import re
+import unicodedata
 from collections.abc import Callable, Iterable, Mapping, MutableMapping
 from enum import Enum
 from typing import Optional
@@ -77,7 +78,20 @@ def hold_all(report: Report) -> Verdict:
     return Verdict.hold
 
 
-_URL_PATTERN = re.compile(r"(?:https?://|www\.)", re.IGNORECASE)
+_URL_PATTERN = re.compile(r"(?:https?://|www\.)")
+
+
+def fold_text(text: str) -> str:
+    """Normalise text for matching: NFKC, drop format chars (zero-width), casefold.
+
+    Defeats fullwidth letters and zero-width splitting; it does not map cross-script
+    look-alikes (e.g. Cyrillic "а"), which needs a confusables table.
+
+    >>> fold_text("ＣＡＳ\u200bINO")
+    'casino'
+    """
+    text = unicodedata.normalize("NFKC", text)
+    return "".join(c for c in text if unicodedata.category(c) != "Cf").casefold()
 
 
 def make_heuristic_moderator(
@@ -97,11 +111,11 @@ def make_heuristic_moderator(
     >>> [mod(r(b)).value for b in ["ok", "http://a http://b", "best CASINO"]]
     ['accept', 'hold', 'hold']
     """
-    terms = [t.lower() for t in blocked_terms if t]
+    terms = [fold_text(t) for t in blocked_terms if t]
 
     def moderate(report: Report) -> Verdict:
-        text = f"{report.title}\n{report.body}"
-        if terms and any(t in text.lower() for t in terms):
+        text = fold_text(f"{report.title}\n{report.body}")
+        if terms and any(t in text for t in terms):
             return on_blocked_term
         if len(_URL_PATTERN.findall(text)) > max_links:
             return Verdict.hold
@@ -124,22 +138,35 @@ def release_held(
     report_id: str,
     *,
     holding_store: MutableMapping[str, str],
-    sink: Sink,
+    sink: Sink | None = None,
+    resolve_sink: SinkResolver | None = None,
 ) -> SinkResult:
-    """Release a held report: route it to ``sink`` and remove it from holding.
+    """Release a held report: route it on and remove it from holding.
 
     ``holding_store`` is the store behind the holding sink (a ``StoreSink``'s
-    ``.store``). The report is removed only after the sink accepts it, so a failed
-    release can be retried.
+    ``.store``). The destination is ``sink``, or — for a multi-site backend — the sink
+    ``resolve_sink`` gives for the report's own origin (pass exactly one). The report
+    is claimed (popped) before submitting, so two concurrent releases cannot both
+    send it, and it is put back if the sink fails, so a failed release can be retried.
     """
+    if (sink is None) == (resolve_sink is None):
+        raise ValueError("pass exactly one of sink= or resolve_sink=")
+    raw = holding_store.pop(report_id, None)
+    if raw is None:
+        raise KeyError(f"No held report with id {report_id!r}")
     try:
-        raw = holding_store[report_id]
-    except KeyError:
-        raise KeyError(f"No held report with id {report_id!r}") from None
-    report = Report.model_validate_json(raw).model_copy(
-        update={"status": Status.received}
-    )
-    result = sink.submit(report)
-    if result.ok:
-        del holding_store[report_id]
+        report = Report.model_validate_json(raw)
+        destination = sink if sink is not None else resolve_sink(report.origin)
+        if destination is None:
+            raise LookupError(f"No sink for the report's origin {report.origin!r}")
+        if getattr(destination, "store", None) is holding_store:
+            raise ValueError("the destination sink writes to the holding store itself")
+        result = destination.submit(
+            report.model_copy(update={"status": Status.received})
+        )
+    except Exception:
+        holding_store[report_id] = raw
+        raise
+    if not result.ok:
+        holding_store[report_id] = raw
     return result
