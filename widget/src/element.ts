@@ -191,7 +191,8 @@ export class HeedFeedbackElement extends Base {
     ui.dialog.showModal();
     ui.title.focus();
     this.#warmGate();
-    if (!this.#isLight()) this.#startScreenshot();
+    if (this.#isLight()) this.#clearScreenshot();
+    else this.#startScreenshot();
     this.#emit("heed:open", {});
   }
 
@@ -372,7 +373,9 @@ export class HeedFeedbackElement extends Base {
     let outcome: SubmitOutcome | null = null;
     let droppedShot = false;
     try {
-      const screenshot = await this.#screenshotToSend();
+      const light = this.#isLight(); // decided once: what is sent must agree with the category sent
+      const category = (ui.category.value || o.categories[0]) as Category;
+      const screenshot = await this.#screenshotToSend(light);
       if (screenshot === "review") {
         this.#setStatus((m) => m.shotReview, false);
         return;
@@ -380,8 +383,8 @@ export class HeedFeedbackElement extends Base {
       this.#setStatus((m) => m.sending, false);
       const win = this.ownerDocument.defaultView ?? window;
       const input = {
-        draft: { category: (ui.category.value || o.categories[0]) as Category, title: ui.title.value, body: ui.body.value },
-        env: collectEnvironment(win, o.extra, this.#isLight()),
+        draft: { category, title: ui.title.value, body: ui.body.value },
+        env: collectEnvironment(win, o.extra, light),
         pageUrl: reportPageUrl(win.location.href, o.pageUrl),
         honeypot: ui.honeypot.value,
         screenshot,
@@ -434,15 +437,15 @@ export class HeedFeedbackElement extends Base {
    * The screenshot to attach: only one the visitor has been shown. If it is still
    * being taken, wait for it, show it, and ask for a second Send ("review").
    */
-  async #screenshotToSend(): Promise<Blob | null | "review"> {
+  async #screenshotToSend(light: boolean): Promise<Blob | null | "review"> {
     const ui = this.#ui;
     const shot = this.#shot;
-    if (!ui || !this.options.screenshot || this.#isLight() || !shot || !ui.shotBox.checked) return null;
+    if (!ui || !this.options.screenshot || light || !shot || !ui.shotBox.checked) return null;
     if (shot.shown) return shot.blob;
     this.#setStatus((m) => m.shotFinishing, false);
     await shot.settled;
     // A newer capture replaced this one (the category went light and back): wait for that one.
-    if (this.#shot && this.#shot !== shot) return this.#screenshotToSend();
+    if (this.#shot && this.#shot !== shot) return this.#screenshotToSend(light);
     return shot.shown && ui.shotBox.checked && this.#shot === shot ? "review" : null;
   }
 

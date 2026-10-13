@@ -219,3 +219,42 @@ describe("light intake for feature requests", () => {
     await vi.waitFor(() => expect($<HTMLSelectElement>(el, "select").disabled).toBe(false));
   });
 });
+
+describe("light intake: one decision per send", () => {
+  it("sends a coherent report when the category changes from code while the screenshot is awaited", async () => {
+    const fetch = ok();
+    vi.stubGlobal("fetch", fetch);
+    const take = vi.fn(async () => {
+      await tick(20);
+      return png();
+    });
+    const el = mount(take);
+    el.open();
+    $<HTMLInputElement>(el, "input[name=title]").value = "t";
+    $<HTMLFormElement>(el, "form").requestSubmit(); // awaiting the capture (bug)
+    await tick(5);
+    el.configure({ categories: ["feature"] });
+    await previewShown(el);
+    await vi.waitFor(() => expect($<HTMLButtonElement>(el, "button[type=submit]").disabled).toBe(false));
+    expect(fetch).not.toHaveBeenCalled(); // asked to review the picture first
+    $<HTMLFormElement>(el, "form").requestSubmit();
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalled());
+    const body = sent(fetch);
+    const isLight = body.get("category") === "feature";
+    expect(body.has("screenshot")).toBe(!isLight);
+    expect(!!envOf(fetch).user_agent).toBe(!isLight);
+  });
+
+  it("takes a fresh screenshot of the page when a dialog closed on a feature request is reopened as a bug", async () => {
+    const take = vi.fn(async () => png());
+    const el = mount(take);
+    el.open();
+    await previewShown(el);
+    choose(el, "feature");
+    el.close();
+    el.open(); // still a feature: no capture, and the old one is gone
+    expect(take).toHaveBeenCalledTimes(1);
+    choose(el, "bug");
+    await vi.waitFor(() => expect(take).toHaveBeenCalledTimes(2));
+  });
+});
