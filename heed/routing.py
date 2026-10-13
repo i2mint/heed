@@ -164,7 +164,7 @@ def release_held(
         result = destination.submit(
             report.model_copy(update={"status": Status.received})
         )
-    except Exception:
+    except BaseException:  # incl. KeyboardInterrupt/cancellation: never lose it
         holding_store[report_id] = raw
         raise
     if not result.ok:
