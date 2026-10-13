@@ -77,7 +77,7 @@ class HeedConfig:
     accept_network: bool = False
     # Categories taken as a light intake (a wish, a question): the screenshot, console,
     # network and browser details are dropped on the server, whatever the client sent.
-    # The widget's `lightCategories` option mirrors this default.
+    # Keep the GitHub sink's per-category `detail` in step with it.
     light_categories: list[str] = field(default_factory=lambda: ["feature", "question"])
 
     def __post_init__(self):
@@ -104,6 +104,7 @@ class HeedConfig:
             raise ValueError(f"invalid trusted_proxies entry: {e}") from None
         if isinstance(self.light_categories, str):
             raise TypeError("light_categories must be a list of category names")
+        self.light_categories = list(self.light_categories)
         known = [c.value for c in Category]
         unknown = [c for c in self.light_categories if c not in known]
         if unknown:

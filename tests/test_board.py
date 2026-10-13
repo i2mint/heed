@@ -67,8 +67,9 @@ def test_a_feature_request_is_a_light_labelled_issue():
     (issue,) = gh.created
     assert issue["labels"] == ["enhancement"]
     assert "please" in issue["body"] and "**Category**: feature" in issue["body"]
-    # the light intake leaves out the environment and the screenshot
-    assert "Firefox" not in issue["body"] and "screenshot" not in issue["body"]
+    # the light intake leaves out the environment
+    assert "Firefox" not in issue["body"]
+    assert "![screenshot](https://x/shot.png)" in issue["body"]  # a kept shot is linked
     assert "https://app.example/settings" in issue["body"]
 
 
@@ -468,3 +469,11 @@ def test_a_duplicate_close_reason_is_a_duplicate_and_a_missing_title_is_blank():
     )
     items = sink.public_items()
     assert items[0].status is Status.duplicate and items[1].title == ""
+
+
+def test_string_labels_are_one_label_and_light_categories_are_a_list():
+    from heed import HeedConfig
+
+    assert CategoryTreatment("bug").labels == ("bug",)
+    assert HeedConfig(light_categories=("feature",)).light_categories == ["feature"]
+    assert HeedConfig(light_categories=(c for c in ["bug"])).light_categories == ["bug"]

@@ -42,6 +42,8 @@ class CategoryTreatment:
     detail: str | None = None  # "full" | "light"; None: the category's default
 
     def __post_init__(self) -> None:
+        if isinstance(self.labels, str):  # "bug" means one label, not three letters
+            object.__setattr__(self, "labels", (self.labels,))
         if self.detail not in (None, "full", "light"):
             raise ValueError(f"detail must be 'full' or 'light', got {self.detail!r}")
 
@@ -128,9 +130,9 @@ class GitHubIssuesSink(BaseSink):
         treatment = self.treatment(report.category)
         labels = list(treatment.labels) + list(report.labels)
         light = treatment.detail == "light"
-        url = (
-            self._screenshot_url(report) if self._screenshot_url and not light else None
-        )
+        # A screenshot the server kept is always linked, even in a light issue: kept data
+        # nothing references would be retained for no reason.
+        url = self._screenshot_url(report) if self._screenshot_url else None
         body = render_issue_body(report, screenshot_url=url, light=light)
         issue = self._create_issue(
             title=treatment.title_prefix + report.title, body=body, labels=labels
@@ -245,8 +247,8 @@ def render_issue_body(
 ) -> str:
     """Render a report as a GitHub-flavoured markdown issue body.
 
-    ``light`` leaves out the environment, screenshot, console and network (a feature
-    request's intake): the idea, the page it came from, and who asked.
+    ``light`` leaves out the environment, console and network (a feature request's
+    intake; a screenshot the server kept is still linked): the idea, the page it came from, and who asked.
     """
     lines: list[str] = []
     if report.body:
@@ -264,10 +266,10 @@ def render_issue_body(
     meta.append(f"- **Reporter**: {reporter}")
     lines += meta + [""]
 
-    if light:
-        return "\n".join(lines).rstrip() + "\n"
     if screenshot_url:
         lines += [f"![screenshot]({screenshot_url})", ""]
+    if light:
+        return "\n".join(lines).rstrip() + "\n"
     if report.console:
         lines += _collapsible(
             "Console", "\n".join(f"[{e.level}] {e.message}" for e in report.console)
