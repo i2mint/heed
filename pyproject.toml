@@ -25,7 +25,7 @@ dependencies = [
     # Request.form(max_part_size=...) (starlette 0.44) for the payload caps.
     "starlette>=0.44",
     "python-multipart>=0.0.18",
-    "dol>=0.2",
+    "dol>=0.3.37",
 ]
 
 [project.license]
