@@ -17,7 +17,7 @@ The router rejects abuse cheapest-first, so a flood costs as little as possible:
 9. Per-origin rate limit. It runs after the honeypot and the bot gate on purpose: `Origin` is a header any non-browser client can set, so counting earlier would let spoofed junk exhaust a real site's budget. With the bot gate off, a determined attacker spread over many IPs can still do that; turn the gate on if it happens.
 10. Model validation (`heed/base.py`): length limits on every string and list, `page_url` must be an absolute `http(s)` URL, control and bidi-override characters are stripped, `anon_id` is a short opaque token, `env` must be a JSON object. Errors never echo the submitted input back.
 11. Screenshot: size cap, then magic-byte sniffing; only PNG, JPEG and WebP are accepted, under the sniffed type, whatever the client claimed.
-12. Screenshot sanitizing (`heed/images.py`): the accepted bytes are rewritten so only the image is stored. A polyglot (a valid image header followed by HTML, a ZIP or a script) loses its payload, and EXIF/XMP metadata (GPS) is dropped. A file that is only a header, or is otherwise malformed, gets `415`. See "Stored screenshots" below.
+12. Screenshot sanitizing (`heed/images.py`): the accepted bytes are rewritten before storage. Trailing data after the image (the classic polyglot), metadata (EXIF/XMP with GPS, ICC, text chunks, comments) and animation are dropped; with Pillow (the default when installed) the pixels are also decoded and freshly re-encoded. Malformed or costly files (a header only, unknown JPEG markers, more than 32 progressive scans, a canvas over `max_screenshot_pixels`) get `415`; the sanitized file is checked against `max_screenshot_bytes` again (`413`); when every re-encode slot is busy the request gets `503` with `Retry-After`. See "Stored screenshots" below.
 
 The sink is chosen server-side; the browser never names a repository or board (see *Routing and moderation* below).
 
@@ -38,8 +38,9 @@ Every knob is a keyword of `HeedConfig` and can also come from a `HEED_<NAME>` e
 | `cors_allow_credentials` | `False` | Needed only when an auth cookie binds identity (`user_dependency`). Requires an explicit `allowed_origins`. |
 | `max_body_bytes` | 6 MB | Whole request. Must be at least `max_screenshot_bytes`. |
 | `max_screenshot_bytes` | 5 MB | The screenshot file. |
-| `screenshot_sanitizer` | `"auto"` | `"reencode"` (decode and re-save with Pillow, `pip install heed[images]`), `"strip"` (pure Python: keep only the chunks that render, truncate at the end marker), `"auto"` (re-encode if Pillow is installed, else strip), `"none"` (store as received). |
-| `max_screenshot_pixels` | 40 M | Re-encode refuses larger canvases before decoding (a small file can declare a huge one). |
+| `screenshot_sanitizer` | `"auto"` | `"reencode"` (strip, then decode and re-save with Pillow, `pip install heed[images]`), `"strip"` (pure Python: allow-listed, length-checked chunks only, truncated at the end marker; the compressed pixel data is kept as sent), `"auto"` (re-encode if Pillow is installed, else strip with a startup warning), `"none"` (store as received). |
+| `max_screenshot_pixels` | 25 M | Re-encode refuses larger canvases before decoding (a 1.5 KB WebP can declare 40 M pixels and need 700 MB to decode). |
+| `max_concurrent_reencodes` | 2 | Re-encodes in flight per process; a request that waits more than 2 s for a slot gets `503`. |
 | `max_field_bytes` | 100 KB | Any single text field. |
 | `max_form_fields` | 16 | Number of form parts. |
 | `rate_limit_per_minute` | 30 | Per client IP. |
@@ -71,7 +72,8 @@ Sanitizing reduces what a stored screenshot can carry, but neither rewrite makes
 - `Content-Type` is the stored, sniffed image type; anything else is sent as `application/octet-stream` with `Content-Disposition: attachment`.
 - `X-Content-Type-Options: nosniff`, so a browser never reinterprets the bytes.
 - `Content-Security-Policy: default-src 'none'; sandbox`, so even a document rendering runs no script and loads nothing.
-- `Referrer-Policy: no-referrer`; `Cross-Origin-Resource-Policy: cross-origin` (needed for embedding as `<img>` elsewhere).
+- `Referrer-Policy: no-referrer`, `Cache-Control: private, no-store`.
+- `Cross-Origin-Resource-Policy: same-site`, or `cross-origin` with `cross_origin=True`, which embedding as an `<img>` on another site (a GitHub issue) needs. Only opt in for attachments that are meant to be public.
 
 Serve attachments from an origin separate from the app's (a dedicated subdomain), so a rendering mistake cannot reach the app's cookies or storage.
 

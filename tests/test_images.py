@@ -161,7 +161,7 @@ def test_reencode_refuses_huge_canvas_before_decoding():
 
 @needs_pillow
 def test_reencode_rejects_header_only_image():
-    with pytest.raises(ValueError, match="well-formed"):
+    with pytest.raises(ValueError):
         reencode_image(b"\x89PNG\r\n\x1a\n" + b"\x00" * 32, "image/png")
 
 
@@ -246,6 +246,119 @@ def test_attachment_headers_never_let_bytes_render_as_a_document():
     assert "default-src 'none'" in h["Content-Security-Policy"]
     assert "sandbox" in h["Content-Security-Policy"]
     assert h["Content-Disposition"] == 'inline; filename="r1.pngxscript"'
+    assert h["Cross-Origin-Resource-Policy"] == "same-site"
+    assert h["Cache-Control"] == "private, no-store"
+    assert (
+        attachment_headers("image/png", cross_origin=True)[
+            "Cross-Origin-Resource-Policy"
+        ]
+        == "cross-origin"
+    )
     other = attachment_headers("text/html")
     assert other["Content-Type"] == "application/octet-stream"
     assert other["Content-Disposition"] == "attachment"
+
+
+# --------------------------------------------------- adversarial-review findings (#18)
+
+
+def _insert_png_chunk(ctype: bytes, payload: bytes, *, before=b"IEND") -> bytes:
+    png = _tiny_png()
+    at = png.rindex(before) - 4
+    return png[:at] + _png_chunk(ctype, payload) + png[at:]
+
+
+@pytest.mark.parametrize(
+    "dirty",
+    [
+        _insert_png_chunk(b"gAMA", PAYLOAD),  # kept chunk, wrong length
+        _tiny_png()[:-12] + _png_chunk(b"IEND", PAYLOAD),  # IEND must be empty
+    ],
+    ids=["gAMA", "IEND"],
+)
+def test_strip_refuses_payload_in_kept_png_chunks(dirty):
+    with pytest.raises(ValueError, match="invalid length"):
+        strip_image(dirty, "image/png")
+
+
+@needs_pillow
+def test_progressive_jpeg_scan_bomb_is_refused_before_decoding():
+    jpeg = _pillow_image("JPEG", progressive=True)
+    last_sos = jpeg.rindex(b"\xff\xda")
+    bomb = jpeg[:last_sos] + jpeg[last_sos:-2] * 100 + b"\xff\xd9"
+    with pytest.raises(ValueError, match="scans"):
+        strip_image(bomb, "image/jpeg")
+    with pytest.raises(ValueError, match="scans"):
+        reencode_image(bomb, "image/jpeg")
+
+
+@needs_pillow
+def test_unknown_jpeg_markers_are_refused():
+    jpeg = _pillow_image("JPEG")
+    dnl = b"\xff\xdc" + struct.pack(">H", len(PAYLOAD) + 2) + PAYLOAD
+    with pytest.raises(ValueError, match="0xDC"):
+        strip_image(jpeg[:2] + dnl + jpeg[2:], "image/jpeg")
+
+
+@needs_pillow
+def test_reencode_drops_jpeg_comment():
+    jpeg = _pillow_image("JPEG")
+    com = b"\xff\xfe" + struct.pack(">H", len(PAYLOAD) + 2) + PAYLOAD
+    assert PAYLOAD not in reencode_image(jpeg[:2] + com + jpeg[2:], "image/jpeg")
+
+
+@needs_pillow
+def test_webp_fixed_size_chunks_and_animation_refused():
+    webp = _pillow_image("WEBP", lossless=True)
+    body = webp[12:]
+    vp8x = b"VP8X" + struct.pack("<I", 10 + len(PAYLOAD)) + b"\0" * 10 + PAYLOAD
+    big = b"WEBP" + vp8x + body
+    with pytest.raises(ValueError, match="VP8X"):
+        strip_image(b"RIFF" + struct.pack("<I", len(big)) + big, "image/webp")
+    from PIL import Image
+
+    out = io.BytesIO()
+    frames = [Image.new("RGB", (4, 4), c) for c in ((0, 0, 0), (255, 255, 255))]
+    frames[0].save(out, format="WEBP", save_all=True, append_images=frames[1:])
+    with pytest.raises(ValueError, match="still image"):
+        strip_image(out.getvalue(), "image/webp")
+
+
+def test_non_ascii_filename_is_dropped_not_a_500():
+    h = attachment_headers("image/png", filename="报告.png")
+    h["Content-Disposition"].encode("latin-1")
+    assert h["Content-Disposition"] == 'inline; filename=".png"'
+
+
+def test_router_answers_503_when_every_reencode_slot_is_busy():
+    from heed.images import SanitizerBusy
+
+    def busy(data, media_type):
+        raise SanitizerBusy("busy")
+
+    app = FastAPI()
+    app.include_router(
+        make_router(
+            StoreSink({}),
+            config=HeedConfig(allowed_origins=[ORIGIN]),
+            attachment_store={},
+            image_sanitizer=busy,
+        )
+    )
+    resp = _post_shot(TestClient(app), _tiny_png())
+    assert resp.status_code == 503 and resp.headers["Retry-After"]
+
+
+def test_router_rechecks_size_after_sanitizing():
+    attachments: dict = {}
+    app = FastAPI()
+    app.include_router(
+        make_router(
+            StoreSink({}),
+            config=HeedConfig(allowed_origins=[ORIGIN], max_screenshot_bytes=1000),
+            attachment_store=attachments,
+            image_sanitizer=lambda data, media_type: data * 100,
+        )
+    )
+    assert _post_shot(TestClient(app), _tiny_png()).status_code == 413
+    assert attachments == {}

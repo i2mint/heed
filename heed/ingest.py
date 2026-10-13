@@ -42,7 +42,12 @@ from heed.base import (
     utcnow,
 )
 from heed.config import HeedConfig
-from heed.images import ImageSanitizer, make_image_sanitizer
+from heed.images import (
+    BUSY_RETRY_AFTER_SECONDS,
+    ImageSanitizer,
+    SanitizerBusy,
+    make_image_sanitizer,
+)
 from heed.routing import Moderator, SinkResolver, Verdict, accept_all
 from heed.security import (
     IMAGE_EXTENSIONS,
@@ -316,7 +321,9 @@ def make_router(
         cfg.bot_gate, cfg.bot_secret, expected_hostnames=cfg.bot_expected_hostnames
     )
     sanitize_image = image_sanitizer or make_image_sanitizer(
-        cfg.screenshot_sanitizer, max_pixels=cfg.max_screenshot_pixels
+        cfg.screenshot_sanitizer,
+        max_pixels=cfg.max_screenshot_pixels,
+        max_concurrent=cfg.max_concurrent_reencodes,
     )
     trusted_networks = parse_networks(cfg.trusted_proxies)
     if cfg.allowed_origins is None:
@@ -508,12 +515,21 @@ def make_router(
                 raise _fail(415, "screenshot must be a PNG, JPEG or WebP image", origin)
             try:
                 shot = await run_in_threadpool(sanitize_image, shot, shot_type)
+            except SanitizerBusy as e:
+                raise _fail(
+                    503,
+                    "busy, retry shortly",
+                    origin,
+                    **{"Retry-After": str(BUSY_RETRY_AFTER_SECONDS)},
+                ) from e
             except ValueError as e:
                 raise _fail(
                     415,
                     "screenshot is not a well-formed PNG, JPEG or WebP image",
                     origin,
                 ) from e
+            if len(shot) > cfg.max_screenshot_bytes:  # a re-encode can grow the file
+                raise _fail(413, "screenshot too large", origin)
 
         report, result = await run_in_threadpool(
             process_submission,

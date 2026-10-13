@@ -485,22 +485,26 @@ def sniff_image_type(data: bytes) -> str | None:
 
 
 #: Response headers for serving a stored attachment, whatever its bytes contain:
-#: never sniffed as another type, never allowed to run script or load anything, and
-#: offered as a file if a browser navigates to it directly.
+#: never sniffed as another type, never allowed to run script or load anything, never
+#: cached by shared caches.
 ATTACHMENT_RESPONSE_HEADERS = {
     "X-Content-Type-Options": "nosniff",
     "Content-Security-Policy": "default-src 'none'; sandbox",
-    "Cross-Origin-Resource-Policy": "cross-origin",
     "Referrer-Policy": "no-referrer",
+    "Cache-Control": "private, no-store",
 }
 
 
-def attachment_headers(media_type: str, *, filename: str | None = None) -> dict:
+def attachment_headers(
+    media_type: str, *, filename: str | None = None, cross_origin: bool = False
+) -> dict:
     """Headers for serving a stored screenshot (issue #15). Use them on every response
     that returns attachment bytes, ideally from an origin separate from the app's.
 
     Only the image types heed accepts are served as themselves; anything else is sent as
-    an opaque download.
+    an opaque download. Embedding is limited to the same site
+    (``Cross-Origin-Resource-Policy: same-site``) unless ``cross_origin=True``, which a
+    screenshot embedded elsewhere (e.g. in a GitHub issue) needs.
 
     >>> h = attachment_headers("image/png", filename="r1.png")
     >>> h["Content-Type"], h["X-Content-Type-Options"], h["Content-Disposition"]
@@ -512,10 +516,13 @@ def attachment_headers(media_type: str, *, filename: str | None = None) -> dict:
     headers = {
         "Content-Type": media_type if known else "application/octet-stream",
         **ATTACHMENT_RESPONSE_HEADERS,
+        "Cross-Origin-Resource-Policy": "cross-origin" if cross_origin else "same-site",
     }
     disposition = "inline" if known else "attachment"
     if filename is not None:
-        safe = "".join(c for c in filename if c.isalnum() or c in "._-") or "attachment"
-        disposition += f'; filename="{safe}"'
+        safe = "".join(
+            c for c in filename if (c.isascii() and c.isalnum()) or c in "._-"
+        )
+        disposition += f'; filename="{safe or "attachment"}"'
     headers["Content-Disposition"] = disposition
     return headers

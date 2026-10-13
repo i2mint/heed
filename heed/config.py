@@ -33,7 +33,8 @@ class HeedConfig:
     # Rewrite accepted screenshots so only the image survives (polyglots, EXIF/GPS):
     # "auto" | "reencode" (Pillow) | "strip" (pure Python) | "none". See images.py.
     screenshot_sanitizer: str = "auto"
-    max_screenshot_pixels: int = 40_000_000  # refused before decoding (re-encode only)
+    max_screenshot_pixels: int = 25_000_000  # refused before decoding (re-encode only)
+    max_concurrent_reencodes: int = 2  # per process; beyond it a submission gets 503
     max_field_bytes: int = 100_000  # any single non-file form field
     max_form_fields: int = 16
 
