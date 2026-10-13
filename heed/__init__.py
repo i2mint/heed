@@ -14,6 +14,9 @@ Public API (Phase 1):
     Sinks     Sink, BaseSink, SinkResult, StoreSink, GitHubIssuesSink,
               github_sink_from_token
     Backend   process_submission, make_router, make_app, HeedConfig
+    Hardening RateLimiter, InMemoryRateLimiter, RedisRateLimiter, make_rate_limiter,
+              BotVerifier, SiteverifyBotVerifier, make_bot_verifier
+              (see misc/docs/embedding-security.md)
     Storage   make_report_store, make_attachment_store
 
 Example:
@@ -40,6 +43,15 @@ from heed.base import (
 )
 from heed.config import HeedConfig
 from heed.ingest import make_app, make_router, process_submission
+from heed.security import (
+    BotVerifier,
+    InMemoryRateLimiter,
+    RateLimiter,
+    RedisRateLimiter,
+    SiteverifyBotVerifier,
+    make_bot_verifier,
+    make_rate_limiter,
+)
 from heed.sinks import (
     BaseSink,
     GitHubIssuesSink,
@@ -77,6 +89,14 @@ __all__ = [
     "process_submission",
     "make_router",
     "make_app",
+    # hardening
+    "RateLimiter",
+    "InMemoryRateLimiter",
+    "RedisRateLimiter",
+    "make_rate_limiter",
+    "BotVerifier",
+    "SiteverifyBotVerifier",
+    "make_bot_verifier",
     # storage
     "make_report_store",
     "make_attachment_store",

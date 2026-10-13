@@ -21,8 +21,10 @@ keywords = [
 authors = [{ name = "Thor Whalen" }]
 dependencies = [
     "pydantic>=2.0.0",
-    "fastapi>=0.100.0",
-    "python-multipart>=0.0.9",
+    "fastapi>=0.115.7",
+    # Request.form(max_part_size=...) (starlette 0.44) for the payload caps.
+    "starlette>=0.44",
+    "python-multipart>=0.0.18",
     "dol>=0.2",
 ]
 
@@ -38,6 +40,8 @@ heed = "heed.__main__:main"
 [project.optional-dependencies]
 # The GitHub sink (brokers issue/discussion creation via a GitHub App or token).
 github = ["ghapi>=1.0"]
+# Shared rate limiting across workers/hosts (rate_limit_backend="redis").
+redis = ["redis>=4.2"]
 # Optional, lazy-imported integration: mount heed into an enlace platform.
 enlace = ["enlace>=0.1.0"]
 # Expose the feedback queue to a coding agent (e.g. Claude Code) over MCP.
