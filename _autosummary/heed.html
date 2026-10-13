@@ -419,7 +419,7 @@ make_image_sanitizer, strip_image, reencode_image, attachment_headers
 </div></blockquote>
 <dl class="simple">
 <dt>Routing   sinks_by_origin, Verdict, accept_all, hold_all,</dt><dd><p>make_heuristic_moderator, chain_moderators, release_held,
-recover_claimed</p>
+recover_claimed, discard_held</p>
 </dd>
 </dl>
 <p>Storage   make_report_store, make_attachment_store</p>
@@ -492,10 +492,13 @@ recover_claimed</p>
 <tr class="row-even"><td><p><a class="reference internal" href="#heed.recover_claimed" title="heed.recover_claimed"><code class="xref py py-obj docutils literal notranslate"><span class="pre">recover_claimed</span></code></a>(*, holding_store[, ...])</p></td>
 <td><p>Return every claimed report to holding, and the ids returned.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#heed.make_report_store" title="heed.make_report_store"><code class="xref py py-obj docutils literal notranslate"><span class="pre">make_report_store</span></code></a>([rootdir, delete_func])</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#heed.discard_held" title="heed.discard_held"><code class="xref py py-obj docutils literal notranslate"><span class="pre">discard_held</span></code></a>(report_id, *, holding_store[, ...])</p></td>
+<td><p>Delete a held report for good, with its attachments (e.g. a screenshot).</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#heed.make_report_store" title="heed.make_report_store"><code class="xref py py-obj docutils literal notranslate"><span class="pre">make_report_store</span></code></a>([rootdir, delete_func])</p></td>
 <td><p>A text store for report JSON.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#heed.make_attachment_store" title="heed.make_attachment_store"><code class="xref py py-obj docutils literal notranslate"><span class="pre">make_attachment_store</span></code></a>([rootdir, delete_func])</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#heed.make_attachment_store" title="heed.make_attachment_store"><code class="xref py py-obj docutils literal notranslate"><span class="pre">make_attachment_store</span></code></a>([rootdir, delete_func])</p></td>
 <td><p>A bytes store for attachments.</p></td>
 </tr>
 </tbody>
@@ -929,6 +932,23 @@ screenshot embedded elsewhere (e.g. in a GitHub issue) needs.</p>
 </dd></dl>
 
 <dl class="py function">
+<dt class="sig sig-object py" id="heed.discard_held">
+<span class="sig-prename descclassname"><span class="pre">heed.</span></span><span class="sig-name descname"><span class="pre">discard_held</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">report_id</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">holding_store</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">attachment_store</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/routing.html#discard_held"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.discard_held" title="Link to this definition">#</a></dt>
+<dd><p>Delete a held report for good, with its attachments (e.g. a screenshot).</p>
+<p>The report leaves holding first, so a release that took it meanwhile wins and this
+raises <code class="docutils literal notranslate"><span class="pre">KeyError</span></code> before touching its attachments; a crash between the two steps
+leaves an orphaned screenshot, never a report pointing at a deleted one. Raises
+<code class="docutils literal notranslate"><span class="pre">KeyError</span></code> when <code class="docutils literal notranslate"><span class="pre">report_id</span></code> is not held. A report whose text no longer parses is
+still deleted, but its attachments cannot be named and are left. Run it serialised
+with <a class="reference internal" href="#heed.release_held" title="heed.release_held"><code class="xref py py-func docutils literal notranslate"><span class="pre">release_held()</span></code></a> for the same report.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a></span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
 <dt class="sig sig-object py" id="heed.github_sink_from_token">
 <span class="sig-prename descclassname"><span class="pre">heed.</span></span><span class="sig-name descname"><span class="pre">github_sink_from_token</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">repo</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">token</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/sinks/github.html#github_sink_from_token"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.github_sink_from_token" title="Link to this definition">#</a></dt>
 <dd><p>Build a GitHubIssuesSink that creates issues in <code class="docutils literal notranslate"><span class="pre">repo</span></code> (‘owner/name’).</p>
@@ -1147,6 +1167,10 @@ deletes its own claim, and only once the sink has accepted the report or it is
 back in holding. So a crash at any point leaves the report in holding, in the
 claims, or in both – never lost – and <a class="reference internal" href="#heed.recover_claimed" title="heed.recover_claimed"><code class="xref py py-func docutils literal notranslate"><span class="pre">recover_claimed()</span></code></a> returns stranded
 claims to holding. A report with a claim is not released again until then.</p>
+<p>Not safe against two releases of the same report at the same moment: claiming is a
+copy and a delete on a plain mapping, not an atomic move, so one interleaving
+leaves a claim on a report the other release already sent, and the next
+<a class="reference internal" href="#heed.recover_claimed" title="heed.recover_claimed"><code class="xref py py-func docutils literal notranslate"><span class="pre">recover_claimed()</span></code></a> sends it again. Serialise releases of one report.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference internal" href="heed.sinks.base.html#heed.sinks.base.SinkResult" title="heed.sinks.base.SinkResult"><code class="xref py py-class docutils literal notranslate"><span class="pre">SinkResult</span></code></a></span></p>
@@ -1328,6 +1352,7 @@ one too costly to decode (over <code class="docutils literal notranslate"><span 
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.accept_all"><code class="docutils literal notranslate"><span class="pre">accept_all()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.attachment_headers"><code class="docutils literal notranslate"><span class="pre">attachment_headers()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.chain_moderators"><code class="docutils literal notranslate"><span class="pre">chain_moderators()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.discard_held"><code class="docutils literal notranslate"><span class="pre">discard_held()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.github_sink_from_token"><code class="docutils literal notranslate"><span class="pre">github_sink_from_token()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.hold_all"><code class="docutils literal notranslate"><span class="pre">hold_all()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.make_app"><code class="docutils literal notranslate"><span class="pre">make_app()</span></code></a></li>

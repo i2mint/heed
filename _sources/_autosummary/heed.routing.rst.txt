@@ -16,6 +16,7 @@ heed.routing
    
       accept_all
       chain_moderators
+      discard_held
       fold_text
       hold_all
       make_heuristic_moderator

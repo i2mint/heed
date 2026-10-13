@@ -26,6 +26,7 @@
       chain_moderators
       release_held
       recover_claimed
+      discard_held
       make_report_store
       make_attachment_store
    

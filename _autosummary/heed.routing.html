@@ -433,22 +433,25 @@ a visitor cannot redirect reports into someone else’s tracker.
 <tr class="row-even"><td><p><a class="reference internal" href="#heed.routing.chain_moderators" title="heed.routing.chain_moderators"><code class="xref py py-obj docutils literal notranslate"><span class="pre">chain_moderators</span></code></a>(*moderators)</p></td>
 <td><p>Combine moderators; the most severe verdict wins (reject &gt; hold &gt; accept).</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#heed.routing.fold_text" title="heed.routing.fold_text"><code class="xref py py-obj docutils literal notranslate"><span class="pre">fold_text</span></code></a>(text)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#heed.routing.discard_held" title="heed.routing.discard_held"><code class="xref py py-obj docutils literal notranslate"><span class="pre">discard_held</span></code></a>(report_id, *, holding_store[, ...])</p></td>
+<td><p>Delete a held report for good, with its attachments (e.g. a screenshot).</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#heed.routing.fold_text" title="heed.routing.fold_text"><code class="xref py py-obj docutils literal notranslate"><span class="pre">fold_text</span></code></a>(text)</p></td>
 <td><p>Normalise text for matching: NFKC, drop format chars (zero-width), casefold.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#heed.routing.hold_all" title="heed.routing.hold_all"><code class="xref py py-obj docutils literal notranslate"><span class="pre">hold_all</span></code></a>(report)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#heed.routing.hold_all" title="heed.routing.hold_all"><code class="xref py py-obj docutils literal notranslate"><span class="pre">hold_all</span></code></a>(report)</p></td>
 <td><p>Full pre-moderation: every report waits for a human.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#heed.routing.make_heuristic_moderator" title="heed.routing.make_heuristic_moderator"><code class="xref py py-obj docutils literal notranslate"><span class="pre">make_heuristic_moderator</span></code></a>(*[, max_links, ...])</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#heed.routing.make_heuristic_moderator" title="heed.routing.make_heuristic_moderator"><code class="xref py py-obj docutils literal notranslate"><span class="pre">make_heuristic_moderator</span></code></a>(*[, max_links, ...])</p></td>
 <td><p>Hold reports with more than <code class="docutils literal notranslate"><span class="pre">max_links</span></code> links or any of <code class="docutils literal notranslate"><span class="pre">blocked_terms</span></code>.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#heed.routing.recover_claimed" title="heed.routing.recover_claimed"><code class="xref py py-obj docutils literal notranslate"><span class="pre">recover_claimed</span></code></a>(*, holding_store[, ...])</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#heed.routing.recover_claimed" title="heed.routing.recover_claimed"><code class="xref py py-obj docutils literal notranslate"><span class="pre">recover_claimed</span></code></a>(*, holding_store[, ...])</p></td>
 <td><p>Return every claimed report to holding, and the ids returned.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#heed.routing.release_held" title="heed.routing.release_held"><code class="xref py py-obj docutils literal notranslate"><span class="pre">release_held</span></code></a>(report_id, *, holding_store[, ...])</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#heed.routing.release_held" title="heed.routing.release_held"><code class="xref py py-obj docutils literal notranslate"><span class="pre">release_held</span></code></a>(report_id, *, holding_store[, ...])</p></td>
 <td><p>Release a held report: route it on and remove it from holding.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#heed.routing.sinks_by_origin" title="heed.routing.sinks_by_origin"><code class="xref py py-obj docutils literal notranslate"><span class="pre">sinks_by_origin</span></code></a>(sinks, *[, default])</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#heed.routing.sinks_by_origin" title="heed.routing.sinks_by_origin"><code class="xref py py-obj docutils literal notranslate"><span class="pre">sinks_by_origin</span></code></a>(sinks, *[, default])</p></td>
 <td><p>A resolver from an <code class="docutils literal notranslate"><span class="pre">{origin:</span> <span class="pre">sink}</span></code> mapping (origins compared normalized).</p></td>
 </tr>
 </tbody>
@@ -495,6 +498,23 @@ they are being released (when no separate <code class="docutils literal notransl
 <dl class="field-list simple">
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Callable" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Callable</span></code></a>[[<a class="reference internal" href="heed.base.html#heed.base.Report" title="heed.base.Report"><code class="xref py py-class docutils literal notranslate"><span class="pre">Report</span></code></a>], <a class="reference internal" href="#heed.routing.Verdict" title="heed.routing.Verdict"><code class="xref py py-class docutils literal notranslate"><span class="pre">Verdict</span></code></a>]</span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="heed.routing.discard_held">
+<span class="sig-prename descclassname"><span class="pre">heed.routing.</span></span><span class="sig-name descname"><span class="pre">discard_held</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">report_id</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">holding_store</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">attachment_store</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/routing.html#discard_held"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.routing.discard_held" title="Link to this definition">#</a></dt>
+<dd><p>Delete a held report for good, with its attachments (e.g. a screenshot).</p>
+<p>The report leaves holding first, so a release that took it meanwhile wins and this
+raises <code class="docutils literal notranslate"><span class="pre">KeyError</span></code> before touching its attachments; a crash between the two steps
+leaves an orphaned screenshot, never a report pointing at a deleted one. Raises
+<code class="docutils literal notranslate"><span class="pre">KeyError</span></code> when <code class="docutils literal notranslate"><span class="pre">report_id</span></code> is not held. A report whose text no longer parses is
+still deleted, but its attachments cannot be named and are left. Run it serialised
+with <a class="reference internal" href="#heed.routing.release_held" title="heed.routing.release_held"><code class="xref py py-func docutils literal notranslate"><span class="pre">release_held()</span></code></a> for the same report.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a></span></p>
 </dd>
 </dl>
 </dd></dl>
@@ -584,6 +604,10 @@ deletes its own claim, and only once the sink has accepted the report or it is
 back in holding. So a crash at any point leaves the report in holding, in the
 claims, or in both – never lost – and <a class="reference internal" href="#heed.routing.recover_claimed" title="heed.routing.recover_claimed"><code class="xref py py-func docutils literal notranslate"><span class="pre">recover_claimed()</span></code></a> returns stranded
 claims to holding. A report with a claim is not released again until then.</p>
+<p>Not safe against two releases of the same report at the same moment: claiming is a
+copy and a delete on a plain mapping, not an atomic move, so one interleaving
+leaves a claim on a report the other release already sent, and the next
+<a class="reference internal" href="#heed.routing.recover_claimed" title="heed.routing.recover_claimed"><code class="xref py py-func docutils literal notranslate"><span class="pre">recover_claimed()</span></code></a> sends it again. Serialise releases of one report.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference internal" href="heed.sinks.base.html#heed.sinks.base.SinkResult" title="heed.sinks.base.SinkResult"><code class="xref py py-class docutils literal notranslate"><span class="pre">SinkResult</span></code></a></span></p>
@@ -664,6 +688,7 @@ the router refuses them.</p>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.routing.Verdict"><code class="docutils literal notranslate"><span class="pre">Verdict</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.routing.accept_all"><code class="docutils literal notranslate"><span class="pre">accept_all()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.routing.chain_moderators"><code class="docutils literal notranslate"><span class="pre">chain_moderators()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.routing.discard_held"><code class="docutils literal notranslate"><span class="pre">discard_held()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.routing.fold_text"><code class="docutils literal notranslate"><span class="pre">fold_text()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.routing.hold_all"><code class="docutils literal notranslate"><span class="pre">hold_all()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.routing.make_heuristic_moderator"><code class="docutils literal notranslate"><span class="pre">make_heuristic_moderator()</span></code></a></li>

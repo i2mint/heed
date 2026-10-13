@@ -1,4 +1,4 @@
-> built 2026-10-13 06:11 UTC from 9c18f99 (main) · heed 0.0.1. Details: build_info.json
+> built 2026-10-13 07:06 UTC from 8903f90 (main) · heed 0.0.1. Details: build_info.json
 
 # index.html.md
 
@@ -309,7 +309,7 @@ Public API (Phase 1):
   <br/>
   Routing   sinks_by_origin, Verdict, accept_all, hold_all,
   : make_heuristic_moderator, chain_moderators, release_held,
-    recover_claimed
+    recover_claimed, discard_held
   <br/>
   Storage   make_report_store, make_attachment_store
 
@@ -346,6 +346,7 @@ True
 | [`chain_moderators`](_autosummary/heed.html.md#heed.chain_moderators)(\*moderators)                     | Combine moderators; the most severe verdict wins (reject > hold > accept).    |
 | [`release_held`](_autosummary/heed.html.md#heed.release_held)(report_id, \*, holding_store[, ...])  | Release a held report: route it on and remove it from holding.                |
 | [`recover_claimed`](_autosummary/heed.html.md#heed.recover_claimed)(\*, holding_store[, ...])          | Return every claimed report to holding, and the ids returned.                 |
+| [`discard_held`](_autosummary/heed.html.md#heed.discard_held)(report_id, \*, holding_store[, ...])  | Delete a held report for good, with its attachments (e.g. a screenshot).      |
 | [`make_report_store`](_autosummary/heed.html.md#heed.make_report_store)([rootdir, delete_func])          | A text store for report JSON.                                                 |
 | [`make_attachment_store`](_autosummary/heed.html.md#heed.make_attachment_store)([rootdir, delete_func])      | A bytes store for attachments.                                                |
 
@@ -643,6 +644,20 @@ Combine moderators; the most severe verdict wins (reject > hold > accept).
 * **Return type:**
   [`Callable`](https://docs.python.org/3/library/collections.abc.html#collections.abc.Callable)[[[`Report`](_autosummary/heed.base.html.md#heed.base.Report)], [`Verdict`](_autosummary/heed.routing.html.md#heed.routing.Verdict)]
 
+### heed.discard_held(report_id, , holding_store, attachment_store=None)
+
+Delete a held report for good, with its attachments (e.g. a screenshot).
+
+The report leaves holding first, so a release that took it meanwhile wins and this
+raises `KeyError` before touching its attachments; a crash between the two steps
+leaves an orphaned screenshot, never a report pointing at a deleted one. Raises
+`KeyError` when `report_id` is not held. A report whose text no longer parses is
+still deleted, but its attachments cannot be named and are left. Run it serialised
+with [`release_held()`](_autosummary/heed.html.md#heed.release_held) for the same report.
+
+* **Return type:**
+  [`None`](https://docs.python.org/3/builtins/constants.html#None)
+
 ### heed.github_sink_from_token(repo, token, \*\*kwargs)
 
 Build a GitHubIssuesSink that creates issues in `repo` (‘owner/name’).
@@ -821,6 +836,11 @@ deletes its own claim, and only once the sink has accepted the report or it is
 back in holding. So a crash at any point leaves the report in holding, in the
 claims, or in both – never lost – and [`recover_claimed()`](_autosummary/heed.html.md#heed.recover_claimed) returns stranded
 claims to holding. A report with a claim is not released again until then.
+
+Not safe against two releases of the same report at the same moment: claiming is a
+copy and a delete on a plain mapping, not an atomic move, so one interleaving
+leaves a claim on a report the other release already sent, and the next
+[`recover_claimed()`](_autosummary/heed.html.md#heed.recover_claimed) sends it again. Serialise releases of one report.
 
 * **Return type:**
   [`SinkResult`](_autosummary/heed.sinks.base.html.md#heed.sinks.base.SinkResult)
@@ -1087,6 +1107,7 @@ Two seams, both decided on the server, never by the browser:
 | [`accept_all`](_autosummary/heed.routing.html.md#heed.routing.accept_all)(report)                                | The default moderator: everything goes straight to the sink.                 |
 |----------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------|
 | [`chain_moderators`](_autosummary/heed.routing.html.md#heed.routing.chain_moderators)(\*moderators)                    | Combine moderators; the most severe verdict wins (reject > hold > accept).   |
+| [`discard_held`](_autosummary/heed.routing.html.md#heed.routing.discard_held)(report_id, \*, holding_store[, ...]) | Delete a held report for good, with its attachments (e.g. a screenshot).     |
 | [`fold_text`](_autosummary/heed.routing.html.md#heed.routing.fold_text)(text)                                   | Normalise text for matching: NFKC, drop format chars (zero-width), casefold. |
 | [`hold_all`](_autosummary/heed.routing.html.md#heed.routing.hold_all)(report)                                  | Full pre-moderation: every report waits for a human.                         |
 | [`make_heuristic_moderator`](_autosummary/heed.routing.html.md#heed.routing.make_heuristic_moderator)(\*[, max_links, ...])    | Hold reports with more than `max_links` links or any of `blocked_terms`.     |
@@ -1123,6 +1144,20 @@ Combine moderators; the most severe verdict wins (reject > hold > accept).
 
 * **Return type:**
   [`Callable`](https://docs.python.org/3/library/collections.abc.html#collections.abc.Callable)[[[`Report`](_autosummary/heed.base.html.md#heed.base.Report)], [`Verdict`](_autosummary/heed.routing.html.md#heed.routing.Verdict)]
+
+### heed.routing.discard_held(report_id, , holding_store, attachment_store=None)
+
+Delete a held report for good, with its attachments (e.g. a screenshot).
+
+The report leaves holding first, so a release that took it meanwhile wins and this
+raises `KeyError` before touching its attachments; a crash between the two steps
+leaves an orphaned screenshot, never a report pointing at a deleted one. Raises
+`KeyError` when `report_id` is not held. A report whose text no longer parses is
+still deleted, but its attachments cannot be named and are left. Run it serialised
+with [`release_held()`](_autosummary/heed.routing.html.md#heed.routing.release_held) for the same report.
+
+* **Return type:**
+  [`None`](https://docs.python.org/3/builtins/constants.html#None)
 
 ### heed.routing.fold_text(text)
 
@@ -1200,6 +1235,11 @@ deletes its own claim, and only once the sink has accepted the report or it is
 back in holding. So a crash at any point leaves the report in holding, in the
 claims, or in both – never lost – and [`recover_claimed()`](_autosummary/heed.routing.html.md#heed.routing.recover_claimed) returns stranded
 claims to holding. A report with a claim is not released again until then.
+
+Not safe against two releases of the same report at the same moment: claiming is a
+copy and a delete on a plain mapping, not an atomic move, so one interleaving
+leaves a claim on a report the other release already sent, and the next
+[`recover_claimed()`](_autosummary/heed.routing.html.md#heed.routing.recover_claimed) sends it again. Serialise releases of one report.
 
 * **Return type:**
   [`SinkResult`](_autosummary/heed.sinks.base.html.md#heed.sinks.base.SinkResult)
@@ -1795,7 +1835,7 @@ report – and reports can carry personal data. Pass `delete_func` to opt back i
 
 # About this build
 
-This documentation was built on **2026-10-13 06:11 UTC** from commit <a href="https://github.com/i2mint/heed/commit/9c18f99bc548c23b6d9689e8965852a174b98d37"><code>9c18f99</code></a> on branch <code>main</code>, for **heed 0.0.1** (from <code>pyproject.toml</code>).
+This documentation was built on **2026-10-13 07:06 UTC** from commit <a href="https://github.com/i2mint/heed/commit/8903f90c084a79c7388ab4d45cd5992116829532"><code>8903f90</code></a> on branch <code>main</code>, for **heed 0.0.1** (from <code>pyproject.toml</code>).
 
 #### WARNING
 The documentation and the package may be misaligned:
@@ -1806,7 +1846,7 @@ The documentation and the package may be misaligned:
 
 |                     |                                                                                                                                                    |
 |---------------------|----------------------------------------------------------------------------------------------------------------------------------------------------|
-| Commit              | <a href="https://github.com/i2mint/heed/commit/9c18f99bc548c23b6d9689e8965852a174b98d37"><code>9c18f99bc548c23b6d9689e8965852a174b98d37</code></a> |
+| Commit              | <a href="https://github.com/i2mint/heed/commit/8903f90c084a79c7388ab4d45cd5992116829532"><code>8903f90c084a79c7388ab4d45cd5992116829532</code></a> |
 | Branch              | <code>main</code>                                                                                                                                  |
 | Tags at this commit | none                                                                                                                                               |
 | Working tree        | clean                                                                                                                                              |
@@ -1817,9 +1857,9 @@ The documentation and the package may be misaligned:
 |              |                                                                                            |
 |--------------|--------------------------------------------------------------------------------------------|
 | Repository   | <code>i2mint/heed</code>                                                                   |
-| Run          | <a href="https://github.com/i2mint/heed/actions/runs/38355231439">38355231439</a>          |
+| Run          | <a href="https://github.com/i2mint/heed/actions/runs/38360457457">38360457457</a>          |
 | Ref          | <code>refs/heads/main</code>                                                               |
-| Event commit | <code>9c18f99bc548c23b6d9689e8965852a174b98d37</code> (in the history of the built commit) |
+| Event commit | <code>8903f90c084a79c7388ab4d45cd5992116829532</code> (in the history of the built commit) |
 
 ## Tools
 
@@ -1850,7 +1890,7 @@ Latest release: <a href="https://pypi.org/project/heed/0.1.0/">0.1.0</a>, newer 
 
 ```bash
 git clone https://github.com/i2mint/heed && cd heed
-git checkout 9c18f99bc548c23b6d9689e8965852a174b98d37
+git checkout 8903f90c084a79c7388ab4d45cd5992116829532
 pip install "epythet==0.2.14"
 epythet quickstart . --ignore tests/ scrap/ examples/
 ```

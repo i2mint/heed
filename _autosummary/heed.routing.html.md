@@ -25,6 +25,7 @@ Two seams, both decided on the server, never by the browser:
 | [`accept_all`](#heed.routing.accept_all)(report)                                | The default moderator: everything goes straight to the sink.                 |
 |----------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------|
 | [`chain_moderators`](#heed.routing.chain_moderators)(\*moderators)                    | Combine moderators; the most severe verdict wins (reject > hold > accept).   |
+| [`discard_held`](#heed.routing.discard_held)(report_id, \*, holding_store[, ...]) | Delete a held report for good, with its attachments (e.g. a screenshot).     |
 | [`fold_text`](#heed.routing.fold_text)(text)                                   | Normalise text for matching: NFKC, drop format chars (zero-width), casefold. |
 | [`hold_all`](#heed.routing.hold_all)(report)                                  | Full pre-moderation: every report waits for a human.                         |
 | [`make_heuristic_moderator`](#heed.routing.make_heuristic_moderator)(\*[, max_links, ...])    | Hold reports with more than `max_links` links or any of `blocked_terms`.     |
@@ -61,6 +62,20 @@ Combine moderators; the most severe verdict wins (reject > hold > accept).
 
 * **Return type:**
   [`Callable`](https://docs.python.org/3/library/collections.abc.html#collections.abc.Callable)[[[`Report`](heed.base.html.md#heed.base.Report)], [`Verdict`](#heed.routing.Verdict)]
+
+### heed.routing.discard_held(report_id, , holding_store, attachment_store=None)
+
+Delete a held report for good, with its attachments (e.g. a screenshot).
+
+The report leaves holding first, so a release that took it meanwhile wins and this
+raises `KeyError` before touching its attachments; a crash between the two steps
+leaves an orphaned screenshot, never a report pointing at a deleted one. Raises
+`KeyError` when `report_id` is not held. A report whose text no longer parses is
+still deleted, but its attachments cannot be named and are left. Run it serialised
+with [`release_held()`](#heed.routing.release_held) for the same report.
+
+* **Return type:**
+  [`None`](https://docs.python.org/3/builtins/constants.html#None)
 
 ### heed.routing.fold_text(text)
 
@@ -138,6 +153,11 @@ deletes its own claim, and only once the sink has accepted the report or it is
 back in holding. So a crash at any point leaves the report in holding, in the
 claims, or in both – never lost – and [`recover_claimed()`](#heed.routing.recover_claimed) returns stranded
 claims to holding. A report with a claim is not released again until then.
+
+Not safe against two releases of the same report at the same moment: claiming is a
+copy and a delete on a plain mapping, not an atomic move, so one interleaving
+leaves a claim on a report the other release already sent, and the next
+[`recover_claimed()`](#heed.routing.recover_claimed) sends it again. Serialise releases of one report.
 
 * **Return type:**
   [`SinkResult`](heed.sinks.base.html.md#heed.sinks.base.SinkResult)

@@ -728,6 +728,7 @@ window.runMermaid = runMermaid;</script>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
+<span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">re</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">unicodedata</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Iterable</span><span class="p">,</span> <span class="n">Mapping</span><span class="p">,</span> <span class="n">MutableMapping</span>
@@ -738,6 +739,8 @@ window.runMermaid = runMermaid;</script>
 <span class="kn">from</span><span class="w"> </span><span class="nn">heed.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">Report</span><span class="p">,</span> <span class="n">Status</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">heed.security</span><span class="w"> </span><span class="kn">import</span> <span class="n">normalize_origin</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">heed.sinks.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">Sink</span><span class="p">,</span> <span class="n">SinkResult</span>
+
+<span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
 
 <span class="c1"># ---------------------------------------------------------------- site resolution</span>
 
@@ -902,6 +905,11 @@ window.runMermaid = runMermaid;</script>
 <span class="sd">    back in holding. So a crash at any point leaves the report in holding, in the</span>
 <span class="sd">    claims, or in both -- never lost -- and :func:`recover_claimed` returns stranded</span>
 <span class="sd">    claims to holding. A report with a claim is not released again until then.</span>
+
+<span class="sd">    Not safe against two releases of the same report at the same moment: claiming is a</span>
+<span class="sd">    copy and a delete on a plain mapping, not an atomic move, so one interleaving</span>
+<span class="sd">    leaves a claim on a report the other release already sent, and the next</span>
+<span class="sd">    :func:`recover_claimed` sends it again. Serialise releases of one report.</span>
 <span class="sd">    """</span>
     <span class="k">if</span> <span class="p">(</span><span class="n">sink</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">)</span> <span class="o">==</span> <span class="p">(</span><span class="n">resolve_sink</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">):</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"pass exactly one of sink= or resolve_sink="</span><span class="p">)</span>
@@ -930,7 +938,9 @@ window.runMermaid = runMermaid;</script>
         <span class="c1"># Usually a concurrent release took it first, and its claim is the one that</span>
         <span class="c1"># counts. But if no other claim exists the delete may have happened anyway</span>
         <span class="c1"># (stores that report errors after acting): keep ours, so it is not lost.</span>
-        <span class="n">others</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">_claim_keys_of</span><span class="p">(</span><span class="n">report_id</span><span class="p">,</span> <span class="n">claims</span><span class="p">,</span> <span class="n">own_prefix</span><span class="o">=</span><span class="n">claimed_store</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">))</span>
+        <span class="n">others</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span>
+            <span class="n">_claim_keys_of</span><span class="p">(</span><span class="n">report_id</span><span class="p">,</span> <span class="n">claims</span><span class="p">,</span> <span class="n">own_prefix</span><span class="o">=</span><span class="n">claimed_store</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="p">)</span>
         <span class="k">if</span> <span class="n">report_id</span> <span class="ow">in</span> <span class="n">holding_store</span> <span class="ow">or</span> <span class="n">others</span> <span class="o">-</span> <span class="p">{</span><span class="n">claim_key</span><span class="p">}:</span>
             <span class="n">_drop_claim</span><span class="p">(</span><span class="n">claims</span><span class="p">,</span> <span class="n">claim_key</span><span class="p">)</span>
             <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"No held report with id </span><span class="si">{</span><span class="n">report_id</span><span class="si">!r}</span><span class="s2">"</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="kc">None</span>
@@ -959,6 +969,40 @@ window.runMermaid = runMermaid;</script>
     <span class="k">else</span><span class="p">:</span>
         <span class="n">_unclaim</span><span class="p">(</span><span class="n">report_id</span><span class="p">,</span> <span class="n">raw</span><span class="p">,</span> <span class="n">holding_store</span><span class="p">,</span> <span class="n">claims</span><span class="p">,</span> <span class="n">claim_key</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">result</span></div>
+
+
+
+<div class="viewcode-block" id="discard_held">
+<a class="viewcode-back" href="../../_autosummary/heed.routing.html#heed.discard_held">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">discard_held</span><span class="p">(</span>
+    <span class="n">report_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">holding_store</span><span class="p">:</span> <span class="n">MutableMapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span>
+    <span class="n">attachment_store</span><span class="p">:</span> <span class="n">MutableMapping</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Delete a held report for good, with its attachments (e.g. a screenshot).</span>
+
+<span class="sd">    The report leaves holding first, so a release that took it meanwhile wins and this</span>
+<span class="sd">    raises ``KeyError`` before touching its attachments; a crash between the two steps</span>
+<span class="sd">    leaves an orphaned screenshot, never a report pointing at a deleted one. Raises</span>
+<span class="sd">    ``KeyError`` when ``report_id`` is not held. A report whose text no longer parses is</span>
+<span class="sd">    still deleted, but its attachments cannot be named and are left. Run it serialised</span>
+<span class="sd">    with :func:`release_held` for the same report.</span>
+<span class="sd">    """</span>
+    <span class="k">if</span> <span class="n">report_id</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="n">CLAIM_PREFIX</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">report_id</span><span class="si">!r}</span><span class="s2"> is a claim, not a held report"</span><span class="p">)</span>
+    <span class="n">raw</span> <span class="o">=</span> <span class="n">holding_store</span><span class="p">[</span><span class="n">report_id</span><span class="p">]</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">refs</span> <span class="o">=</span> <span class="p">[</span><span class="n">a</span><span class="o">.</span><span class="n">ref</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">Report</span><span class="o">.</span><span class="n">model_validate_json</span><span class="p">(</span><span class="n">raw</span><span class="p">)</span><span class="o">.</span><span class="n">attachments</span><span class="p">]</span>
+    <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+            <span class="s2">"heed: held report </span><span class="si">%s</span><span class="s2"> does not parse; its attachments are left"</span><span class="p">,</span> <span class="n">report_id</span>
+        <span class="p">)</span>
+        <span class="n">refs</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">del</span> <span class="n">holding_store</span><span class="p">[</span><span class="n">report_id</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">attachment_store</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">ref</span> <span class="ow">in</span> <span class="n">refs</span><span class="p">:</span>
+            <span class="n">attachment_store</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">ref</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span></div>
 
 
 
