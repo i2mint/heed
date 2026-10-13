@@ -41,6 +41,8 @@ export interface HeedOptions {
   messages: MessageOverrides;
   /** Categories offered to the visitor, in order; the first is preselected. */
   categories: Category[];
+  /** Categories that get the light intake: no screenshot, no browser details (only the page address and the embedder's `extra`). Default: feature and question; `""` for none. */
+  lightCategories: Category[];
   /** "path" sends the page URL without query or fragment (privacy default); "full" sends all of it. */
   pageUrl: PageUrlMode;
   /** Send cookies with the report (only when the backend binds identity and allows credentials). */
@@ -119,6 +121,8 @@ const categories: Parse<Category[]> = (s) => {
   return picked.length ? [...new Set(picked)] : undefined;
 };
 
+const lightCategories: Parse<Category[]> = (s) => (s === "" ? [] : categories(s));
+
 export const OPTION_SPECS: Specs = {
   endpoint: { default: "", attr: "endpoint", parse: text },
   label: { default: "", attr: "label", parse: text },
@@ -127,6 +131,7 @@ export const OPTION_SPECS: Specs = {
   lang: { default: "", attr: "lang", parse: text },
   messages: { default: {}, clean: cleanMessages },
   categories: { default: [...CONTRACT.categories], attr: "categories", parse: categories },
+  lightCategories: { default: ["feature", "question"], attr: "light-categories", parse: lightCategories },
   pageUrl: { default: "path", attr: "page-url", parse: oneOf("path", "full") },
   withCredentials: { default: false, attr: "with-credentials", parse: parseBool },
   timeoutMs: { default: 30_000, attr: "timeout-ms", parse: positiveInt },

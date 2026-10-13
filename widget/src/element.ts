@@ -65,6 +65,8 @@ interface Shot {
   url: string | null;
   /** The visitor has been shown the preview: only then may the image be sent. */
   shown: boolean;
+  /** Ends the wait on `settled` (the capture was cleared; an image without a `src` fires no event). */
+  release: () => void;
 }
 
 interface Ui {
@@ -189,7 +191,8 @@ export class HeedFeedbackElement extends Base {
     ui.dialog.showModal();
     ui.title.focus();
     this.#warmGate();
-    this.#startScreenshot();
+    if (this.#isLight()) this.#clearScreenshot();
+    else this.#startScreenshot();
     this.#emit("heed:open", {});
   }
 
@@ -261,6 +264,7 @@ export class HeedFeedbackElement extends Base {
     launcher.addEventListener("click", () => this.open());
     cancel.addEventListener("click", () => this.close());
     doneClose.addEventListener("click", () => this.close());
+    category.addEventListener("change", () => this.#syncCapture());
     dialog.addEventListener("close", () => {
       this.#cancelToken();
       this.#emit("heed:close", {});
@@ -333,8 +337,6 @@ export class HeedFeedbackElement extends Base {
     ui.body.maxLength = CONTRACT.limits.body_chars;
     ui.honeypot.name = o.honeypotField || "hp";
     ui.honeypot.disabled = !o.honeypotField;
-    ui.note.textContent = o.screenshot ? m.noteShot : m.note;
-    ui.shotRow.hidden = !o.screenshot;
     const wanted = o.categories.map((c) => `${c}=${categoryLabel(m, c)}`).join("|"); // rebuilt when a label changes
     if (ui.category.dataset.categories !== wanted) {
       const previous = ui.category.value;
@@ -345,6 +347,7 @@ export class HeedFeedbackElement extends Base {
       ui.category.dataset.categories = wanted;
     }
     ui.categoryLabel.hidden = o.categories.length < 2;
+    this.#syncCapture(m);
     if (this.#status) this.#setStatus(this.#status.pick, this.#status.error);
     const done = this.#done?.(m);
     if (done !== undefined && ui.doneMessage.textContent !== done) ui.doneMessage.textContent = done;
@@ -365,12 +368,14 @@ export class HeedFeedbackElement extends Base {
     }
     this.#sending = true;
     this.#abandoned = false;
-    ui.submit.disabled = true;
+    ui.submit.disabled = ui.category.disabled = true; // the category decides what is sent: fixed while sending
     ui.form.setAttribute("aria-busy", "true");
     let outcome: SubmitOutcome | null = null;
     let droppedShot = false;
     try {
-      const screenshot = await this.#screenshotToSend();
+      const light = this.#isLight(); // decided once: what is sent must agree with the category sent
+      const category = (ui.category.value || o.categories[0]) as Category;
+      const screenshot = await this.#screenshotToSend(light);
       if (screenshot === "review") {
         this.#setStatus((m) => m.shotReview, false);
         return;
@@ -378,8 +383,8 @@ export class HeedFeedbackElement extends Base {
       this.#setStatus((m) => m.sending, false);
       const win = this.ownerDocument.defaultView ?? window;
       const input = {
-        draft: { category: (ui.category.value || o.categories[0]) as Category, title: ui.title.value, body: ui.body.value },
-        env: collectEnvironment(win, o.extra),
+        draft: { category, title: ui.title.value, body: ui.body.value },
+        env: collectEnvironment(win, o.extra, light),
         pageUrl: reportPageUrl(win.location.href, o.pageUrl),
         honeypot: ui.honeypot.value,
         screenshot,
@@ -398,7 +403,7 @@ export class HeedFeedbackElement extends Base {
     } finally {
       this.#gate?.gate?.cancel(); // a token still awaited (the send timed out) is no longer wanted
       this.#sending = false;
-      ui.submit.disabled = false;
+      ui.submit.disabled = ui.category.disabled = false;
       ui.form.removeAttribute("aria-busy");
     }
     if (this.#abandoned) {
@@ -432,13 +437,15 @@ export class HeedFeedbackElement extends Base {
    * The screenshot to attach: only one the visitor has been shown. If it is still
    * being taken, wait for it, show it, and ask for a second Send ("review").
    */
-  async #screenshotToSend(): Promise<Blob | null | "review"> {
+  async #screenshotToSend(light: boolean): Promise<Blob | null | "review"> {
     const ui = this.#ui;
     const shot = this.#shot;
-    if (!ui || !this.options.screenshot || !shot || !ui.shotBox.checked) return null;
+    if (!ui || !this.options.screenshot || light || !shot || !ui.shotBox.checked) return null;
     if (shot.shown) return shot.blob;
     this.#setStatus((m) => m.shotFinishing, false);
     await shot.settled;
+    // A newer capture replaced this one (the category went light and back): wait for that one.
+    if (this.#shot && this.#shot !== shot) return this.#screenshotToSend(light);
     return shot.shown && ui.shotBox.checked && this.#shot === shot ? "review" : null;
   }
 
@@ -491,6 +498,30 @@ export class HeedFeedbackElement extends Base {
     };
   }
 
+  /** Does the chosen category get the light intake (no screenshot, no browser details)? */
+  #isLight(): boolean {
+    const o = this.options;
+    const chosen = (this.#ui?.category.value || o.categories[0]) as Category;
+    return o.lightCategories.includes(chosen);
+  }
+
+  /**
+   * Bring the note, the screenshot row and the capture in line with the chosen category: a
+   * light one shows its own note and drops the screenshot, a heavy one takes it (once).
+   * Runs at the end of every sync, so a changed `categories` or `lightCategories` is covered.
+   */
+  #syncCapture(m: Messages = this.#msgs()): void {
+    const ui = this.#ui;
+    if (!ui) return;
+    const o = this.options;
+    const light = this.#isLight();
+    ui.note.textContent = light ? m.noteLight : o.screenshot ? m.noteShot : m.note;
+    ui.shotRow.hidden = !o.screenshot || light;
+    // A light category only hides the row (and `#screenshotToSend` sends nothing): the capture and
+    // the visitor's tick survive a round trip, and quick switching starts no second capture.
+    if (!light && o.screenshot && ui.dialog.open && ui.done.hidden && !this.#shot) this.#startScreenshot();
+  }
+
   /** Capture the page behind the dialog, in the background; the visitor sees a preview. */
   #startScreenshot(): void {
     const ui = this.#ui;
@@ -501,7 +532,9 @@ export class HeedFeedbackElement extends Base {
     ui.shotBox.disabled = false;
     ui.shotState.textContent = this.#msgs().shotTaking;
     const win = this.ownerDocument.defaultView ?? window;
-    const shot: Shot = { settled: Promise.resolve(), blob: null, url: null, shown: false };
+    let release = () => {};
+    const released = new Promise<void>((r) => (release = r));
+    const shot: Shot = { settled: Promise.resolve(), blob: null, url: null, shown: false, release };
     const fail = (message: string) => {
       ui.shotBox.checked = false;
       ui.shotBox.disabled = true;
@@ -509,7 +542,7 @@ export class HeedFeedbackElement extends Base {
       ui.shotState.textContent = message;
     };
     // Let the dialog paint before the (main-thread) capture starts.
-    shot.settled = new Promise((r) => setTimeout(r, 50))
+    const chain = new Promise((r) => setTimeout(r, 50))
       .then(() =>
         captureWithin(
           o.takeScreenshot ?? screenshotStrategy(),
@@ -544,11 +577,13 @@ export class HeedFeedbackElement extends Base {
             ui.preview.hidden = false;
           }),
       );
+    shot.settled = Promise.race([chain, released]);
     this.#shot = shot;
   }
 
   #clearScreenshot(): void {
     if (this.#shot?.url) URL.revokeObjectURL(this.#shot.url);
+    this.#shot?.release();
     this.#shot = null;
     if (!this.#ui) return;
     this.#ui.preview.hidden = true;

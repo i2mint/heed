@@ -42,6 +42,7 @@ export const LOCALES: Record<string, MessageOverrides> = {
     note: "Se envía con tu informe: la dirección de esta página (sin la consulta) y los datos de tu navegador.",
     noteShot:
       "Se envía con tu informe: la dirección de esta página (sin la consulta), los datos de tu navegador y la captura de abajo, si está marcada. Los campos de formulario aparecen ocultos en ella.",
+    noteLight: "Se envía con tu idea: la dirección de esta página (sin la consulta). Sin captura ni datos del navegador.",
     shotLabel: "Incluir una captura de esta página",
     shotAlt: "Captura que se enviará",
     shotTaking: "Haciendo la captura…",
@@ -85,6 +86,7 @@ export const LOCALES: Record<string, MessageOverrides> = {
     note: "Envoyé avec votre signalement : l’adresse de cette page (sans paramètres) et les informations de votre navigateur.",
     noteShot:
       "Envoyé avec votre signalement : l’adresse de cette page (sans paramètres), les informations de votre navigateur et la capture d’écran ci-dessous si elle est cochée. Les champs de formulaire y sont masqués.",
+    noteLight: "Envoyé avec votre idée : l’adresse de cette page (sans paramètres). Ni capture d’écran ni informations sur le navigateur.",
     shotLabel: "Joindre une capture d’écran de cette page",
     shotAlt: "Capture d’écran à envoyer",
     shotTaking: "Capture d’écran en cours…",
@@ -128,6 +130,7 @@ export const LOCALES: Record<string, MessageOverrides> = {
     note: "Mit Ihrer Meldung gesendet: die Adresse dieser Seite (ohne Abfrageteil) und Angaben zu Ihrem Browser.",
     noteShot:
       "Mit Ihrer Meldung gesendet: die Adresse dieser Seite (ohne Abfrageteil), Angaben zu Ihrem Browser und, falls angehakt, der Screenshot unten. Formularfelder sind darin geschwärzt.",
+    noteLight: "Mit Ihrer Idee gesendet: die Adresse dieser Seite (ohne Abfrageteil). Kein Screenshot, keine Browserangaben.",
     shotLabel: "Screenshot dieser Seite beifügen",
     shotAlt: "Screenshot, der gesendet wird",
     shotTaking: "Screenshot wird erstellt …",
@@ -171,6 +174,7 @@ export const LOCALES: Record<string, MessageOverrides> = {
     note: "Enviado com o seu relato: o endereço desta página (sem a consulta) e dados do seu navegador.",
     noteShot:
       "Enviado com o seu relato: o endereço desta página (sem a consulta), dados do seu navegador e a captura de tela abaixo, se estiver marcada. Os campos de formulário aparecem tarjados nela.",
+    noteLight: "Enviado com a sua ideia: o endereço desta página (sem a consulta). Sem captura de tela nem dados do navegador.",
     shotLabel: "Incluir uma captura de tela desta página",
     shotAlt: "Captura de tela a ser enviada",
     shotTaking: "Fazendo a captura de tela…",
