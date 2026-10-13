@@ -55,20 +55,33 @@ def _backend(*, router_kwargs=None, **config):
         thread.join(5)
 
 
-def _embed_page(backend: str, *, extra_attrs: str = "") -> str:
-    bundle = load_widget_manifest()["entries"]["widget"]
+NONCE = "t3st-n0nce"
+
+
+def _page(backend: str, body: str) -> str:
+    """An embedding page under a strict CSP: no inline style, Trusted Types required,
+    scripts only from the backend (or with the test nonce)."""
     csp = (
-        f"default-src 'none'; script-src {backend}; connect-src {backend}; "
-        "style-src 'none'; require-trusted-types-for 'script'"
+        f"default-src 'none'; script-src {backend} 'nonce-{NONCE}'; "
+        f"connect-src {backend}; style-src 'none'; require-trusted-types-for 'script'"
     )
     return f"""<!doctype html>
 <html><head><meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="{csp}">
 <title>embedder</title></head>
 <body><h1>Some site</h1>
-<script src="{backend}/heed/widget/{bundle}"></script>
-<heed-feedback endpoint="{backend}/heed/report" {extra_attrs}></heed-feedback>
+{body}
 </body></html>"""
+
+
+def _embed_page(backend: str) -> str:
+    """The bundle plus a hand-written element (no loader)."""
+    bundle = load_widget_manifest()["entries"]["widget"]
+    return _page(
+        backend,
+        f'<script src="{backend}/heed/widget/{bundle}"></script>\n'
+        f'<heed-feedback endpoint="{backend}/heed/report"></heed-feedback>',
+    )
 
 
 @pytest.fixture(scope="module")
@@ -103,7 +116,7 @@ def _open_page(browser, url):
 
 
 @contextmanager
-def _site(browser, *, allow_page=True, router_kwargs=None, **config):
+def _site(browser, *, page=_embed_page, allow_page=True, router_kwargs=None, **config):
     """A page on one origin embedding the widget from a backend on another.
 
     The page server starts first so the backend can allow exactly its origin (or,
@@ -132,9 +145,9 @@ def _site(browser, *, allow_page=True, router_kwargs=None, **config):
         with _backend(
             allowed_origins=allowed, router_kwargs=router_kwargs, **config
         ) as (backend, store):
-            holder["html"] = _embed_page(backend)
-            with _open_page(browser, origin + "/") as (page, problems):
-                yield page, problems, store, origin
+            holder["html"] = page(backend)
+            with _open_page(browser, origin + "/") as (tab, problems):
+                yield tab, problems, store, origin
     finally:
         server.shutdown()
 
@@ -240,4 +253,86 @@ def test_focus_and_modality_survive_success_and_reparenting(browser):
         )
         page.keyboard.press("Escape")
         assert not page.get_by_role("dialog").is_visible()
+        assert problems == []
+
+
+def _loader_page(script_attrs: str = "", before: str = ""):
+    """The documented embed: one async loader tag, optionally after inline calls."""
+
+    def page(backend: str) -> str:
+        return _page(
+            backend,
+            f"{before}\n"
+            f'<script async src="{backend}/heed/widget/heed.js" {script_attrs}>'
+            "</script>",
+        )
+
+    return page
+
+
+def test_one_script_tag_is_enough(browser):
+    with _site(browser, page=_loader_page('data-label="Report a problem"')) as (
+        page,
+        problems,
+        store,
+        origin,
+    ):
+        page.get_by_role("button", name="Report a problem").click()
+        page.get_by_label("Title").fill("via the loader")
+        page.get_by_role("button", name="Send").click()
+        page.get_by_text("Your report was sent").wait_for()
+        assert problems == []
+        (saved,) = [json.loads(v) for v in store.values()]
+        assert (saved["title"], saved["origin"]) == ("via the loader", origin)
+        assert page.evaluate("typeof heed.version") == "string"
+
+
+def test_loader_pinned_with_sri_pins_the_bundle(browser):
+    manifest = load_widget_manifest()
+    loader = manifest["entries"]["loader"]
+    integrity = manifest["files"][loader]["integrity"]
+
+    def page(backend):
+        return _page(
+            backend,
+            f'<script async src="{backend}/heed/widget/{loader}" '
+            f'integrity="{integrity}" crossorigin="anonymous"></script>',
+        )
+
+    with _site(browser, page=page) as (tab, problems, _store, _origin):
+        tab.get_by_role("button", name="Feedback").wait_for()
+        bundle_tag = tab.evaluate(
+            "() => { const s = document.querySelector('script[src*=heed-widget-]');"
+            " return s && [s.integrity, s.crossOrigin]; }"
+        )
+        widget = manifest["entries"]["widget"]
+        assert bundle_tag == [manifest["files"][widget]["integrity"], "anonymous"]
+        assert problems == []
+
+
+def test_calls_queued_before_the_loader_arrives_are_replayed(browser):
+    stub = (
+        f'<script nonce="{NONCE}">'
+        "window.heed=window.heed||function(){(heed.q=heed.q||[]).push(arguments)};"
+        'heed("init", {heading: "Tell us"});'
+        'heed("on", "open", function(){ document.title = "opened"; });'
+        'heed("open");'
+        "</script>"
+    )
+    page = _loader_page('data-position="none"', before=stub)
+    with _site(browser, page=page) as (tab, problems, _store, _origin):
+        tab.get_by_role("dialog").wait_for()
+        assert tab.get_by_role("heading", name="Tell us").is_visible()
+        assert tab.title() == "opened"
+        assert not tab.get_by_role("button", name="Feedback").is_visible()
+        assert problems == []
+
+
+def test_data_auto_false_waits_for_init(browser):
+    page = _loader_page('data-auto="false"')
+    with _site(browser, page=page) as (tab, problems, _store, _origin):
+        tab.wait_for_function("window.heed && window.heed.loaded")
+        assert tab.locator("heed-feedback").count() == 0
+        tab.evaluate("heed.init({label: 'Now'})")
+        tab.get_by_role("button", name="Now").wait_for()
         assert problems == []

@@ -118,12 +118,17 @@ export function defaultOptions(): HeedOptions {
   return out as unknown as HeedOptions;
 }
 
-/** Options set by attributes on `el` (attributes that are absent or unparsable are skipped). */
-export function optionsFromAttributes(el: Element): Partial<HeedOptions> {
+/**
+ * Options set by attributes (absent or unparsable ones are skipped). `source` is an
+ * element (its attributes), or a lookup by attribute name, e.g. over a `<script>`
+ * tag's `data-*` attributes.
+ */
+export function optionsFromAttributes(source: Element | ((attr: string) => string | null | undefined)): Partial<HeedOptions> {
+  const get = typeof source === "function" ? source : (attr: string) => source.getAttribute(attr);
   const out: Record<string, unknown> = {};
   for (const [key, spec] of Object.entries(OPTION_SPECS as Record<string, OptionSpec<unknown>>)) {
     if (!spec.attr || !spec.parse) continue;
-    const raw = el.getAttribute(spec.attr);
+    const raw = get(spec.attr) ?? null;
     if (raw === null) continue;
     const value = spec.parse(raw.trim());
     if (value !== undefined) out[key] = value;

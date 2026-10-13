@@ -1,0 +1,97 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { installApi, type HeedApi } from "../src/api";
+import { TAG, defineHeedElement, type HeedFeedbackElement } from "../src/element";
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const w = window as any;
+const managed = () => document.querySelector(`${TAG}[data-heed-managed]`) as HeedFeedbackElement | null;
+const boot = (data: Record<string, string> = {}) => ["_boot", { base: "https://h.example/heed/widget/heed.js", data }];
+
+beforeEach(() => {
+  defineHeedElement();
+  delete w.heed;
+});
+afterEach(() => {
+  document.body.replaceChildren();
+  delete w.heed;
+});
+
+describe("window.heed", () => {
+  it("replays the loader's boot then the page's calls, in order", () => {
+    w.heed = { q: [boot({ label: "Bug?", "page-url": "full" }), ["init", { position: "bottom-left" }]] };
+    const api = installApi(w);
+    const el = managed()!;
+    expect(el.options.endpoint).toBe("https://h.example/heed/report");
+    expect(el.options.label).toBe("Bug?");
+    expect(el.options.pageUrl).toBe("full");
+    expect(el.options.position).toBe("bottom-left");
+    expect(api.loaded).toBe(true);
+    expect(w.heed).toBe(api);
+  });
+
+  it("accepts an inline stub's arguments objects", () => {
+    function stub(..._: unknown[]) {
+      // eslint-disable-next-line prefer-rest-params
+      ((stub as unknown as { q: unknown[] }).q ??= []).push(arguments);
+    }
+    w.heed = stub;
+    stub("init", { endpoint: "/r", label: "Hi" });
+    installApi(w);
+    expect(managed()!.options.label).toBe("Hi");
+  });
+
+  it("does not mount with data-auto=false until asked", () => {
+    w.heed = { q: [boot({ auto: "false", label: "Later" })] };
+    const api = installApi(w) as HeedApi;
+    expect(managed()).toBeNull();
+    api.open();
+    expect(managed()!.options.label).toBe("Later");
+    expect(managed()!.shadowRoot!.querySelector("dialog")!.open).toBe(true);
+  });
+
+  it("opens an element the page wrote itself rather than adding one", () => {
+    const own = document.createElement(TAG) as HeedFeedbackElement;
+    own.setAttribute("endpoint", "/r");
+    document.body.append(own);
+    const api = installApi(w);
+    api.open();
+    expect(document.querySelectorAll(TAG)).toHaveLength(1);
+    expect(own.shadowRoot!.querySelector("dialog")!.open).toBe(true);
+  });
+
+  it("on() listens to widget events and unsubscribes", () => {
+    const api = installApi(w);
+    const el = api.init({ endpoint: "/r" })!;
+    const seen = vi.fn();
+    const off = api.on("submitted", seen);
+    el.dispatchEvent(new CustomEvent("heed:submitted", { detail: { id: "1" }, bubbles: true, composed: true }));
+    off();
+    el.dispatchEvent(new CustomEvent("heed:submitted", { detail: { id: "2" }, bubbles: true, composed: true }));
+    expect(seen).toHaveBeenCalledTimes(1);
+    expect(seen.mock.calls[0][0]).toEqual({ id: "1" });
+  });
+
+  it("init reconfigures the same element; destroy removes it", () => {
+    const api = installApi(w);
+    const a = api.init({ endpoint: "/r" });
+    const b = api.init({ label: "Again" });
+    expect(a).toBe(b);
+    expect(b!.options.endpoint).toBe("/r");
+    api.destroy();
+    expect(managed()).toBeNull();
+  });
+
+  it("warns on unknown commands and survives a failing one", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    w.heed = { q: [["frobnicate"]] };
+    const api = installApi(w);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("frobnicate"));
+    expect(api("open")).toBeUndefined();
+    warn.mockRestore();
+  });
+
+  it("is installed once", () => {
+    const api = installApi(w);
+    expect(installApi(w)).toBe(api);
+  });
+});

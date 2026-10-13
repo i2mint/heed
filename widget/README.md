@@ -4,29 +4,70 @@ The embeddable half of heed: a `<heed-feedback>` Web Component that lets any vis
 
 ## Embed it
 
-The heed backend serves the built widget itself (`make_app` does by default; with your own app, `include_router(make_widget_router(), prefix="/heed")`):
+The heed backend serves the widget itself (`make_app` does by default; with your own app, `include_router(make_widget_router(), prefix="/heed")`). A site adds one tag:
+
+```html
+<script async src="https://feedback.example/heed/widget/heed.js"></script>
+```
+
+That is all: a "Feedback" button appears in the bottom-right corner, and reports go to the `report` route of the backend that served the script. The backend must list the embedding site in `allowed_origins` (see `misc/docs/embedding-security.md`).
+
+`heed.js` is a loader of under 1 kB. It installs `window.heed`, then loads the widget bundle once the page has finished loading and the browser is idle (at once if the page asks to open the widget), so it never delays the page. Options go in `data-*` attributes, named like the element attributes below:
+
+```html
+<script async src="https://feedback.example/heed/widget/heed.js"
+        data-label="Report a problem" data-position="bottom-left" data-categories="bug feature"></script>
+```
+
+`data-auto="false"` loads the widget without mounting it, for pages that call `heed.init()` themselves.
+
+### From code
+
+```js
+heed.init({ label: "Help us improve", extra: () => ({ app_version: "2.3.1" }) }); // mount or reconfigure
+heed.open();                                   // open the dialog (e.g. from your own menu item)
+heed.close();
+const off = heed.on("submitted", (detail) => console.log("report", detail.id));
+heed.destroy();                                // remove the widget heed mounted
+```
+
+To call `heed` before the loader has arrived, define the queue first; calls are buffered and replayed in order:
+
+```html
+<script>window.heed = window.heed || function () { (heed.q = heed.q || []).push(arguments) };</script>
+<script async src="https://feedback.example/heed/widget/heed.js"></script>
+<script>heed("init", { heading: "Tell us what happened" });</script>
+```
+
+(Under a CSP without `'unsafe-inline'`, give those inline scripts a nonce, or call `heed` from your own bundled code.)
+
+### Pinning a version
+
+`heed.js` and `heed-widget.js` are stable names that always serve the current build (cached for five minutes). Every build is also published under content-hashed names that are cached forever; their `integrity` values are in `heed/static/widget/manifest.json` (`entries.loader`, `entries.widget`). Pinning the hashed loader with Subresource Integrity pins the whole chain, because the loader carries the bundle's hashed name and SRI hash:
+
+```html
+<script async src="https://feedback.example/heed/widget/heed-<hash>.js"
+        integrity="sha384-…" crossorigin="anonymous"></script>
+```
+
+A pinned name stops existing when heed is upgraded, so re-pin then.
+
+### Without the loader
+
+The bundle works on its own too: load `heed-widget.js` and write the element, which is handy for frameworks that render markup:
 
 ```html
 <script src="https://feedback.example/heed/widget/heed-widget.js" defer></script>
 <heed-feedback endpoint="https://feedback.example/heed/report"></heed-feedback>
 ```
 
-`heed-widget.js` is a stable name that always serves the current build (cached for five minutes). To pin one build with Subresource Integrity, use its content-hashed name and `integrity` value from `heed/static/widget/manifest.json` (`entries.widget`); a pinned name stops existing when heed is upgraded, so re-pin then:
-
-```html
-<script src="https://feedback.example/heed/widget/heed-widget-<hash>.js"
-        integrity="sha384-…" crossorigin="anonymous" defer></script>
-```
-
-That is all: a "Feedback" button appears in the bottom-right corner. The backend must list the embedding site in `allowed_origins` (see `misc/docs/embedding-security.md`).
-
 ## Options
 
-Every option has a default; set it as an attribute, or from code with `el.configure({...})`. Function-valued options are code-only.
+Every option has a default; set it as an element attribute, as a `data-*` attribute on the loader tag, or from code with `heed.init({...})` / `el.configure({...})`. Function-valued options are code-only. `endpoint` defaults to the backend that served the loader.
 
 | Option (attribute) | Default | What it does |
 |---|---|---|
-| `endpoint` (`endpoint`) | — | URL of the backend's `POST /report`. Required. |
+| `endpoint` (`endpoint`) | the loader's backend | URL of the backend's `POST /report`. Required when the bundle is used without the loader. |
 | `label` (`label`) | `Feedback` | Launcher button text. |
 | `position` (`position`) | `bottom-right` | `bottom-left`, or `none` for no launcher (open it with `el.open()`). |
 | `heading` (`heading`) | `Send feedback` | Dialog heading. |
@@ -59,7 +100,7 @@ Set CSS custom properties on the element (`--heed-accent`, `--heed-accent-fg`, `
 
 ## Content-Security-Policy
 
-The widget needs no `'unsafe-inline'` and no `'unsafe-eval'`: its styles are constructed stylesheets and its DOM is built without `innerHTML`, so it also runs under `require-trusted-types-for 'script'`. Allow the backend's origin in `script-src` and `connect-src`.
+The widget needs no `'unsafe-inline'` and no `'unsafe-eval'`: its styles are constructed stylesheets and its DOM is built without `innerHTML`, so it also runs under `require-trusted-types-for 'script'`. Allow the backend's origin in `script-src` and `connect-src`. Under Trusted Types, the loader creates a policy named `heed` that only passes the bundle's own URL; if your CSP lists allowed policy names (`trusted-types ...`), add `heed`.
 
 ## Develop
 

@@ -15,13 +15,25 @@ const here = dirname(fileURLToPath(import.meta.url));
 const OUT_DIR = join(here, "..", "heed", "static", "widget");
 const pkg = JSON.parse(readFileSync(join(here, "package.json"), "utf8"));
 // Gzipped-size budgets in bytes, per entry.
-const BUDGETS = { widget: 8_000 };
-const ENTRIES = { widget: { src: "src/index.ts", stem: "heed-widget" } };
+const BUDGETS = { widget: 8_000, loader: 1_000 };
+// Built in order: the loader embeds the widget bundle's hashed name and SRI hash.
+const ENTRIES = {
+  widget: { src: "src/index.ts", stem: "heed-widget", define: () => ({ __HEED_VERSION__: JSON.stringify(pkg.version) }) },
+  loader: {
+    src: "src/loader.ts",
+    stem: "heed",
+    define: (m) => ({
+      __HEED_BUNDLE__: JSON.stringify(m.entries.widget),
+      __HEED_INTEGRITY__: JSON.stringify(m.files[m.entries.widget].integrity),
+    }),
+  },
+};
 
 const sha = (algo, data, enc) => createHash(algo).update(data).digest(enc);
 
-async function bundle(src) {
+async function bundle(src, define) {
   const result = await build({
+    define,
     entryPoints: [join(here, src)],
     bundle: true,
     format: "iife",
@@ -37,8 +49,8 @@ async function bundle(src) {
 const manifest = { version: pkg.version, entries: {}, files: {} };
 const outputs = {};
 let overBudget = false;
-for (const [entry, { src, stem }] of Object.entries(ENTRIES)) {
-  const code = await bundle(src);
+for (const [entry, { src, stem, define }] of Object.entries(ENTRIES)) {
+  const code = await bundle(src, define(manifest));
   const name = `${stem}-${sha("sha256", code, "hex").slice(0, 10)}.js`;
   const gz = gzipSync(code, { level: 9 }).length;
   outputs[name] = code;
