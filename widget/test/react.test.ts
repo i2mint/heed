@@ -44,6 +44,17 @@ describe("<HeedFeedback>", () => {
     expect(element().options.label).toBe("Feedback");
   });
 
+  it("messages follow the prop and are cleared when it is removed", () => {
+    const send = () => element().shadowRoot!.querySelector("button[type=submit]")!.textContent;
+    render({ endpoint: "/r", messages: { send: "Go" } });
+    expect(send()).toBe("Go");
+    render({ endpoint: "/r", messages: { cancel: "Nope" } });
+    expect(send()).toBe("Send");
+    render({ endpoint: "/r", messages: { send: "Go" } });
+    render({ endpoint: "/r" });
+    expect(send()).toBe("Send");
+  });
+
   it("opens and closes through a ref, and reports events through callbacks", () => {
     const ref = createRef<HeedFeedbackHandle>();
     const onOpen = vi.fn();

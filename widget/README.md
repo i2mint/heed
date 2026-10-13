@@ -146,7 +146,7 @@ All visitor-facing text lives in one table (`MESSAGES`, `src/i18n.ts`). Built in
 heed.init({ lang: "ja", messages: { label: "フィードバック", heading: "フィードバックを送る", send: "送信", cancel: "キャンセル", close: "閉じる" /* …every key you want to change */ } });
 ```
 
-`messages` is the strongest layer: English, then the language's translations, then your overrides. `retryIn` is the one function (`(seconds) => string`); the category names are the `cat_<name>` keys. A `label` or `heading` option you set yourself also beats the translation.
+`messages` is the strongest layer (a later `messages` replaces the earlier one; `{}` clears it): English, then the language's translations, then your overrides. `retryIn` is the one function (`(seconds) => string`); the category names are the `cat_<name>` keys. A `label` or `heading` option you set yourself also beats the translation.
 
 The translations are not in the widget bundle. A visitor whose language is not English triggers one extra request, for `heed-locales-<hash>.js` next to the bundle (content-hashed and SRI-pinned like the rasterizer, nothing new for the CSP or Trusted Types); the widget shows English until it arrives. If it cannot be fetched, the widget stays in English and warns in the console. With the npm package your bundler splits the translations into a chunk that only those visitors download. To follow your own language switcher, call `el.configure({ lang })`.
 

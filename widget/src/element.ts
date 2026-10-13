@@ -119,10 +119,7 @@ export class HeedFeedbackElement extends Base {
 
   /** Merge options (unknown keys and bad values are dropped with a warning). */
   configure(options: Partial<HeedOptions> | Record<string, unknown>): this {
-    const given = cleanOptions(options as Record<string, unknown>);
-    // `messages` accumulate across calls (a later call adds to, or replaces single texts of, earlier ones).
-    if (given.messages) given.messages = { ...this.#imperative.messages, ...given.messages };
-    this.#imperative = { ...this.#imperative, ...given };
+    this.#imperative = { ...this.#imperative, ...cleanOptions(options as Record<string, unknown>) };
     this.#sync();
     return this;
   }
@@ -287,7 +284,11 @@ export class HeedFeedbackElement extends Base {
       this.#requested = lang;
       void ensureLocale(lang).then((ok) => ok && this.#sync()); // a failed load is retried by the next open()
     }
-    ui.root.lang = lang; // screen readers read the texts in their language, whatever the page's
+    // Screen readers should read the texts in their language, whatever the page's; unsure (English, or
+    // translations still on their way): inherit the page's.
+    const spoken = o.lang || (lang !== "en" && hasLocale(lang) ? lang : "");
+    if (spoken) ui.root.lang = spoken;
+    else ui.root.removeAttribute("lang");
     for (const [node, key] of this.#texts) node.data = m[key];
     // An explicit label or heading beats the translation; the English default does not.
     ui.launcher.textContent = o.label !== MESSAGES.label ? o.label : m.label;

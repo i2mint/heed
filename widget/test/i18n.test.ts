@@ -78,23 +78,17 @@ describe("<heed-feedback> language", () => {
     expect(($(el, "select") as HTMLSelectElement).options[0].textContent).toBe("Broken");
   });
 
-  it("relabels any category after mount, not just the first, and messages accumulate across calls", () => {
+  it("relabels any category after mount, not just the first; a later messages replaces the earlier", () => {
     const el = mount();
-    el.configure({ messages: { cat_question: "Q?" } });
-    el.configure({ messages: { cat_feature: "IDEA" } });
+    el.configure({ messages: { cat_question: "Q?", cat_feature: "IDEA" } });
     const labels = Array.from(($(el, "select") as HTMLSelectElement).options).map((o) => o.textContent);
     expect(labels).toContain("Q?");
     expect(labels).toContain("IDEA");
     el.configure({ messages: { send: "Go" } });
     expect($(el, "button[type=submit]").textContent).toBe("Go");
-    expect(Array.from(($(el, "select") as HTMLSelectElement).options).map((o) => o.textContent)).toContain("Q?");
-  });
-
-  it("marks its content with the language it speaks", async () => {
-    const el = mount({ lang: "de" });
-    expect($(el, ".root").getAttribute("lang")).toBe("de");
-    el.setAttribute("lang", "ja");
-    expect($(el, ".root").getAttribute("lang")).toBe("en");
+    expect(Array.from(($(el, "select") as HTMLSelectElement).options).map((o) => o.textContent)).not.toContain("Q?");
+    el.configure({ messages: {} }); // an empty table clears the overrides (React resets removed props this way)
+    expect($(el, "button[type=submit]").textContent).toBe("Send");
   });
 
   it("retries a failed translation download on the next open, not on every update", async () => {
@@ -173,5 +167,20 @@ describe("<heed-feedback> language", () => {
     await vi.waitFor(() => expect($(el, ".status.error").textContent).toContain(LOCALES.fr.rate_limited));
     expect($(el, ".status.error").textContent).toContain("1 seconde");
     vi.unstubAllGlobals();
+  });
+
+  // Last: it relies on fr and de having been loaded by the tests above (the cache is per module).
+  it("marks its content with the language it speaks, and inherits the page's when unsure", async () => {
+    const el = mount({ lang: "de" });
+    expect($(el, ".root").getAttribute("lang")).toBe("de");
+    el.setAttribute("lang", "ja"); // no translations: the embedder's messages speak it
+    expect($(el, ".root").getAttribute("lang")).toBe("ja");
+    el.removeAttribute("lang");
+    document.documentElement.lang = "fr";
+    el.configure({}); // still downloading nothing; fr is loaded by now or not
+    await vi.waitFor(() => expect($(el, ".root").getAttribute("lang")).toBe("fr"));
+    document.documentElement.lang = "en";
+    el.configure({});
+    expect($(el, ".root").hasAttribute("lang")).toBe(false);
   });
 });

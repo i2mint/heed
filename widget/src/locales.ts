@@ -90,9 +90,9 @@ export const LOCALES: Record<string, MessageOverrides> = {
     shotTaking: "Capture d’écran en cours…",
     shotFinishing: "Finalisation de la capture d’écran…",
     shotReview: "Vérifiez la capture ci-dessous (décochez-la pour ne pas l’envoyer), puis cliquez sur Envoyer.",
-    shotNoPreview: "La capture ne peut pas être affichée sur cette page ; elle ne sera donc pas envoyée.",
+    shotNoPreview: "La capture ne peut pas être affichée sur cette page ; elle ne sera donc pas envoyée.",
     shotDropped: "La capture était trop volumineuse et n’a pas été jointe.",
-    shotFailed: "Aucune capture n’a pu être faite ; le signalement sera envoyé sans elle.",
+    shotFailed: "Aucune capture n’a pu être faite ; le signalement sera envoyé sans elle.",
   },
   de: {
     label: "Feedback",
