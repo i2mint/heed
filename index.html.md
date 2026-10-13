@@ -70,14 +70,13 @@ For production, set `allowed_origins`, `trusted_proxies` (behind a reverse proxy
 
 ## Embedding the widget
 
-The backend serves the widget too, so a site adds two tags:
+The backend serves the widget too, so a site adds one tag:
 
 ```html
-<script src="https://feedback.example/heed/widget/heed-widget.js" defer></script>
-<heed-feedback endpoint="https://feedback.example/heed/report"></heed-feedback>
+<script async src="https://feedback.example/heed/widget/heed.js"></script>
 ```
 
-Pinning a build with SRI, options, events, theming and CSP notes: [`widget/README.md`]().
+Options (`data-*` or `heed.init({...})`), the `heed` API, pinning a build with SRI, events, theming and CSP notes: [`widget/README.md`]().
 
 ## Documents
 

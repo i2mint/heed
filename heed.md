@@ -1,4 +1,4 @@
-> built 2026-10-13 15:24 UTC from 9bdd852 (main) · heed 0.0.1. Details: build_info.json
+> built 2026-10-13 15:43 UTC from 2e37347 (main) · heed 0.0.1. Details: build_info.json
 
 # index.html.md
 
@@ -74,14 +74,13 @@ For production, set `allowed_origins`, `trusted_proxies` (behind a reverse proxy
 
 ## Embedding the widget
 
-The backend serves the widget too, so a site adds two tags:
+The backend serves the widget too, so a site adds one tag:
 
 ```html
-<script src="https://feedback.example/heed/widget/heed-widget.js" defer></script>
-<heed-feedback endpoint="https://feedback.example/heed/report"></heed-feedback>
+<script async src="https://feedback.example/heed/widget/heed.js"></script>
 ```
 
-Pinning a build with SRI, options, events, theming and CSP notes: [`widget/README.md`]().
+Options (`data-*` or `heed.init({...})`), the `heed` API, pinning a build with SRI, events, theming and CSP notes: [`widget/README.md`]().
 
 ## Documents
 
@@ -2382,7 +2381,7 @@ overrides them.
 
 # About this build
 
-This documentation was built on **2026-10-13 15:24 UTC** from commit <a href="https://github.com/i2mint/heed/commit/9bdd852ef39f2e3fea48b28963603ec079749501"><code>9bdd852</code></a> on branch <code>main</code>, for **heed 0.0.1** (from <code>pyproject.toml</code>).
+This documentation was built on **2026-10-13 15:43 UTC** from commit <a href="https://github.com/i2mint/heed/commit/2e37347f75ffc6a96f28f3d017412d3ad2dde88a"><code>2e37347</code></a> on branch <code>main</code>, for **heed 0.0.1** (from <code>pyproject.toml</code>).
 
 #### WARNING
 The documentation and the package may be misaligned:
@@ -2393,7 +2392,7 @@ The documentation and the package may be misaligned:
 
 |                     |                                                                                                                                                    |
 |---------------------|----------------------------------------------------------------------------------------------------------------------------------------------------|
-| Commit              | <a href="https://github.com/i2mint/heed/commit/9bdd852ef39f2e3fea48b28963603ec079749501"><code>9bdd852ef39f2e3fea48b28963603ec079749501</code></a> |
+| Commit              | <a href="https://github.com/i2mint/heed/commit/2e37347f75ffc6a96f28f3d017412d3ad2dde88a"><code>2e37347f75ffc6a96f28f3d017412d3ad2dde88a</code></a> |
 | Branch              | <code>main</code>                                                                                                                                  |
 | Tags at this commit | none                                                                                                                                               |
 | Working tree        | clean                                                                                                                                              |
@@ -2404,9 +2403,9 @@ The documentation and the package may be misaligned:
 |              |                                                                                            |
 |--------------|--------------------------------------------------------------------------------------------|
 | Repository   | <code>i2mint/heed</code>                                                                   |
-| Run          | <a href="https://github.com/i2mint/heed/actions/runs/38421487672">38421487672</a>          |
+| Run          | <a href="https://github.com/i2mint/heed/actions/runs/38424266344">38424266344</a>          |
 | Ref          | <code>refs/heads/main</code>                                                               |
-| Event commit | <code>9bdd852ef39f2e3fea48b28963603ec079749501</code> (in the history of the built commit) |
+| Event commit | <code>2e37347f75ffc6a96f28f3d017412d3ad2dde88a</code> (in the history of the built commit) |
 
 ## Tools
 
@@ -2437,7 +2436,7 @@ Latest release: <a href="https://pypi.org/project/heed/0.1.0/">0.1.0</a>, newer 
 
 ```bash
 git clone https://github.com/i2mint/heed && cd heed
-git checkout 9bdd852ef39f2e3fea48b28963603ec079749501
+git checkout 2e37347f75ffc6a96f28f3d017412d3ad2dde88a
 pip install "epythet==0.2.16"
 epythet quickstart . --ignore tests/ scrap/ examples/
 ```
