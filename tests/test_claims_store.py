@@ -1,5 +1,8 @@
 """A dedicated claims store and a staleness rule for recovery (issue #21)."""
 
+import math
+import time
+
 import pytest
 
 from heed import (
@@ -116,3 +119,61 @@ def test_bad_arguments_are_refused():
     plain = {}
     with pytest.raises(ValueError, match="must not be the holding store"):
         recover_claimed(holding_store=plain, claimed_store=plain)
+
+
+# ---------------------------------------------------------------------------
+# Adversarial-review regressions
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "clock", [time.time_ns, lambda: time.time() * 1000, lambda: -1.0, lambda: math.nan]
+)
+def test_a_clock_not_in_seconds_is_refused_before_claiming(clock):
+    held = make_holding_store()
+    rid = _hold(held)
+    with pytest.raises(ValueError, match="clock"):
+        release_held(rid, holding_store=held, sink=StoreSink({}), clock=clock)
+    assert rid in held and held.heed_claims == {}
+
+
+def test_a_release_whose_claim_is_recovered_meanwhile_puts_the_report_back():
+    held = make_holding_store()
+    rid = _hold(held)
+
+    class RecoveringClaims(dict):
+        def __setitem__(self, k, v):
+            super().__setitem__(k, v)
+            # another worker, its clock far ahead, recovers right after the claim
+            recover_claimed(holding_store=held, stale_after=600, clock=lambda: 10**9)
+
+    held.heed_claims = RecoveringClaims()
+    live = {}
+    with pytest.raises(KeyError, match="recovered by another worker"):
+        release_held(rid, holding_store=held, sink=StoreSink(live))
+    assert rid in held and live == {}
+
+
+def test_legacy_claims_left_in_holding_are_recovered_and_never_released():
+    held = make_holding_store()
+    rid = _hold(held)
+    legacy = f"claimed--{rid}--{TOKEN}"
+    held[legacy] = held.pop(rid)  # a crash under an older heed
+    with pytest.raises(ValueError, match="recover_claimed"):
+        release_held(legacy, holding_store=held, sink=StoreSink({}))
+    assert recover_claimed(holding_store=held) == [rid]
+    assert list(held) == [rid]
+
+
+def test_a_claim_stamped_far_in_the_future_is_stale():
+    held = make_holding_store()
+    rid = _hold(held)
+    held.heed_claims[f"{rid}--999999999000-{TOKEN}"] = held.pop(rid)
+    assert recover_claimed(holding_store=held, stale_after=600, clock=lambda: 1000) == [
+        rid
+    ]
+
+
+def test_nan_stale_after_is_refused():
+    with pytest.raises(ValueError, match="stale_after"):
+        recover_claimed(holding_store=make_holding_store(), stale_after=math.nan)

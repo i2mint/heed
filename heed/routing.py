@@ -16,6 +16,7 @@ Two seams, both decided on the server, never by the browser:
 from __future__ import annotations
 
 import logging
+import math
 import re
 import time
 import unicodedata
@@ -185,7 +186,7 @@ def release_held(
     if (sink is None) == (resolve_sink is None):
         raise ValueError("pass exactly one of sink= or resolve_sink=")
     claims, own_prefix = _claims_of(holding_store, claimed_store)
-    if own_prefix and report_id.startswith(CLAIM_PREFIX):
+    if _is_claim_key(report_id, True):  # incl. one left in holding by an older heed
         raise ValueError(
             f"{report_id!r} is a claim, not a held report: use recover_claimed() to "
             "return stranded claims to holding"
@@ -199,6 +200,11 @@ def release_held(
             "claim on it: call recover_claimed() when no release is running"
         )
     claim_key = _new_claim_key(report_id, own_prefix=own_prefix, now=clock())
+    if not (
+        _is_claim_key(claim_key, own_prefix)
+        and _report_id_of_claim_key(claim_key, own_prefix) == report_id
+    ):  # never write a claim recover_claimed() could not find
+        raise ValueError(f"{report_id!r} cannot be claimed: its claim key is ambiguous")
     claims[claim_key] = raw
     if report_id not in holding_store:  # a concurrent release took it meanwhile
         _drop_claim(claims, claim_key)
@@ -217,6 +223,15 @@ def release_held(
             f"Could not take held report {report_id!r} out of holding; its claim is "
             "kept: call recover_claimed() when no release is running"
         ) from None
+    if claim_key not in claims:
+        # A recover_claimed() elsewhere took our claim for a stranded one while holding
+        # was still intact (a pause or clock skew longer than its stale_after). We just
+        # emptied holding, so put the report back rather than leave it nowhere.
+        holding_store[report_id] = raw
+        raise KeyError(
+            f"The claim on held report {report_id!r} was recovered by another worker "
+            "during this release; the report is back in holding. Raise stale_after."
+        )
     try:
         report = Report.model_validate_json(raw)
         destination = sink if sink is not None else resolve_sink(report.origin)
@@ -289,8 +304,12 @@ def recover_claimed(
     call this when no release is running (e.g. at startup) and leave ``stale_after``
     unset: every claim is recovered. With several workers, one worker's startup can
     overlap another's release, so pass ``stale_after`` (seconds; longer than any sink
-    call can take, e.g. ``600``): only claims older than that are recovered. Claims made
-    before claim keys carried a time count as stale.
+    call can take plus the clock skew between workers, e.g. ``600``): only claims older
+    than that are recovered (and claims stamped further ahead than that, by a clock
+    running fast). Claims made before claim keys carried a time count as stale. A
+    release whose claim is recovered anyway puts the report back in holding and fails.
+    Beside a dedicated claims store, ``claimed--`` claims an older heed left in holding
+    are recovered too (which lists holding once).
 
     Only a valid report (whose own id matches its claim key) is ever written to
     holding, and a valid holding copy is never replaced: a claim whose report is
@@ -298,26 +317,50 @@ def recover_claimed(
     is torn or missing restores it. Otherwise a claim that is not a valid report is
     left in place, and not returned.
     """
-    if stale_after is not None and stale_after < 0:
+    if stale_after is not None and not (
+        math.isfinite(stale_after) and stale_after >= 0
+    ):
         raise ValueError(f"stale_after must be >= 0 seconds, got {stale_after}")
     claims, own_prefix = _claims_of(holding_store, claimed_store)
-    now = clock()
+    now = _checked_time(clock())
     recovered = []
-    for claim_key in [k for k in list(claims) if _is_claim_key(k, own_prefix)]:
-        claimed_at = _claim_time(claim_key, own_prefix)
-        if stale_after is not None and claimed_at is not None:
-            if now - claimed_at < stale_after:
+    for store, prefixed in _claim_locations(holding_store, claims, own_prefix):
+        for claim_key in [k for k in list(store) if _is_claim_key(k, prefixed)]:
+            if _is_young(_claim_time(claim_key, prefixed), now, stale_after):
                 continue  # possibly a release still in flight
-        report_id = _report_id_of_claim_key(claim_key, own_prefix)
-        if _is_report(holding_store.get(report_id), report_id):
-            _drop_claim(claims, claim_key)  # holding is intact: the claim is redundant
-            continue
-        raw = claims.get(claim_key)
-        if not _is_report(raw, report_id):
-            continue  # torn or foreign: never let it replace anything
-        _unclaim(report_id, raw, holding_store, claims, claim_key)
-        recovered.append(report_id)
+            report_id = _report_id_of_claim_key(claim_key, prefixed)
+            if _recover_one(report_id, claim_key, holding_store, store):
+                recovered.append(report_id)
     return recovered
+
+
+def _claim_locations(holding_store, claims, own_prefix):
+    """Where claims may be: the claims store, plus, beside a dedicated one,
+    ``claimed--`` keys an older heed left in holding (listed once per recovery)."""
+    yield claims, own_prefix
+    if not own_prefix:
+        yield holding_store, True
+
+
+def _is_young(claimed_at, now, stale_after):
+    """Whether a claim made at ``claimed_at`` may belong to a release still running.
+    Claims without a time, and claims stamped further in the future than
+    ``stale_after`` (a worker whose clock runs ahead), are not."""
+    if stale_after is None or claimed_at is None:
+        return False
+    return abs(now - claimed_at) < stale_after
+
+
+def _recover_one(report_id, claim_key, holding_store, claims) -> bool:
+    """Return one claim's report to holding; whether it was returned."""
+    if _is_report(holding_store.get(report_id), report_id):
+        _drop_claim(claims, claim_key)  # holding is intact: the claim is redundant
+        return False
+    raw = claims.get(claim_key)
+    if not _is_report(raw, report_id):
+        return False  # torn or foreign: never let it replace anything
+    _unclaim(report_id, raw, holding_store, claims, claim_key)
+    return True
 
 
 def _is_report(raw, report_id):
@@ -341,9 +384,24 @@ def _claims_of(holding_store, claimed_store):
     return claimed_store, False
 
 
+#: Latest claim time a claim key can carry: ``_CLAIM_TOKEN`` allows 15 digits of ms.
+_MAX_CLAIM_SECONDS = (10**15 - 1) / 1000
+
+
+def _checked_time(now) -> float:
+    """``now``, if it is a plausible time in seconds since the epoch."""
+    if not (isinstance(now, (int, float)) and math.isfinite(now)):
+        raise ValueError(f"clock() must return seconds since the epoch, got {now!r}")
+    if not 0 <= now <= _MAX_CLAIM_SECONDS:
+        raise ValueError(
+            f"clock() returned {now!r}: expected seconds since the epoch (not ms or ns)"
+        )
+    return now
+
+
 def _new_claim_key(report_id, *, own_prefix, now):
     """A claim key no other release of ``report_id`` can make, stamped with ``now``."""
-    key = f"{report_id}{_CLAIM_SEP}{int(now * 1000)}-{uuid4().hex}"
+    key = f"{report_id}{_CLAIM_SEP}{int(_checked_time(now) * 1000)}-{uuid4().hex}"
     return CLAIM_PREFIX + key if own_prefix else key
 
 
