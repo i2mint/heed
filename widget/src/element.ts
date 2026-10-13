@@ -189,7 +189,7 @@ export class HeedFeedbackElement extends Base {
     ui.dialog.showModal();
     ui.title.focus();
     this.#warmGate();
-    this.#startScreenshot();
+    if (!this.#isLight()) this.#startScreenshot();
     this.#emit("heed:open", {});
   }
 
@@ -261,6 +261,7 @@ export class HeedFeedbackElement extends Base {
     launcher.addEventListener("click", () => this.open());
     cancel.addEventListener("click", () => this.close());
     doneClose.addEventListener("click", () => this.close());
+    category.addEventListener("change", () => this.#categoryChanged());
     dialog.addEventListener("close", () => {
       this.#cancelToken();
       this.#emit("heed:close", {});
@@ -333,8 +334,9 @@ export class HeedFeedbackElement extends Base {
     ui.body.maxLength = CONTRACT.limits.body_chars;
     ui.honeypot.name = o.honeypotField || "hp";
     ui.honeypot.disabled = !o.honeypotField;
-    ui.note.textContent = o.screenshot ? m.noteShot : m.note;
-    ui.shotRow.hidden = !o.screenshot;
+    const light = this.#isLight();
+    ui.note.textContent = light ? m.noteLight : o.screenshot ? m.noteShot : m.note;
+    ui.shotRow.hidden = !o.screenshot || light;
     const wanted = o.categories.map((c) => `${c}=${categoryLabel(m, c)}`).join("|"); // rebuilt when a label changes
     if (ui.category.dataset.categories !== wanted) {
       const previous = ui.category.value;
@@ -379,7 +381,7 @@ export class HeedFeedbackElement extends Base {
       const win = this.ownerDocument.defaultView ?? window;
       const input = {
         draft: { category: (ui.category.value || o.categories[0]) as Category, title: ui.title.value, body: ui.body.value },
-        env: collectEnvironment(win, o.extra),
+        env: collectEnvironment(win, o.extra, this.#isLight()),
         pageUrl: reportPageUrl(win.location.href, o.pageUrl),
         honeypot: ui.honeypot.value,
         screenshot,
@@ -435,7 +437,7 @@ export class HeedFeedbackElement extends Base {
   async #screenshotToSend(): Promise<Blob | null | "review"> {
     const ui = this.#ui;
     const shot = this.#shot;
-    if (!ui || !this.options.screenshot || !shot || !ui.shotBox.checked) return null;
+    if (!ui || !this.options.screenshot || this.#isLight() || !shot || !ui.shotBox.checked) return null;
     if (shot.shown) return shot.blob;
     this.#setStatus((m) => m.shotFinishing, false);
     await shot.settled;
@@ -489,6 +491,22 @@ export class HeedFeedbackElement extends Base {
         return gate.token().then((token) => (say((m) => m.sending), token)); // a failure is reported by the send, not here
       },
     };
+  }
+
+  /** Does the chosen category get the light intake (no screenshot, no browser details)? */
+  #isLight(): boolean {
+    const o = this.options;
+    const chosen = (this.#ui?.category.value || o.categories[0]) as Category;
+    return o.lightCategories.includes(chosen);
+  }
+
+  /** The category changed: a light one drops the screenshot, a heavy one takes it (once). */
+  #categoryChanged(): void {
+    const ui = this.#ui;
+    if (!ui) return;
+    this.#sync(); // the note and the screenshot row follow the category
+    if (this.#isLight()) this.#clearScreenshot();
+    else if (this.options.screenshot && ui.dialog.open && !this.#shot) this.#startScreenshot();
   }
 
   /** Capture the page behind the dialog, in the background; the visitor sees a preview. */

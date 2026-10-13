@@ -47,6 +47,7 @@ export const MESSAGES = {
   retryIn: (s: number) => `You can try again in ${s} seconds.`,
   note: "Sent with your report: this page's address (without its query) and your browser details.",
   noteShot: "Sent with your report: this page's address (without its query), your browser details, and the screenshot below if ticked. Form fields are blacked out in it.",
+  noteLight: "Sent with your idea: this page's address (without its query). No screenshot or browser details.",
   shotLabel: "Include a screenshot of this page",
   shotAlt: "Screenshot to be sent",
   shotTaking: "Taking a screenshot…",

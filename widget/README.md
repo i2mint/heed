@@ -111,6 +111,7 @@ Every option has a default; set it as an element attribute, as a `data-*` attrib
 | `lang` (`lang`) | follows the page | Language of the widget's texts: `en`, `es`, `fr`, `de` or `pt` (a tag like `fr-CA` works). Empty uses the nearest `lang` attribute above the widget (`<html lang>`), then the browser's language, then English. See "Languages". |
 | `messages` | none | `{send: "Go"}`: override single texts, in any language (code-only: `el.configure({messages})`, `heed.init({messages})`, a prop in React). Keys are those of `MESSAGES` in `src/i18n.ts`. |
 | `categories` (`categories`) | `bug feature question other` | Categories offered, first preselected; one category hides the picker. |
+| `lightCategories` (`light-categories`) | `feature question` | Categories that get the light intake: no screenshot, no browser details; only the page address and your `extra` facts are sent, and the note under the form says so. `""` for none. |
 | `pageUrl` (`page-url`) | `path` | `path` reports the page URL without its query and fragment (they often carry tokens); `full` sends it all. |
 | `withCredentials` (`with-credentials`) | `false` | Send cookies, for a backend that binds identity (needs `cors_allow_credentials` server-side). |
 | `timeoutMs` (`timeout-ms`) | `30000` | Give up on a submission after this long. |

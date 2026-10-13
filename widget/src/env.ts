@@ -28,7 +28,12 @@ interface UADataLike {
 
 const short = (s: string | undefined | null): string | undefined => (s ? s.slice(0, L.short_chars) : undefined);
 
-export function collectEnvironment(win: Window, extra?: ExtraProvider | null): EnvironmentPayload {
+/**
+ * `light` is the feature-request intake: nothing about the visitor's browser, only the
+ * embedder's `extra` facts (an app version says which release the idea is about).
+ */
+export function collectEnvironment(win: Window, extra?: ExtraProvider | null, light = false): EnvironmentPayload {
+  if (light) return { extra: collectExtra(extra) };
   const nav = win.navigator;
   const uaData = (nav as Navigator & { userAgentData?: UADataLike }).userAgentData;
   const brand = uaData?.brands?.find((b) => !/not.?a.?brand/i.test(b.brand));
