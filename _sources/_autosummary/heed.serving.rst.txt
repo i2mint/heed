@@ -1,0 +1,26 @@
+heed.serving
+============
+
+.. automodule:: heed.serving
+
+   
+   .. rubric:: Module Attributes
+
+   .. autosummary::
+   
+      DEFAULT_REF_PATTERN
+   
+   .. rubric:: Functions
+
+   .. autosummary::
+   
+      make_attachment_app
+      make_attachment_router
+      screenshot_url_resolver
+   
+   .. rubric:: Classes
+
+   .. autosummary::
+   
+      AttachmentSigner
+   

@@ -8,6 +8,9 @@
 
    .. autosummary::
    
+      make_attachment_app
+      make_attachment_router
+      screenshot_url_resolver
       new_report_id
       github_sink_from_token
       process_submission
@@ -34,6 +37,7 @@
 
    .. autosummary::
    
+      AttachmentSigner
       Report
       ReportSubmission
       Identity
@@ -68,5 +72,6 @@
    ingest
    routing
    security
+   serving
    sinks
    storage

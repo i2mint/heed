@@ -5,7 +5,7 @@ orphan: true
 
 # About this build
 
-This documentation was built on **2026-10-13 07:06 UTC** from commit <a href="https://github.com/i2mint/heed/commit/8903f90c084a79c7388ab4d45cd5992116829532"><code>8903f90</code></a> on branch <code>main</code>, for **heed 0.0.1** (from <code>pyproject.toml</code>).
+This documentation was built on **2026-10-13 08:55 UTC** from commit <a href="https://github.com/i2mint/heed/commit/fa3240f08829073b6ecfff7d99d7f64a6c8bd759"><code>fa3240f</code></a> on branch <code>main</code>, for **heed 0.0.1** (from <code>pyproject.toml</code>).
 
 :::{warning}
 The documentation and the package may be misaligned:
@@ -17,7 +17,7 @@ The documentation and the package may be misaligned:
 
 | | |
 |---|---|
-| Commit | <a href="https://github.com/i2mint/heed/commit/8903f90c084a79c7388ab4d45cd5992116829532"><code>8903f90c084a79c7388ab4d45cd5992116829532</code></a> |
+| Commit | <a href="https://github.com/i2mint/heed/commit/fa3240f08829073b6ecfff7d99d7f64a6c8bd759"><code>fa3240f08829073b6ecfff7d99d7f64a6c8bd759</code></a> |
 | Branch | <code>main</code> |
 | Tags at this commit | none |
 | Working tree | clean |
@@ -28,15 +28,15 @@ The documentation and the package may be misaligned:
 | | |
 |---|---|
 | Repository | <code>i2mint/heed</code> |
-| Run | <a href="https://github.com/i2mint/heed/actions/runs/38360457457">38360457457</a> |
+| Run | <a href="https://github.com/i2mint/heed/actions/runs/38372459393">38372459393</a> |
 | Ref | <code>refs/heads/main</code> |
-| Event commit | <code>8903f90c084a79c7388ab4d45cd5992116829532</code> (in the history of the built commit) |
+| Event commit | <code>fa3240f08829073b6ecfff7d99d7f64a6c8bd759</code> (in the history of the built commit) |
 
 ## Tools
 
 | | |
 |---|---|
-| epythet | 0.2.14 |
+| epythet | 0.2.15 |
 | Sphinx | 9.1.0 |
 | docutils | 0.22.4 |
 | Python | 3.12.15 |
@@ -61,8 +61,8 @@ Latest release: <a href="https://pypi.org/project/heed/0.1.0/">0.1.0</a>, newer 
 
 ```bash
 git clone https://github.com/i2mint/heed && cd heed
-git checkout 8903f90c084a79c7388ab4d45cd5992116829532
-pip install "epythet==0.2.14"
+git checkout fa3240f08829073b6ecfff7d99d7f64a6c8bd759
+pip install "epythet==0.2.15"
 epythet quickstart . --ignore tests/ scrap/ examples/
 ```
 

@@ -12,6 +12,7 @@
 - [heed.ingest](heed.ingest.html.md): The ingest layer — build a Report from a submission and route it to a sink.
 - [heed.routing](heed.routing.html.md): Where a report goes: server-side site resolution and moderation (holding state).
 - [heed.security](heed.security.html.md): Public-endpoint hardening (the ingest endpoint is unauthenticated and hostile).
+- [heed.serving](heed.serving.html.md): Serve stored screenshots: a read-only route meant for its own origin (issue #19).
 - [heed.sinks](heed.sinks.html.md): Sinks: pluggable report destinations (strategy pattern).
 - [heed.sinks.base](heed.sinks.base.html.md): The sink abstraction — where a report goes (strategy pattern).
 - [heed.sinks.github](heed.sinks.github.html.md): A sink that turns a report into a GitHub issue.
