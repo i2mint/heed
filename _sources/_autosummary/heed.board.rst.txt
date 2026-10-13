@@ -1,0 +1,27 @@
+heed.board
+==========
+
+.. automodule:: heed.board
+
+   
+   .. rubric:: Module Attributes
+
+   .. autosummary::
+   
+      ROADMAP_STATUSES
+      CHANGELOG_STATUSES
+   
+   .. rubric:: Functions
+
+   .. autosummary::
+   
+      changelog
+      roadmap
+   
+   .. rubric:: Classes
+
+   .. autosummary::
+   
+      BoardSource
+      PublicItem
+   

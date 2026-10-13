@@ -974,7 +974,8 @@ window.runMermaid = runMermaid;</script>
         <span class="k">if</span> <span class="n">destination</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">LookupError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"No sink for the report's origin </span><span class="si">{</span><span class="n">report</span><span class="o">.</span><span class="n">origin</span><span class="si">!r}</span><span class="s2">"</span><span class="p">)</span>
         <span class="k">if</span> <span class="nb">any</span><span class="p">(</span>
-            <span class="nb">getattr</span><span class="p">(</span><span class="n">destination</span><span class="p">,</span> <span class="s2">"store"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">is</span> <span class="n">store</span>
+            <span class="nb">getattr</span><span class="p">(</span><span class="n">sink_</span><span class="p">,</span> <span class="s2">"store"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">is</span> <span class="n">store</span>
+            <span class="k">for</span> <span class="n">sink_</span> <span class="ow">in</span> <span class="n">_leaf_sinks</span><span class="p">(</span><span class="n">destination</span><span class="p">)</span>
             <span class="k">for</span> <span class="n">store</span> <span class="ow">in</span> <span class="p">(</span><span class="n">holding_store</span><span class="p">,</span> <span class="n">claims</span><span class="p">)</span>
         <span class="p">):</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"the destination sink writes to the holding store itself"</span><span class="p">)</span>
@@ -990,6 +991,16 @@ window.runMermaid = runMermaid;</script>
         <span class="n">_unclaim</span><span class="p">(</span><span class="n">report_id</span><span class="p">,</span> <span class="n">raw</span><span class="p">,</span> <span class="n">holding_store</span><span class="p">,</span> <span class="n">claims</span><span class="p">,</span> <span class="n">claim_key</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">result</span></div>
 
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_leaf_sinks</span><span class="p">(</span><span class="n">sink</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""``sink``, or the sinks inside a composite one (e.g. a ``CategorySink``)."""</span>
+    <span class="n">members</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">sink</span><span class="p">,</span> <span class="s2">"sinks"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">callable</span><span class="p">(</span><span class="n">members</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">inner</span> <span class="ow">in</span> <span class="n">members</span><span class="p">():</span>
+            <span class="k">yield from</span> <span class="n">_leaf_sinks</span><span class="p">(</span><span class="n">inner</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">yield</span> <span class="n">sink</span>
 
 
 <div class="viewcode-block" id="discard_held">

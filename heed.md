@@ -1,4 +1,4 @@
-> built 2026-10-13 18:09 UTC from 9428b3b (main) · heed 0.0.1. Details: build_info.json
+> built 2026-10-13 23:22 UTC from 2507039 (main) · heed 0.0.1. Details: build_info.json
 
 # index.html.md
 
@@ -71,6 +71,21 @@ app = make_app(StoreSink({}), config=config)
 ```
 
 For production, set `allowed_origins`, `trusted_proxies` (behind a reverse proxy), `rate_limit_backend="redis"` with `redis_url` (several workers), and `bot_secret` to turn the bot gate on. Embedders also need a Content-Security-Policy that allows the widget: see [`misc/docs/embedding-security.md`]().
+
+## One inbox for bugs, ideas and questions
+
+The widget’s category picker sets `Report.category`; the sink decides what each category becomes:
+
+```python
+from heed import CategorySink, CategoryTreatment, GitHubIssuesSink, github_sink_from_token
+
+issues = github_sink_from_token("myorg/myapp", token)   # bug -> labelled issue with full context;
+                                                          # feature/question -> light issue (no env dump)
+ideas = github_sink_from_token("myorg/ideas", token, public_label="board")
+sink = CategorySink({"feature": ideas}, default=issues)  # or route a category to another sink
+```
+
+`GitHubIssuesSink(treatments={Category.feature: CategoryTreatment(("idea",), title_prefix="[idea] ")})` changes labels, title prefix and `detail` (“full” | “light”) per category. For a future public board, sinks that can list their items implement `public_items()`; the GitHub sink returns issues a maintainer labelled `public` as `PublicItem`s (title, category, status from labels or issue state, link, 👍 votes, dates, never the issue body or the reporter; the item’s link opens the issue itself, so keep the tracker public-safe), and for feature and question reports the server also drops the screenshot, console, network and browser details (`HeedConfig.light_categories`). `heed.roadmap(items)` / `heed.changelog(items)` are the two views over them.
 
 ## Embedding the widget
 
@@ -256,6 +271,103 @@ Return the current UTC time (an injectable clock seam for tests).
   [`datetime`](https://docs.python.org/3/library/datetime.html#datetime.datetime)
 
 
+# _autosummary/heed.board.html.md
+
+# heed.board
+
+The read side of a feedback inbox: what a public board may show.
+
+heed’s write path ends at a [`Sink`](_autosummary/heed.sinks.base.html.md#heed.sinks.base.Sink). A *board* (votes, a roadmap,
+a changelog) is the read path over what the sinks accumulated, and it is a public
+surface over untrusted, user-written text. This module fixes its shape before any UI
+exists, so that the surface can be built on GitHub labels today and on a native store
+later without touching the widget or the ingest layer:
+
+- [`PublicItem`](_autosummary/heed.board.html.md#heed.board.PublicItem) – the **only** thing a board may expose: title, category, status,
+  link, vote count, date. Never the body, identity, origin, environment or attachments.
+- [`BoardSource`](_autosummary/heed.board.html.md#heed.board.BoardSource) – the protocol a sink implements to be listable
+  (`BoardSource.public_items()`). [`BaseSink`](_autosummary/heed.sinks.base.html.md#heed.sinks.base.BaseSink) answers
+  `[]`, so a sink that cannot list simply has an empty board.
+- [`roadmap()`](_autosummary/heed.board.html.md#heed.board.roadmap) and [`changelog()`](_autosummary/heed.board.html.md#heed.board.changelog) – the two views the design names, as pure
+  functions over items. Votes rank; status partitions.
+
+Items reach a board only when an operator opts them in (for the GitHub sink, by a
+`public` label), because an unmoderated visitor title on a public page is an abuse
+vector (`misc/docs/embedding-security.md`).
+
+```pycon
+>>> from heed.base import Category, Status
+>>> items = [
+...     PublicItem(ref="1", title="Dark mode", category=Category.feature,
+...                status=Status.planned, votes=5),
+...     PublicItem(ref="2", title="Export CSV", category=Category.feature,
+...                status=Status.completed, votes=9),
+...     PublicItem(ref="3", title="Offline", category=Category.feature,
+...                status=Status.triaged, votes=1),
+... ]
+>>> [i.title for i in roadmap(items)]
+['Dark mode', 'Offline']
+>>> [i.title for i in changelog(items)]
+['Export CSV']
+```
+
+### Module Attributes
+
+| [`ROADMAP_STATUSES`](_autosummary/heed.board.html.md#heed.board.ROADMAP_STATUSES)   | Statuses that mean "still to come" (shown on a roadmap), in display order.   |
+|---------------------------------------------------------------------|------------------------------------------------------------------------------|
+| [`CHANGELOG_STATUSES`](_autosummary/heed.board.html.md#heed.board.CHANGELOG_STATUSES) | Statuses that mean "shipped" (shown in a changelog).                         |
+
+### Functions
+
+| [`changelog`](_autosummary/heed.board.html.md#heed.board.changelog)(items)   | Shipped items, newest first (undated ones last).                        |
+|---------------------------------------------------------------------|-------------------------------------------------------------------------|
+| [`roadmap`](_autosummary/heed.board.html.md#heed.board.roadmap)(items)     | Items still to come, started first; most-voted first within each stage. |
+
+### Classes
+
+| [`BoardSource`](_autosummary/heed.board.html.md#heed.board.BoardSource)(\*args, \*\*kwargs)   | Anything that can list its public items (an optional sink capability).   |
+|------------------------------------------------------------------------------------|--------------------------------------------------------------------------|
+| [`PublicItem`](_autosummary/heed.board.html.md#heed.board.PublicItem)(\*\*data)              | One board entry: the public projection of a stored report.               |
+
+### *class* heed.board.BoardSource(\*args, \*\*kwargs)
+
+Bases: [`Protocol`](https://docs.python.org/3/library/typing.html#typing.Protocol)
+
+Anything that can list its public items (an optional sink capability).
+
+### heed.board.CHANGELOG_STATUSES *: [tuple](https://docs.python.org/3/builtins/stdtypes.html#tuple)[[Status](_autosummary/heed.base.html.md#heed.base.Status), ...]* *= (Status.completed,)*
+
+Statuses that mean “shipped” (shown in a changelog).
+
+### *class* heed.board.PublicItem(\*\*data)
+
+Bases: `BaseModel`
+
+One board entry: the public projection of a stored report.
+
+#### model_config *: [ClassVar](https://docs.python.org/3/library/typing.html#typing.ClassVar)[ConfigDict]* *= {}*
+
+Configuration for the model, should be a dictionary conforming to [`ConfigDict`][pydantic.config.ConfigDict].
+
+### heed.board.ROADMAP_STATUSES *: [tuple](https://docs.python.org/3/builtins/stdtypes.html#tuple)[[Status](_autosummary/heed.base.html.md#heed.base.Status), ...]* *= (Status.started, Status.planned, Status.triaged, Status.received)*
+
+Statuses that mean “still to come” (shown on a roadmap), in display order.
+
+### heed.board.changelog(items)
+
+Shipped items, newest first (undated ones last).
+
+* **Return type:**
+  [`list`](https://docs.python.org/3/builtins/stdtypes.html#list)[[`PublicItem`](_autosummary/heed.board.html.md#heed.board.PublicItem)]
+
+### heed.board.roadmap(items)
+
+Items still to come, started first; most-voted first within each stage.
+
+* **Return type:**
+  [`list`](https://docs.python.org/3/builtins/stdtypes.html#list)[[`PublicItem`](_autosummary/heed.board.html.md#heed.board.PublicItem)]
+
+
 # _autosummary/heed.config.html.md
 
 # heed.config
@@ -272,7 +384,7 @@ infrastructure (the Redis URL) belong.
 | [`HeedConfig`](_autosummary/heed.config.html.md#heed.config.HeedConfig)(\*[, allowed_origins, ...])   | Knobs for the ingest endpoint.   |
 |-------------------------------------------------------------------------------------------|----------------------------------|
 
-### *class* heed.config.HeedConfig(\*, allowed_origins=None, handle_cors=True, cors_allow_credentials=False, cors_max_age_seconds=600, max_body_bytes=6000000, max_screenshot_bytes=5000000, screenshot_sanitizer='auto', max_screenshot_pixels=25000000, max_concurrent_reencodes=2, max_field_bytes=100000, max_form_fields=16, rate_limit_per_minute=30, origin_rate_limit_per_minute=600, rate_limit_window_seconds=60.0, rate_limit_backend='memory', redis_url=None, trusted_proxies=<factory>, ipv6_rate_limit_prefix=64, bot_gate=None, bot_secret=None, bot_expected_hostnames=None, bot_token_field='bot_token', honeypot_field='hp_website', attachment_signing_key=None, attachment_url_ttl_seconds=None, attachment_previous_keys=<factory>, attachment_hosts=None, attachment_cache_control=None, accept_console=False, accept_network=False)
+### *class* heed.config.HeedConfig(\*, allowed_origins=None, handle_cors=True, cors_allow_credentials=False, cors_max_age_seconds=600, max_body_bytes=6000000, max_screenshot_bytes=5000000, screenshot_sanitizer='auto', max_screenshot_pixels=25000000, max_concurrent_reencodes=2, max_field_bytes=100000, max_form_fields=16, rate_limit_per_minute=30, origin_rate_limit_per_minute=600, rate_limit_window_seconds=60.0, rate_limit_backend='memory', redis_url=None, trusted_proxies=<factory>, ipv6_rate_limit_prefix=64, bot_gate=None, bot_secret=None, bot_expected_hostnames=None, bot_token_field='bot_token', honeypot_field='hp_website', attachment_signing_key=None, attachment_url_ttl_seconds=None, attachment_previous_keys=<factory>, attachment_hosts=None, attachment_cache_control=None, accept_console=False, accept_network=False, light_categories=<factory>)
 
 Bases: [`object`](https://docs.python.org/3/builtins/functions.html#object)
 
@@ -365,6 +477,8 @@ True
 | [`screenshot_url_resolver`](_autosummary/heed.html.md#heed.screenshot_url_resolver)(base_url, signer, \*)      | A `GitHubIssuesSink(screenshot_url=...)` callable: the report's first image attachment as a (signed) URL under `base_url`, or None. |
 | [`new_report_id`](_autosummary/heed.html.md#heed.new_report_id)()                                    | Return a fresh opaque report id (uuid4 hex).                                                                                        |
 | [`github_sink_from_token`](_autosummary/heed.html.md#heed.github_sink_from_token)(repo, token, \*\*kwargs)    | Build a GitHubIssuesSink that creates issues in `repo` ('owner/name').                                                              |
+| [`roadmap`](_autosummary/heed.html.md#heed.roadmap)(items)                                     | Items still to come, started first; most-voted first within each stage.                                                             |
+| [`changelog`](_autosummary/heed.html.md#heed.changelog)(items)                                   | Shipped items, newest first (undated ones last).                                                                                    |
 | [`process_submission`](_autosummary/heed.html.md#heed.process_submission)(submission, sink, \*[, ...])    | Enrich `submission` into a Report, store any screenshot, and route to `sink`.                                                       |
 | [`make_router`](_autosummary/heed.html.md#heed.make_router)(sink, \*[, config, ...])               | Build a FastAPI APIRouter exposing `POST /report` (and its CORS preflight).                                                         |
 | [`make_app`](_autosummary/heed.html.md#heed.make_app)(sink, \*[, config, ...])                  | A standalone FastAPI app serving the heed router under `prefix`.                                                                    |
@@ -404,6 +518,9 @@ True
 | [`SinkResult`](_autosummary/heed.html.md#heed.SinkResult)(\*\*data)                              | Outcome of routing a report to a sink.                                         |
 | [`StoreSink`](_autosummary/heed.html.md#heed.StoreSink)(store)                                  | Persist each report as JSON into a dol-style store keyed by report id.         |
 | [`GitHubIssuesSink`](_autosummary/heed.html.md#heed.GitHubIssuesSink)(create_issue, \*[, ...])         | Route a report to a GitHub issue via an injected `create_issue` callable.      |
+| [`CategorySink`](_autosummary/heed.html.md#heed.CategorySink)(sinks, \*, default)                  | Route by `report.category`; unlisted categories go to `default`.               |
+| [`CategoryTreatment`](_autosummary/heed.html.md#heed.CategoryTreatment)([labels, title_prefix, detail]) | What one category of report becomes as a GitHub issue.                         |
+| [`PublicItem`](_autosummary/heed.html.md#heed.PublicItem)(\*\*data)                              | One board entry: the public projection of a stored report.                     |
 | [`HeedConfig`](_autosummary/heed.html.md#heed.HeedConfig)(\*[, allowed_origins, ...])            | Knobs for the ingest endpoint.                                                 |
 | [`RateLimiter`](_autosummary/heed.html.md#heed.RateLimiter)(\*args, \*\*kwargs)                   | Decide whether a request keyed by `key` (e.g. client IP) is allowed now.       |
 | [`InMemoryRateLimiter`](_autosummary/heed.html.md#heed.InMemoryRateLimiter)(\*[, max_per_window, ...])    | Sliding-window, in-memory limiter.                                             |
@@ -491,6 +608,13 @@ Return likely duplicates of `report` (default: none).
 * **Return type:**
   [`list`](https://docs.python.org/3/builtins/stdtypes.html#list)[[`DupCandidate`](_autosummary/heed.sinks.base.html.md#heed.sinks.base.DupCandidate)]
 
+#### public_items(, category=None)
+
+The items a public board may show (default: none; see [`heed.board`](_autosummary/heed.board.html.md#module-heed.board)).
+
+* **Return type:**
+  [`list`](https://docs.python.org/3/builtins/stdtypes.html#list)[[`PublicItem`](_autosummary/heed.board.html.md#heed.board.PublicItem)]
+
 ### *class* heed.BotVerifier(\*args, \*\*kwargs)
 
 Bases: [`Protocol`](https://docs.python.org/3/library/typing.html#typing.Protocol)
@@ -503,6 +627,56 @@ Bases: [`str`](https://docs.python.org/3/builtins/stdtypes.html#str), [`Enum`](h
 
 What kind of feedback a report is.
 
+### *class* heed.CategorySink(sinks, , default)
+
+Bases: [`BaseSink`](_autosummary/heed.sinks.base.html.md#heed.sinks.base.BaseSink)
+
+Route by `report.category`; unlisted categories go to `default`.
+
+#### acknowledge(report)
+
+Hook called after a successful submit (default: no-op).
+
+* **Return type:**
+  [`None`](https://docs.python.org/3/builtins/constants.html#None)
+
+#### find_duplicates(report)
+
+Return likely duplicates of `report` (default: none).
+
+* **Return type:**
+  [`list`](https://docs.python.org/3/builtins/stdtypes.html#list)[[`DupCandidate`](_autosummary/heed.sinks.base.html.md#heed.sinks.base.DupCandidate)]
+
+#### public_items(, category=None)
+
+Every distinct member sink’s public items (a shared link once).
+
+* **Return type:**
+  [`list`](https://docs.python.org/3/builtins/stdtypes.html#list)[[`PublicItem`](_autosummary/heed.board.html.md#heed.board.PublicItem)]
+
+#### sink_for(category)
+
+The sink that receives reports of `category`.
+
+* **Return type:**
+  [`Sink`](_autosummary/heed.sinks.base.html.md#heed.sinks.base.Sink)
+
+#### sinks()
+
+Every distinct member sink, including the default.
+
+* **Return type:**
+  [`list`](https://docs.python.org/3/builtins/stdtypes.html#list)[[`Sink`](_autosummary/heed.sinks.base.html.md#heed.sinks.base.Sink)]
+
+### *class* heed.CategoryTreatment(labels=None, title_prefix='', detail=None)
+
+Bases: [`object`](https://docs.python.org/3/builtins/functions.html#object)
+
+What one category of report becomes as a GitHub issue.
+
+`detail="light"` is the feature-request intake: the idea and who asked, without
+the browser/console/network dump or a screenshot, which say nothing about a wish.
+
 ### *class* heed.Environment(\*\*data)
 
 Bases: `BaseModel`
@@ -513,13 +687,38 @@ Client environment captured by default (no PII beyond the user agent).
 
 Configuration for the model, should be a dictionary conforming to [`ConfigDict`][pydantic.config.ConfigDict].
 
-### *class* heed.GitHubIssuesSink(create_issue, , label_map=None, screenshot_url=None)
+### *class* heed.GitHubIssuesSink(create_issue, , label_map=None, screenshot_url=None, treatments=None, list_issues=None, public_label='public', status_labels=None)
 
 Bases: [`BaseSink`](_autosummary/heed.sinks.base.html.md#heed.sinks.base.BaseSink)
 
 Route a report to a GitHub issue via an injected `create_issue` callable.
 
-### *class* heed.HeedConfig(\*, allowed_origins=None, handle_cors=True, cors_allow_credentials=False, cors_max_age_seconds=600, max_body_bytes=6000000, max_screenshot_bytes=5000000, screenshot_sanitizer='auto', max_screenshot_pixels=25000000, max_concurrent_reencodes=2, max_field_bytes=100000, max_form_fields=16, rate_limit_per_minute=30, origin_rate_limit_per_minute=600, rate_limit_window_seconds=60.0, rate_limit_backend='memory', redis_url=None, trusted_proxies=<factory>, ipv6_rate_limit_prefix=64, bot_gate=None, bot_secret=None, bot_expected_hostnames=None, bot_token_field='bot_token', honeypot_field='hp_website', attachment_signing_key=None, attachment_url_ttl_seconds=None, attachment_previous_keys=<factory>, attachment_hosts=None, attachment_cache_control=None, accept_console=False, accept_network=False)
+`treatments` says, per category, the labels, a title prefix and how much context
+the issue carries (`label_map` is the older labels-only spelling and still wins
+for labels). With `list_issues` it can also read its issues back as a board’s
+[`PublicItem`](_autosummary/heed.board.html.md#heed.board.PublicItem) entries: only those carrying `public_label`, with
+status from `status_labels` (or the issue’s closed state) and votes from the 👍
+reactions.
+
+#### public_items(, category=None)
+
+The board’s items: issues labelled `public_label`, as [`PublicItem`](_autosummary/heed.html.md#heed.PublicItem).
+
+Empty without `list_issues`. Only title, category, status, link, votes and
+dates leave the sink: never an issue body (which holds the reporter’s
+environment and identity).
+
+* **Return type:**
+  [`list`](https://docs.python.org/3/builtins/stdtypes.html#list)[[`PublicItem`](_autosummary/heed.board.html.md#heed.board.PublicItem)]
+
+#### treatment(category)
+
+The treatment applied to reports of `category`.
+
+* **Return type:**
+  [`CategoryTreatment`](_autosummary/heed.sinks.github.html.md#heed.sinks.github.CategoryTreatment)
+
+### *class* heed.HeedConfig(\*, allowed_origins=None, handle_cors=True, cors_allow_credentials=False, cors_max_age_seconds=600, max_body_bytes=6000000, max_screenshot_bytes=5000000, screenshot_sanitizer='auto', max_screenshot_pixels=25000000, max_concurrent_reencodes=2, max_field_bytes=100000, max_form_fields=16, rate_limit_per_minute=30, origin_rate_limit_per_minute=600, rate_limit_window_seconds=60.0, rate_limit_backend='memory', redis_url=None, trusted_proxies=<factory>, ipv6_rate_limit_prefix=64, bot_gate=None, bot_secret=None, bot_expected_hostnames=None, bot_token_field='bot_token', honeypot_field='hp_website', attachment_signing_key=None, attachment_url_ttl_seconds=None, attachment_previous_keys=<factory>, attachment_hosts=None, attachment_cache_control=None, accept_console=False, accept_network=False, light_categories=<factory>)
 
 Bases: [`object`](https://docs.python.org/3/builtins/functions.html#object)
 
@@ -588,6 +787,16 @@ Configuration for the model, should be a dictionary conforming to [`ConfigDict`]
 Bases: `BaseModel`
 
 One captured network entry (opt-in; metadata only, never bodies).
+
+#### model_config *: [ClassVar](https://docs.python.org/3/library/typing.html#typing.ClassVar)[ConfigDict]* *= {}*
+
+Configuration for the model, should be a dictionary conforming to [`ConfigDict`][pydantic.config.ConfigDict].
+
+### *class* heed.PublicItem(\*\*data)
+
+Bases: `BaseModel`
+
+One board entry: the public projection of a stored report.
 
 #### model_config *: [ClassVar](https://docs.python.org/3/library/typing.html#typing.ClassVar)[ConfigDict]* *= {}*
 
@@ -729,6 +938,13 @@ Combine moderators; the most severe verdict wins (reject > hold > accept).
 
 * **Return type:**
   [`Callable`](https://docs.python.org/3/library/collections.abc.html#collections.abc.Callable)[[[`Report`](_autosummary/heed.base.html.md#heed.base.Report)], [`Verdict`](_autosummary/heed.routing.html.md#heed.routing.Verdict)]
+
+### heed.changelog(items)
+
+Shipped items, newest first (undated ones last).
+
+* **Return type:**
+  [`list`](https://docs.python.org/3/builtins/stdtypes.html#list)[[`PublicItem`](_autosummary/heed.board.html.md#heed.board.PublicItem)]
 
 ### heed.discard_held(report_id, , holding_store, attachment_store=None)
 
@@ -1032,6 +1248,13 @@ leaves a claim on a report the other release already sent, and the next
 * **Return type:**
   [`SinkResult`](_autosummary/heed.sinks.base.html.md#heed.sinks.base.SinkResult)
 
+### heed.roadmap(items)
+
+Items still to come, started first; most-voted first within each stage.
+
+* **Return type:**
+  [`list`](https://docs.python.org/3/builtins/stdtypes.html#list)[[`PublicItem`](_autosummary/heed.board.html.md#heed.board.PublicItem)]
+
 ### heed.screenshot_url_resolver(base_url, signer, , ref_pattern=re.compile('[0-9a-f]{32}\\\\\\\\.(?:png|jpg|webp)'))
 
 A `GitHubIssuesSink(screenshot_url=...)` callable: the report’s first image
@@ -1091,6 +1314,7 @@ overrides them.
 
 | [`base`](_autosummary/heed.base.html.md#module-heed.base)         | Domain model for heed — the single source of truth shared by widget and backend.   |
 |--------------------------------------------------------------------------------|------------------------------------------------------------------------------------|
+| [`board`](_autosummary/heed.board.html.md#module-heed.board)       | The read side of a feedback inbox: what a public board may show.                   |
 | [`config`](_autosummary/heed.config.html.md#module-heed.config)     | Configuration for the heed backend (smart defaults; keyword-only).                 |
 | [`images`](_autosummary/heed.images.html.md#module-heed.images)     | Neutralise uploaded screenshots before they are stored (issue #15).                |
 | [`ingest`](_autosummary/heed.ingest.html.md#module-heed.ingest)     | The ingest layer — build a Report from a submission and route it to a sink.        |
@@ -1936,8 +2160,8 @@ The sink abstraction — where a report goes (strategy pattern).
 
 A sink is the only thing that decides what becomes of a report. The ingest layer calls
 `Sink.submit()`; richer sinks may also offer duplicate detection and
-acknowledgement. New destinations are added by writing a sink, never by editing a
-dispatcher.
+acknowledgement, and may list its public items for a board ([`heed.board`](_autosummary/heed.board.html.md#module-heed.board)). New
+destinations are added by writing a sink, never by editing a dispatcher.
 
 ### Classes
 
@@ -1967,6 +2191,13 @@ Return likely duplicates of `report` (default: none).
 * **Return type:**
   [`list`](https://docs.python.org/3/builtins/stdtypes.html#list)[[`DupCandidate`](_autosummary/heed.sinks.base.html.md#heed.sinks.base.DupCandidate)]
 
+#### public_items(, category=None)
+
+The items a public board may show (default: none; see [`heed.board`](_autosummary/heed.board.html.md#module-heed.board)).
+
+* **Return type:**
+  [`list`](https://docs.python.org/3/builtins/stdtypes.html#list)[[`PublicItem`](_autosummary/heed.board.html.md#heed.board.PublicItem)]
+
 ### *class* heed.sinks.base.DupCandidate(\*\*data)
 
 Bases: `BaseModel`
@@ -1994,6 +2225,73 @@ Outcome of routing a report to a sink.
 Configuration for the model, should be a dictionary conforming to [`ConfigDict`][pydantic.config.ConfigDict].
 
 
+# _autosummary/heed.sinks.category.html.md
+
+# heed.sinks.category
+
+A sink that sends each category of report to its own sink.
+
+One widget and one [`Report`](_autosummary/heed.base.html.md#heed.base.Report) cover a bug, a feature request and a
+question; the sink decides what each becomes. [`CategorySink`](_autosummary/heed.sinks.category.html.md#heed.sinks.category.CategorySink) is that decision as
+data: bugs to the tracker, feature requests somewhere else (a second repo, a Discussions
+sink, a store), anything unlisted to `default`. It is itself a sink, so it nests under
+[`sinks_by_origin()`](_autosummary/heed.routing.html.md#heed.routing.sinks_by_origin) and under moderation like any other.
+
+```pycon
+>>> from heed.sinks import StoreSink
+>>> bugs, ideas = StoreSink({}), StoreSink({})
+>>> sink = CategorySink({"feature": ideas}, default=bugs)
+>>> sink.sink_for("feature") is ideas and sink.sink_for("bug") is bugs
+True
+```
+
+### Classes
+
+| [`CategorySink`](_autosummary/heed.sinks.category.html.md#heed.sinks.category.CategorySink)(sinks, \*, default)   | Route by `report.category`; unlisted categories go to `default`.   |
+|-------------------------------------------------------------------------------------|--------------------------------------------------------------------|
+
+### *class* heed.sinks.category.CategorySink(sinks, , default)
+
+Bases: [`BaseSink`](_autosummary/heed.sinks.base.html.md#heed.sinks.base.BaseSink)
+
+Route by `report.category`; unlisted categories go to `default`.
+
+#### acknowledge(report)
+
+Hook called after a successful submit (default: no-op).
+
+* **Return type:**
+  [`None`](https://docs.python.org/3/builtins/constants.html#None)
+
+#### find_duplicates(report)
+
+Return likely duplicates of `report` (default: none).
+
+* **Return type:**
+  [`list`](https://docs.python.org/3/builtins/stdtypes.html#list)[[`DupCandidate`](_autosummary/heed.sinks.base.html.md#heed.sinks.base.DupCandidate)]
+
+#### public_items(, category=None)
+
+Every distinct member sink’s public items (a shared link once).
+
+* **Return type:**
+  [`list`](https://docs.python.org/3/builtins/stdtypes.html#list)[[`PublicItem`](_autosummary/heed.board.html.md#heed.board.PublicItem)]
+
+#### sink_for(category)
+
+The sink that receives reports of `category`.
+
+* **Return type:**
+  [`Sink`](_autosummary/heed.sinks.base.html.md#heed.sinks.base.Sink)
+
+#### sinks()
+
+Every distinct member sink, including the default.
+
+* **Return type:**
+  [`list`](https://docs.python.org/3/builtins/stdtypes.html#list)[[`Sink`](_autosummary/heed.sinks.base.html.md#heed.sinks.base.Sink)]
+
+
 # _autosummary/heed.sinks.github.html.md
 
 # heed.sinks.github
@@ -2010,22 +2308,77 @@ Hard platform limit (see misc/docs/design.md): there is no GitHub API to attach 
 to an issue. Resolve a `screenshot_url` (committed-file / attachment-store URL) and
 embed it in the body; base64 data-URIs do not render.
 
+### Module Attributes
+
+| [`DEFAULT_STATUS_LABELS`](_autosummary/heed.sinks.github.html.md#heed.sinks.github.DEFAULT_STATUS_LABELS)   | Issue labels a maintainer applies to move an item along; the board reads them back.   |
+|--------------------------------------------------------------------------|---------------------------------------------------------------------------------------|
+| [`MAX_BOARD_PAGES`](_autosummary/heed.sinks.github.html.md#heed.sinks.github.MAX_BOARD_PAGES)         | The most pages (of 100 issues) one board read will fetch.                             |
+| [`DEFAULT_PUBLIC_LABEL`](_autosummary/heed.sinks.github.html.md#heed.sinks.github.DEFAULT_PUBLIC_LABEL)    | A maintainer adds this label to put an item on the public board.                      |
+
 ### Functions
 
 | [`github_sink_from_token`](_autosummary/heed.sinks.github.html.md#heed.sinks.github.github_sink_from_token)(repo, token, \*\*kwargs)   | Build a GitHubIssuesSink that creates issues in `repo` ('owner/name').   |
 |----------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------|
-| [`render_issue_body`](_autosummary/heed.sinks.github.html.md#heed.sinks.github.render_issue_body)(report, \*[, screenshot_url])   | Render a report as a GitHub-flavoured markdown issue body.               |
+| [`render_issue_body`](_autosummary/heed.sinks.github.html.md#heed.sinks.github.render_issue_body)(report, \*[, ...])              | Render a report as a GitHub-flavoured markdown issue body.               |
 
 ### Classes
 
-| [`GitHubIssuesSink`](_autosummary/heed.sinks.github.html.md#heed.sinks.github.GitHubIssuesSink)(create_issue, \*[, ...])   | Route a report to a GitHub issue via an injected `create_issue` callable.   |
-|----------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------|
+| [`CategoryTreatment`](_autosummary/heed.sinks.github.html.md#heed.sinks.github.CategoryTreatment)([labels, title_prefix, detail])   | What one category of report becomes as a GitHub issue.                    |
+|------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------|
+| [`GitHubIssuesSink`](_autosummary/heed.sinks.github.html.md#heed.sinks.github.GitHubIssuesSink)(create_issue, \*[, ...])           | Route a report to a GitHub issue via an injected `create_issue` callable. |
 
-### *class* heed.sinks.github.GitHubIssuesSink(create_issue, , label_map=None, screenshot_url=None)
+### *class* heed.sinks.github.CategoryTreatment(labels=None, title_prefix='', detail=None)
+
+Bases: [`object`](https://docs.python.org/3/builtins/functions.html#object)
+
+What one category of report becomes as a GitHub issue.
+
+`detail="light"` is the feature-request intake: the idea and who asked, without
+the browser/console/network dump or a screenshot, which say nothing about a wish.
+
+### heed.sinks.github.DEFAULT_PUBLIC_LABEL *= 'public'*
+
+A maintainer adds this label to put an item on the public board. Opt-in, because the
+title of an unmoderated report must not reach a public page by default.
+
+### heed.sinks.github.DEFAULT_STATUS_LABELS *: [dict](https://docs.python.org/3/builtins/stdtypes.html#dict)[[str](https://docs.python.org/3/builtins/stdtypes.html#str), [Status](_autosummary/heed.base.html.md#heed.base.Status)]* *= {'duplicate': Status.duplicate, 'in progress': Status.started, 'planned': Status.planned, 'triaged': Status.triaged, 'wontfix': Status.declined}*
+
+Issue labels a maintainer applies to move an item along; the board reads them back.
+
+### *class* heed.sinks.github.GitHubIssuesSink(create_issue, , label_map=None, screenshot_url=None, treatments=None, list_issues=None, public_label='public', status_labels=None)
 
 Bases: [`BaseSink`](_autosummary/heed.sinks.base.html.md#heed.sinks.base.BaseSink)
 
 Route a report to a GitHub issue via an injected `create_issue` callable.
+
+`treatments` says, per category, the labels, a title prefix and how much context
+the issue carries (`label_map` is the older labels-only spelling and still wins
+for labels). With `list_issues` it can also read its issues back as a board’s
+[`PublicItem`](_autosummary/heed.board.html.md#heed.board.PublicItem) entries: only those carrying `public_label`, with
+status from `status_labels` (or the issue’s closed state) and votes from the 👍
+reactions.
+
+#### public_items(, category=None)
+
+The board’s items: issues labelled `public_label`, as `PublicItem`.
+
+Empty without `list_issues`. Only title, category, status, link, votes and
+dates leave the sink: never an issue body (which holds the reporter’s
+environment and identity).
+
+* **Return type:**
+  [`list`](https://docs.python.org/3/builtins/stdtypes.html#list)[[`PublicItem`](_autosummary/heed.board.html.md#heed.board.PublicItem)]
+
+#### treatment(category)
+
+The treatment applied to reports of `category`.
+
+* **Return type:**
+  [`CategoryTreatment`](_autosummary/heed.sinks.github.html.md#heed.sinks.github.CategoryTreatment)
+
+### heed.sinks.github.MAX_BOARD_PAGES *= 10*
+
+The most pages (of 100 issues) one board read will fetch.
 
 ### heed.sinks.github.github_sink_from_token(repo, token, \*\*kwargs)
 
@@ -2037,9 +2390,13 @@ App installation token or a PAT) — never shipped to the browser.
 * **Return type:**
   [`GitHubIssuesSink`](_autosummary/heed.sinks.github.html.md#heed.sinks.github.GitHubIssuesSink)
 
-### heed.sinks.github.render_issue_body(report, , screenshot_url=None)
+### heed.sinks.github.render_issue_body(report, , screenshot_url=None, light=False)
 
 Render a report as a GitHub-flavoured markdown issue body.
+
+`light` leaves out the environment, console and network (a feature request’s
+intake; a screenshot the server kept is still linked): the idea, the page it came
+from, and who asked.
 
 * **Return type:**
   [`str`](https://docs.python.org/3/builtins/stdtypes.html#str)
@@ -2057,18 +2414,20 @@ Import the sink you need, or look one up by short name via [`get_sink_class()`](
 
 | [`github_sink_from_token`](_autosummary/heed.sinks.html.md#heed.sinks.github_sink_from_token)(repo, token, \*\*kwargs)   | Build a GitHubIssuesSink that creates issues in `repo` ('owner/name').   |
 |----------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------|
-| [`render_issue_body`](_autosummary/heed.sinks.html.md#heed.sinks.render_issue_body)(report, \*[, screenshot_url])   | Render a report as a GitHub-flavoured markdown issue body.               |
+| [`render_issue_body`](_autosummary/heed.sinks.html.md#heed.sinks.render_issue_body)(report, \*[, ...])              | Render a report as a GitHub-flavoured markdown issue body.               |
 | [`get_sink_class`](_autosummary/heed.sinks.html.md#heed.sinks.get_sink_class)(name)                              | Return a registered sink class by short name (e.g. 'github', 'store').   |
 
 ### Classes
 
-| [`Sink`](_autosummary/heed.sinks.html.md#heed.sinks.Sink)(\*args, \*\*kwargs)                  | Anything that can receive a report.                                       |
-|--------------------------------------------------------------------------------------------|---------------------------------------------------------------------------|
-| [`BaseSink`](_autosummary/heed.sinks.html.md#heed.sinks.BaseSink)()                                | Convenience base giving no-op defaults for the optional sink methods.     |
-| [`SinkResult`](_autosummary/heed.sinks.html.md#heed.sinks.SinkResult)(\*\*data)                      | Outcome of routing a report to a sink.                                    |
-| [`DupCandidate`](_autosummary/heed.sinks.html.md#heed.sinks.DupCandidate)(\*\*data)                    | A possible duplicate of an incoming report.                               |
-| [`StoreSink`](_autosummary/heed.sinks.html.md#heed.sinks.StoreSink)(store)                          | Persist each report as JSON into a dol-style store keyed by report id.    |
-| [`GitHubIssuesSink`](_autosummary/heed.sinks.html.md#heed.sinks.GitHubIssuesSink)(create_issue, \*[, ...]) | Route a report to a GitHub issue via an injected `create_issue` callable. |
+| [`Sink`](_autosummary/heed.sinks.html.md#heed.sinks.Sink)(\*args, \*\*kwargs)                          | Anything that can receive a report.                                       |
+|----------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------|
+| [`BaseSink`](_autosummary/heed.sinks.html.md#heed.sinks.BaseSink)()                                        | Convenience base giving no-op defaults for the optional sink methods.     |
+| [`SinkResult`](_autosummary/heed.sinks.html.md#heed.sinks.SinkResult)(\*\*data)                              | Outcome of routing a report to a sink.                                    |
+| [`DupCandidate`](_autosummary/heed.sinks.html.md#heed.sinks.DupCandidate)(\*\*data)                            | A possible duplicate of an incoming report.                               |
+| [`StoreSink`](_autosummary/heed.sinks.html.md#heed.sinks.StoreSink)(store)                                  | Persist each report as JSON into a dol-style store keyed by report id.    |
+| [`GitHubIssuesSink`](_autosummary/heed.sinks.html.md#heed.sinks.GitHubIssuesSink)(create_issue, \*[, ...])         | Route a report to a GitHub issue via an injected `create_issue` callable. |
+| [`CategorySink`](_autosummary/heed.sinks.html.md#heed.sinks.CategorySink)(sinks, \*, default)                  | Route by `report.category`; unlisted categories go to `default`.          |
+| [`CategoryTreatment`](_autosummary/heed.sinks.html.md#heed.sinks.CategoryTreatment)([labels, title_prefix, detail]) | What one category of report becomes as a GitHub issue.                    |
 
 ### *class* heed.sinks.BaseSink
 
@@ -2090,6 +2449,63 @@ Return likely duplicates of `report` (default: none).
 * **Return type:**
   [`list`](https://docs.python.org/3/builtins/stdtypes.html#list)[[`DupCandidate`](_autosummary/heed.sinks.base.html.md#heed.sinks.base.DupCandidate)]
 
+#### public_items(, category=None)
+
+The items a public board may show (default: none; see [`heed.board`](_autosummary/heed.board.html.md#module-heed.board)).
+
+* **Return type:**
+  [`list`](https://docs.python.org/3/builtins/stdtypes.html#list)[[`PublicItem`](_autosummary/heed.board.html.md#heed.board.PublicItem)]
+
+### *class* heed.sinks.CategorySink(sinks, , default)
+
+Bases: [`BaseSink`](_autosummary/heed.sinks.base.html.md#heed.sinks.base.BaseSink)
+
+Route by `report.category`; unlisted categories go to `default`.
+
+#### acknowledge(report)
+
+Hook called after a successful submit (default: no-op).
+
+* **Return type:**
+  [`None`](https://docs.python.org/3/builtins/constants.html#None)
+
+#### find_duplicates(report)
+
+Return likely duplicates of `report` (default: none).
+
+* **Return type:**
+  [`list`](https://docs.python.org/3/builtins/stdtypes.html#list)[[`DupCandidate`](_autosummary/heed.sinks.base.html.md#heed.sinks.base.DupCandidate)]
+
+#### public_items(, category=None)
+
+Every distinct member sink’s public items (a shared link once).
+
+* **Return type:**
+  [`list`](https://docs.python.org/3/builtins/stdtypes.html#list)[[`PublicItem`](_autosummary/heed.board.html.md#heed.board.PublicItem)]
+
+#### sink_for(category)
+
+The sink that receives reports of `category`.
+
+* **Return type:**
+  [`Sink`](_autosummary/heed.sinks.base.html.md#heed.sinks.base.Sink)
+
+#### sinks()
+
+Every distinct member sink, including the default.
+
+* **Return type:**
+  [`list`](https://docs.python.org/3/builtins/stdtypes.html#list)[[`Sink`](_autosummary/heed.sinks.base.html.md#heed.sinks.base.Sink)]
+
+### *class* heed.sinks.CategoryTreatment(labels=None, title_prefix='', detail=None)
+
+Bases: [`object`](https://docs.python.org/3/builtins/functions.html#object)
+
+What one category of report becomes as a GitHub issue.
+
+`detail="light"` is the feature-request intake: the idea and who asked, without
+the browser/console/network dump or a screenshot, which say nothing about a wish.
+
 ### *class* heed.sinks.DupCandidate(\*\*data)
 
 Bases: `BaseModel`
@@ -2100,11 +2516,36 @@ A possible duplicate of an incoming report.
 
 Configuration for the model, should be a dictionary conforming to [`ConfigDict`][pydantic.config.ConfigDict].
 
-### *class* heed.sinks.GitHubIssuesSink(create_issue, , label_map=None, screenshot_url=None)
+### *class* heed.sinks.GitHubIssuesSink(create_issue, , label_map=None, screenshot_url=None, treatments=None, list_issues=None, public_label='public', status_labels=None)
 
 Bases: [`BaseSink`](_autosummary/heed.sinks.base.html.md#heed.sinks.base.BaseSink)
 
 Route a report to a GitHub issue via an injected `create_issue` callable.
+
+`treatments` says, per category, the labels, a title prefix and how much context
+the issue carries (`label_map` is the older labels-only spelling and still wins
+for labels). With `list_issues` it can also read its issues back as a board’s
+[`PublicItem`](_autosummary/heed.board.html.md#heed.board.PublicItem) entries: only those carrying `public_label`, with
+status from `status_labels` (or the issue’s closed state) and votes from the 👍
+reactions.
+
+#### public_items(, category=None)
+
+The board’s items: issues labelled `public_label`, as `PublicItem`.
+
+Empty without `list_issues`. Only title, category, status, link, votes and
+dates leave the sink: never an issue body (which holds the reporter’s
+environment and identity).
+
+* **Return type:**
+  [`list`](https://docs.python.org/3/builtins/stdtypes.html#list)[[`PublicItem`](_autosummary/heed.board.html.md#heed.board.PublicItem)]
+
+#### treatment(category)
+
+The treatment applied to reports of `category`.
+
+* **Return type:**
+  [`CategoryTreatment`](_autosummary/heed.sinks.github.html.md#heed.sinks.github.CategoryTreatment)
 
 ### *class* heed.sinks.Sink(\*args, \*\*kwargs)
 
@@ -2156,19 +2597,24 @@ App installation token or a PAT) — never shipped to the browser.
 * **Return type:**
   [`GitHubIssuesSink`](_autosummary/heed.sinks.github.html.md#heed.sinks.github.GitHubIssuesSink)
 
-### heed.sinks.render_issue_body(report, , screenshot_url=None)
+### heed.sinks.render_issue_body(report, , screenshot_url=None, light=False)
 
 Render a report as a GitHub-flavoured markdown issue body.
+
+`light` leaves out the environment, console and network (a feature request’s
+intake; a screenshot the server kept is still linked): the idea, the page it came
+from, and who asked.
 
 * **Return type:**
   [`str`](https://docs.python.org/3/builtins/stdtypes.html#str)
 
 ### Modules
 
-| [`base`](_autosummary/heed.sinks.base.html.md#module-heed.sinks.base)     | The sink abstraction — where a report goes (strategy pattern).                   |
-|----------------------------------------------------------------------------------|----------------------------------------------------------------------------------|
-| [`github`](_autosummary/heed.sinks.github.html.md#module-heed.sinks.github) | A sink that turns a report into a GitHub issue.                                  |
-| [`store`](_autosummary/heed.sinks.store.html.md#module-heed.sinks.store)   | A sink that persists reports into a Mapping (the default, dependency-free sink). |
+| [`base`](_autosummary/heed.sinks.base.html.md#module-heed.sinks.base)         | The sink abstraction — where a report goes (strategy pattern).                   |
+|--------------------------------------------------------------------------------------|----------------------------------------------------------------------------------|
+| [`category`](_autosummary/heed.sinks.category.html.md#module-heed.sinks.category) | A sink that sends each category of report to its own sink.                       |
+| [`github`](_autosummary/heed.sinks.github.html.md#module-heed.sinks.github)     | A sink that turns a report into a GitHub issue.                                  |
+| [`store`](_autosummary/heed.sinks.store.html.md#module-heed.sinks.store)       | A sink that persists reports into a Mapping (the default, dependency-free sink). |
 
 
 # _autosummary/heed.sinks.store.html.md
@@ -2381,7 +2827,7 @@ overrides them.
 
 # About this build
 
-This documentation was built on **2026-10-13 18:09 UTC** from commit <a href="https://github.com/i2mint/heed/commit/9428b3b8988e10493edf498a7eff85c27e61400f"><code>9428b3b</code></a> on branch <code>main</code>, for **heed 0.0.1** (from <code>pyproject.toml</code>).
+This documentation was built on **2026-10-13 23:22 UTC** from commit <a href="https://github.com/i2mint/heed/commit/2507039430d1d8d60c607e6824b309c2b5649b17"><code>2507039</code></a> on branch <code>main</code>, for **heed 0.0.1** (from <code>pyproject.toml</code>).
 
 #### WARNING
 The documentation and the package may be misaligned:
@@ -2392,7 +2838,7 @@ The documentation and the package may be misaligned:
 
 |                     |                                                                                                                                                    |
 |---------------------|----------------------------------------------------------------------------------------------------------------------------------------------------|
-| Commit              | <a href="https://github.com/i2mint/heed/commit/9428b3b8988e10493edf498a7eff85c27e61400f"><code>9428b3b8988e10493edf498a7eff85c27e61400f</code></a> |
+| Commit              | <a href="https://github.com/i2mint/heed/commit/2507039430d1d8d60c607e6824b309c2b5649b17"><code>2507039430d1d8d60c607e6824b309c2b5649b17</code></a> |
 | Branch              | <code>main</code>                                                                                                                                  |
 | Tags at this commit | none                                                                                                                                               |
 | Working tree        | clean                                                                                                                                              |
@@ -2403,9 +2849,9 @@ The documentation and the package may be misaligned:
 |              |                                                                                            |
 |--------------|--------------------------------------------------------------------------------------------|
 | Repository   | <code>i2mint/heed</code>                                                                   |
-| Run          | <a href="https://github.com/i2mint/heed/actions/runs/38444315400">38444315400</a>          |
+| Run          | <a href="https://github.com/i2mint/heed/actions/runs/38483699744">38483699744</a>          |
 | Ref          | <code>refs/heads/main</code>                                                               |
-| Event commit | <code>9428b3b8988e10493edf498a7eff85c27e61400f</code> (in the history of the built commit) |
+| Event commit | <code>8a9bfffd55114377cdfabd1d27302218e062fb67</code> (in the history of the built commit) |
 
 ## Tools
 
@@ -2436,7 +2882,7 @@ Latest release: <a href="https://pypi.org/project/heed/0.1.0/">0.1.0</a>, newer 
 
 ```bash
 git clone https://github.com/i2mint/heed && cd heed
-git checkout 9428b3b8988e10493edf498a7eff85c27e61400f
+git checkout 2507039430d1d8d60c607e6824b309c2b5649b17
 pip install "epythet==0.2.17"
 epythet quickstart . --ignore tests/ scrap/ examples/
 ```

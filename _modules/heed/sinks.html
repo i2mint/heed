@@ -717,7 +717,9 @@ window.runMermaid = runMermaid;</script>
 <span class="sd">"""</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">heed.sinks.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseSink</span><span class="p">,</span> <span class="n">DupCandidate</span><span class="p">,</span> <span class="n">Sink</span><span class="p">,</span> <span class="n">SinkResult</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">heed.sinks.category</span><span class="w"> </span><span class="kn">import</span> <span class="n">CategorySink</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">heed.sinks.github</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">CategoryTreatment</span><span class="p">,</span>
     <span class="n">GitHubIssuesSink</span><span class="p">,</span>
     <span class="n">github_sink_from_token</span><span class="p">,</span>
     <span class="n">render_issue_body</span><span class="p">,</span>
@@ -727,6 +729,7 @@ window.runMermaid = runMermaid;</script>
 <span class="n">_REGISTRY</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">type</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
     <span class="s2">"store"</span><span class="p">:</span> <span class="n">StoreSink</span><span class="p">,</span>
     <span class="s2">"github"</span><span class="p">:</span> <span class="n">GitHubIssuesSink</span><span class="p">,</span>
+    <span class="s2">"category"</span><span class="p">:</span> <span class="n">CategorySink</span><span class="p">,</span>
 <span class="p">}</span>
 
 
@@ -748,6 +751,8 @@ window.runMermaid = runMermaid;</script>
     <span class="s2">"DupCandidate"</span><span class="p">,</span>
     <span class="s2">"StoreSink"</span><span class="p">,</span>
     <span class="s2">"GitHubIssuesSink"</span><span class="p">,</span>
+    <span class="s2">"CategorySink"</span><span class="p">,</span>
+    <span class="s2">"CategoryTreatment"</span><span class="p">,</span>
     <span class="s2">"github_sink_from_token"</span><span class="p">,</span>
     <span class="s2">"render_issue_body"</span><span class="p">,</span>
     <span class="s2">"get_sink_class"</span><span class="p">,</span>

@@ -59,6 +59,8 @@ True
 | [`screenshot_url_resolver`](#heed.screenshot_url_resolver)(base_url, signer, \*)      | A `GitHubIssuesSink(screenshot_url=...)` callable: the report's first image attachment as a (signed) URL under `base_url`, or None. |
 | [`new_report_id`](#heed.new_report_id)()                                    | Return a fresh opaque report id (uuid4 hex).                                                                                        |
 | [`github_sink_from_token`](#heed.github_sink_from_token)(repo, token, \*\*kwargs)    | Build a GitHubIssuesSink that creates issues in `repo` ('owner/name').                                                              |
+| [`roadmap`](#heed.roadmap)(items)                                     | Items still to come, started first; most-voted first within each stage.                                                             |
+| [`changelog`](#heed.changelog)(items)                                   | Shipped items, newest first (undated ones last).                                                                                    |
 | [`process_submission`](#heed.process_submission)(submission, sink, \*[, ...])    | Enrich `submission` into a Report, store any screenshot, and route to `sink`.                                                       |
 | [`make_router`](#heed.make_router)(sink, \*[, config, ...])               | Build a FastAPI APIRouter exposing `POST /report` (and its CORS preflight).                                                         |
 | [`make_app`](#heed.make_app)(sink, \*[, config, ...])                  | A standalone FastAPI app serving the heed router under `prefix`.                                                                    |
@@ -98,6 +100,9 @@ True
 | [`SinkResult`](#heed.SinkResult)(\*\*data)                              | Outcome of routing a report to a sink.                                         |
 | [`StoreSink`](#heed.StoreSink)(store)                                  | Persist each report as JSON into a dol-style store keyed by report id.         |
 | [`GitHubIssuesSink`](#heed.GitHubIssuesSink)(create_issue, \*[, ...])         | Route a report to a GitHub issue via an injected `create_issue` callable.      |
+| [`CategorySink`](#heed.CategorySink)(sinks, \*, default)                  | Route by `report.category`; unlisted categories go to `default`.               |
+| [`CategoryTreatment`](#heed.CategoryTreatment)([labels, title_prefix, detail]) | What one category of report becomes as a GitHub issue.                         |
+| [`PublicItem`](#heed.PublicItem)(\*\*data)                              | One board entry: the public projection of a stored report.                     |
 | [`HeedConfig`](#heed.HeedConfig)(\*[, allowed_origins, ...])            | Knobs for the ingest endpoint.                                                 |
 | [`RateLimiter`](#heed.RateLimiter)(\*args, \*\*kwargs)                   | Decide whether a request keyed by `key` (e.g. client IP) is allowed now.       |
 | [`InMemoryRateLimiter`](#heed.InMemoryRateLimiter)(\*[, max_per_window, ...])    | Sliding-window, in-memory limiter.                                             |
@@ -185,6 +190,13 @@ Return likely duplicates of `report` (default: none).
 * **Return type:**
   [`list`](https://docs.python.org/3/builtins/stdtypes.html#list)[[`DupCandidate`](heed.sinks.base.html.md#heed.sinks.base.DupCandidate)]
 
+#### public_items(, category=None)
+
+The items a public board may show (default: none; see [`heed.board`](heed.board.html.md#module-heed.board)).
+
+* **Return type:**
+  [`list`](https://docs.python.org/3/builtins/stdtypes.html#list)[[`PublicItem`](heed.board.html.md#heed.board.PublicItem)]
+
 ### *class* heed.BotVerifier(\*args, \*\*kwargs)
 
 Bases: [`Protocol`](https://docs.python.org/3/library/typing.html#typing.Protocol)
@@ -197,6 +209,56 @@ Bases: [`str`](https://docs.python.org/3/builtins/stdtypes.html#str), [`Enum`](h
 
 What kind of feedback a report is.
 
+### *class* heed.CategorySink(sinks, , default)
+
+Bases: [`BaseSink`](heed.sinks.base.html.md#heed.sinks.base.BaseSink)
+
+Route by `report.category`; unlisted categories go to `default`.
+
+#### acknowledge(report)
+
+Hook called after a successful submit (default: no-op).
+
+* **Return type:**
+  [`None`](https://docs.python.org/3/builtins/constants.html#None)
+
+#### find_duplicates(report)
+
+Return likely duplicates of `report` (default: none).
+
+* **Return type:**
+  [`list`](https://docs.python.org/3/builtins/stdtypes.html#list)[[`DupCandidate`](heed.sinks.base.html.md#heed.sinks.base.DupCandidate)]
+
+#### public_items(, category=None)
+
+Every distinct member sink’s public items (a shared link once).
+
+* **Return type:**
+  [`list`](https://docs.python.org/3/builtins/stdtypes.html#list)[[`PublicItem`](heed.board.html.md#heed.board.PublicItem)]
+
+#### sink_for(category)
+
+The sink that receives reports of `category`.
+
+* **Return type:**
+  [`Sink`](heed.sinks.base.html.md#heed.sinks.base.Sink)
+
+#### sinks()
+
+Every distinct member sink, including the default.
+
+* **Return type:**
+  [`list`](https://docs.python.org/3/builtins/stdtypes.html#list)[[`Sink`](heed.sinks.base.html.md#heed.sinks.base.Sink)]
+
+### *class* heed.CategoryTreatment(labels=None, title_prefix='', detail=None)
+
+Bases: [`object`](https://docs.python.org/3/builtins/functions.html#object)
+
+What one category of report becomes as a GitHub issue.
+
+`detail="light"` is the feature-request intake: the idea and who asked, without
+the browser/console/network dump or a screenshot, which say nothing about a wish.
+
 ### *class* heed.Environment(\*\*data)
 
 Bases: `BaseModel`
@@ -207,13 +269,38 @@ Client environment captured by default (no PII beyond the user agent).
 
 Configuration for the model, should be a dictionary conforming to [`ConfigDict`][pydantic.config.ConfigDict].
 
-### *class* heed.GitHubIssuesSink(create_issue, , label_map=None, screenshot_url=None)
+### *class* heed.GitHubIssuesSink(create_issue, , label_map=None, screenshot_url=None, treatments=None, list_issues=None, public_label='public', status_labels=None)
 
 Bases: [`BaseSink`](heed.sinks.base.html.md#heed.sinks.base.BaseSink)
 
 Route a report to a GitHub issue via an injected `create_issue` callable.
 
-### *class* heed.HeedConfig(\*, allowed_origins=None, handle_cors=True, cors_allow_credentials=False, cors_max_age_seconds=600, max_body_bytes=6000000, max_screenshot_bytes=5000000, screenshot_sanitizer='auto', max_screenshot_pixels=25000000, max_concurrent_reencodes=2, max_field_bytes=100000, max_form_fields=16, rate_limit_per_minute=30, origin_rate_limit_per_minute=600, rate_limit_window_seconds=60.0, rate_limit_backend='memory', redis_url=None, trusted_proxies=<factory>, ipv6_rate_limit_prefix=64, bot_gate=None, bot_secret=None, bot_expected_hostnames=None, bot_token_field='bot_token', honeypot_field='hp_website', attachment_signing_key=None, attachment_url_ttl_seconds=None, attachment_previous_keys=<factory>, attachment_hosts=None, attachment_cache_control=None, accept_console=False, accept_network=False)
+`treatments` says, per category, the labels, a title prefix and how much context
+the issue carries (`label_map` is the older labels-only spelling and still wins
+for labels). With `list_issues` it can also read its issues back as a board’s
+[`PublicItem`](heed.board.html.md#heed.board.PublicItem) entries: only those carrying `public_label`, with
+status from `status_labels` (or the issue’s closed state) and votes from the 👍
+reactions.
+
+#### public_items(, category=None)
+
+The board’s items: issues labelled `public_label`, as [`PublicItem`](#heed.PublicItem).
+
+Empty without `list_issues`. Only title, category, status, link, votes and
+dates leave the sink: never an issue body (which holds the reporter’s
+environment and identity).
+
+* **Return type:**
+  [`list`](https://docs.python.org/3/builtins/stdtypes.html#list)[[`PublicItem`](heed.board.html.md#heed.board.PublicItem)]
+
+#### treatment(category)
+
+The treatment applied to reports of `category`.
+
+* **Return type:**
+  [`CategoryTreatment`](heed.sinks.github.html.md#heed.sinks.github.CategoryTreatment)
+
+### *class* heed.HeedConfig(\*, allowed_origins=None, handle_cors=True, cors_allow_credentials=False, cors_max_age_seconds=600, max_body_bytes=6000000, max_screenshot_bytes=5000000, screenshot_sanitizer='auto', max_screenshot_pixels=25000000, max_concurrent_reencodes=2, max_field_bytes=100000, max_form_fields=16, rate_limit_per_minute=30, origin_rate_limit_per_minute=600, rate_limit_window_seconds=60.0, rate_limit_backend='memory', redis_url=None, trusted_proxies=<factory>, ipv6_rate_limit_prefix=64, bot_gate=None, bot_secret=None, bot_expected_hostnames=None, bot_token_field='bot_token', honeypot_field='hp_website', attachment_signing_key=None, attachment_url_ttl_seconds=None, attachment_previous_keys=<factory>, attachment_hosts=None, attachment_cache_control=None, accept_console=False, accept_network=False, light_categories=<factory>)
 
 Bases: [`object`](https://docs.python.org/3/builtins/functions.html#object)
 
@@ -282,6 +369,16 @@ Configuration for the model, should be a dictionary conforming to [`ConfigDict`]
 Bases: `BaseModel`
 
 One captured network entry (opt-in; metadata only, never bodies).
+
+#### model_config *: [ClassVar](https://docs.python.org/3/library/typing.html#typing.ClassVar)[ConfigDict]* *= {}*
+
+Configuration for the model, should be a dictionary conforming to [`ConfigDict`][pydantic.config.ConfigDict].
+
+### *class* heed.PublicItem(\*\*data)
+
+Bases: `BaseModel`
+
+One board entry: the public projection of a stored report.
 
 #### model_config *: [ClassVar](https://docs.python.org/3/library/typing.html#typing.ClassVar)[ConfigDict]* *= {}*
 
@@ -423,6 +520,13 @@ Combine moderators; the most severe verdict wins (reject > hold > accept).
 
 * **Return type:**
   [`Callable`](https://docs.python.org/3/library/collections.abc.html#collections.abc.Callable)[[[`Report`](heed.base.html.md#heed.base.Report)], [`Verdict`](heed.routing.html.md#heed.routing.Verdict)]
+
+### heed.changelog(items)
+
+Shipped items, newest first (undated ones last).
+
+* **Return type:**
+  [`list`](https://docs.python.org/3/builtins/stdtypes.html#list)[[`PublicItem`](heed.board.html.md#heed.board.PublicItem)]
 
 ### heed.discard_held(report_id, , holding_store, attachment_store=None)
 
@@ -726,6 +830,13 @@ leaves a claim on a report the other release already sent, and the next
 * **Return type:**
   [`SinkResult`](heed.sinks.base.html.md#heed.sinks.base.SinkResult)
 
+### heed.roadmap(items)
+
+Items still to come, started first; most-voted first within each stage.
+
+* **Return type:**
+  [`list`](https://docs.python.org/3/builtins/stdtypes.html#list)[[`PublicItem`](heed.board.html.md#heed.board.PublicItem)]
+
 ### heed.screenshot_url_resolver(base_url, signer, , ref_pattern=re.compile('[0-9a-f]{32}\\\\\\\\.(?:png|jpg|webp)'))
 
 A `GitHubIssuesSink(screenshot_url=...)` callable: the report’s first image
@@ -785,6 +896,7 @@ overrides them.
 
 | [`base`](heed.base.html.md#module-heed.base)         | Domain model for heed — the single source of truth shared by widget and backend.   |
 |--------------------------------------------------------------------------------|------------------------------------------------------------------------------------|
+| [`board`](heed.board.html.md#module-heed.board)       | The read side of a feedback inbox: what a public board may show.                   |
 | [`config`](heed.config.html.md#module-heed.config)     | Configuration for the heed backend (smart defaults; keyword-only).                 |
 | [`images`](heed.images.html.md#module-heed.images)     | Neutralise uploaded screenshots before they are stored (issue #15).                |
 | [`ingest`](heed.ingest.html.md#module-heed.ingest)     | The ingest layer — build a Report from a submission and route it to a sink.        |

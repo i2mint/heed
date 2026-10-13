@@ -1,0 +1,12 @@
+heed.sinks.category
+===================
+
+.. automodule:: heed.sinks.category
+
+   
+   .. rubric:: Classes
+
+   .. autosummary::
+   
+      CategorySink
+   

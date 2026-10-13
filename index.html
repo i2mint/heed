@@ -404,6 +404,19 @@ pip<span class="w"> </span>install<span class="w"> </span><span class="s2">"heed
 </div>
 <p>For production, set <code class="docutils literal notranslate"><span class="pre">allowed_origins</span></code>, <code class="docutils literal notranslate"><span class="pre">trusted_proxies</span></code> (behind a reverse proxy), <code class="docutils literal notranslate"><span class="pre">rate_limit_backend=&quot;redis&quot;</span></code> with <code class="docutils literal notranslate"><span class="pre">redis_url</span></code> (several workers), and <code class="docutils literal notranslate"><span class="pre">bot_secret</span></code> to turn the bot gate on. Embedders also need a Content-Security-Policy that allows the widget: see <a class="reference internal" href="#misc/docs/embedding-security.md"><span class="xref myst"><code class="docutils literal notranslate"><span class="pre">misc/docs/embedding-security.md</span></code></span></a>.</p>
 </section>
+<section id="one-inbox-for-bugs-ideas-and-questions">
+<h2>One inbox for bugs, ideas and questions<a class="headerlink" href="#one-inbox-for-bugs-ideas-and-questions" title="Link to this heading">#</a></h2>
+<p>The widget’s category picker sets <code class="docutils literal notranslate"><span class="pre">Report.category</span></code>; the sink decides what each category becomes:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">heed</span><span class="w"> </span><span class="kn">import</span> <span class="n">CategorySink</span><span class="p">,</span> <span class="n">CategoryTreatment</span><span class="p">,</span> <span class="n">GitHubIssuesSink</span><span class="p">,</span> <span class="n">github_sink_from_token</span>
+
+<span class="n">issues</span> <span class="o">=</span> <span class="n">github_sink_from_token</span><span class="p">(</span><span class="s2">"myorg/myapp"</span><span class="p">,</span> <span class="n">token</span><span class="p">)</span>   <span class="c1"># bug -&gt; labelled issue with full context;</span>
+                                                          <span class="c1"># feature/question -&gt; light issue (no env dump)</span>
+<span class="n">ideas</span> <span class="o">=</span> <span class="n">github_sink_from_token</span><span class="p">(</span><span class="s2">"myorg/ideas"</span><span class="p">,</span> <span class="n">token</span><span class="p">,</span> <span class="n">public_label</span><span class="o">=</span><span class="s2">"board"</span><span class="p">)</span>
+<span class="n">sink</span> <span class="o">=</span> <span class="n">CategorySink</span><span class="p">({</span><span class="s2">"feature"</span><span class="p">:</span> <span class="n">ideas</span><span class="p">},</span> <span class="n">default</span><span class="o">=</span><span class="n">issues</span><span class="p">)</span>  <span class="c1"># or route a category to another sink</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">GitHubIssuesSink(treatments={Category.feature:</span> <span class="pre">CategoryTreatment((&quot;idea&quot;,),</span> <span class="pre">title_prefix=&quot;[idea]</span> <span class="pre">&quot;)})</span></code> changes labels, title prefix and <code class="docutils literal notranslate"><span class="pre">detail</span></code> (“full” | “light”) per category. For a future public board, sinks that can list their items implement <code class="docutils literal notranslate"><span class="pre">public_items()</span></code>; the GitHub sink returns issues a maintainer labelled <code class="docutils literal notranslate"><span class="pre">public</span></code> as <code class="docutils literal notranslate"><span class="pre">PublicItem</span></code>s (title, category, status from labels or issue state, link, 👍 votes, dates, never the issue body or the reporter; the item’s link opens the issue itself, so keep the tracker public-safe), and for feature and question reports the server also drops the screenshot, console, network and browser details (<code class="docutils literal notranslate"><span class="pre">HeedConfig.light_categories</span></code>). <code class="docutils literal notranslate"><span class="pre">heed.roadmap(items)</span></code> / <code class="docutils literal notranslate"><span class="pre">heed.changelog(items)</span></code> are the two views over them.</p>
+</section>
 <section id="embedding-the-widget">
 <h2>Embedding the widget<a class="headerlink" href="#embedding-the-widget" title="Link to this heading">#</a></h2>
 <p>The backend serves the widget too, so a site adds one tag:</p>
@@ -430,7 +443,7 @@ sink interface, and the spectrum of approaches with pros/cons.</p></li>
 </section>
 </section>
 
-<p class="epythet-provenance" style="font-size:.8em;opacity:.65;margin-top:2.5em;text-align:right">built 2026-10-13 18:09 UTC from <a href="https://github.com/i2mint/heed/commit/9428b3b8988e10493edf498a7eff85c27e61400f">9428b3b</a> (main) · heed 0.0.1 · <a href="about-this-build.html">about this build</a></p>
+<p class="epythet-provenance" style="font-size:.8em;opacity:.65;margin-top:2.5em;text-align:right">built 2026-10-13 23:22 UTC from <a href="https://github.com/i2mint/heed/commit/2507039430d1d8d60c607e6824b309c2b5649b17">2507039</a> (main) · heed 0.0.1 · <a href="about-this-build.html">about this build</a></p>
 
                 </article>
               
@@ -474,6 +487,7 @@ sink interface, and the spectrum of approaches with pros/cons.</p></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#design-principles">Design principles</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#install">Install</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#running-the-ingest-endpoint-safely">Running the ingest endpoint safely</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#one-inbox-for-bugs-ideas-and-questions">One inbox for bugs, ideas and questions</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#embedding-the-widget">Embedding the widget</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#documents">Documents</a></li>
 </ul>

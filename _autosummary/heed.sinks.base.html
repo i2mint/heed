@@ -52,7 +52,7 @@
     <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="heed.sinks.github" href="heed.sinks.github.html" />
+    <link rel="next" title="heed.sinks.category" href="heed.sinks.category.html" />
     <link rel="prev" title="heed.sinks" href="heed.sinks.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="color-scheme" content="light dark"/>
@@ -320,6 +320,7 @@
   <div class="bd-toc-item navbar-nav"><ul class="current nav bd-sidenav">
 <li class="toctree-l1 current active has-children"><a class="reference internal" href="heed.html">heed</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
 <li class="toctree-l2"><a class="reference internal" href="heed.base.html">heed.base</a></li>
+<li class="toctree-l2"><a class="reference internal" href="heed.board.html">heed.board</a></li>
 <li class="toctree-l2"><a class="reference internal" href="heed.config.html">heed.config</a></li>
 <li class="toctree-l2"><a class="reference internal" href="heed.images.html">heed.images</a></li>
 <li class="toctree-l2"><a class="reference internal" href="heed.ingest.html">heed.ingest</a></li>
@@ -328,6 +329,7 @@
 <li class="toctree-l2"><a class="reference internal" href="heed.serving.html">heed.serving</a></li>
 <li class="toctree-l2 current active has-children"><a class="reference internal" href="heed.sinks.html">heed.sinks</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
 <li class="toctree-l3 current active"><a aria-current="page" class="current reference internal" href="#">heed.sinks.base</a></li>
+<li class="toctree-l3"><a class="reference internal" href="heed.sinks.category.html">heed.sinks.category</a></li>
 <li class="toctree-l3"><a class="reference internal" href="heed.sinks.github.html">heed.sinks.github</a></li>
 <li class="toctree-l3"><a class="reference internal" href="heed.sinks.store.html">heed.sinks.store</a></li>
 </ul>
@@ -407,8 +409,8 @@
 <p>The sink abstraction — where a report goes (strategy pattern).</p>
 <p>A sink is the only thing that decides what becomes of a report. The ingest layer calls
 <code class="xref py py-meth docutils literal notranslate"><span class="pre">Sink.submit()</span></code>; richer sinks may also offer duplicate detection and
-acknowledgement. New destinations are added by writing a sink, never by editing a
-dispatcher.</p>
+acknowledgement, and may list its public items for a board (<a class="reference internal" href="heed.board.html#module-heed.board" title="heed.board"><code class="xref py py-mod docutils literal notranslate"><span class="pre">heed.board</span></code></a>). New
+destinations are added by writing a sink, never by editing a dispatcher.</p>
 <p class="rubric">Classes</p>
 <div class="pst-scrollable-table-container"><table class="autosummary longtable table">
 <tbody>
@@ -450,6 +452,17 @@ dispatcher.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a>[<a class="reference internal" href="#heed.sinks.base.DupCandidate" title="heed.sinks.base.DupCandidate"><code class="xref py py-class docutils literal notranslate"><span class="pre">DupCandidate</span></code></a>]</span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="heed.sinks.base.BaseSink.public_items">
+<span class="sig-name descname"><span class="pre">public_items</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">category</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/sinks/base.html#BaseSink.public_items"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.sinks.base.BaseSink.public_items" title="Link to this definition">#</a></dt>
+<dd><p>The items a public board may show (default: none; see <a class="reference internal" href="heed.board.html#module-heed.board" title="heed.board"><code class="xref py py-mod docutils literal notranslate"><span class="pre">heed.board</span></code></a>).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a>[<a class="reference internal" href="heed.board.html#heed.board.PublicItem" title="heed.board.PublicItem"><code class="xref py py-class docutils literal notranslate"><span class="pre">PublicItem</span></code></a>]</span></p>
 </dd>
 </dl>
 </dd></dl>
@@ -515,11 +528,11 @@ dispatcher.</p>
       </div>
     </a>
     <a class="right-next"
-       href="heed.sinks.github.html"
+       href="heed.sinks.category.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">heed.sinks.github</p>
+        <p class="prev-next-title">heed.sinks.category</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -545,6 +558,7 @@ dispatcher.</p>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.sinks.base.BaseSink"><code class="docutils literal notranslate"><span class="pre">BaseSink</span></code></a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.sinks.base.BaseSink.acknowledge"><code class="docutils literal notranslate"><span class="pre">BaseSink.acknowledge()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.sinks.base.BaseSink.find_duplicates"><code class="docutils literal notranslate"><span class="pre">BaseSink.find_duplicates()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.sinks.base.BaseSink.public_items"><code class="docutils literal notranslate"><span class="pre">BaseSink.public_items()</span></code></a></li>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.sinks.base.DupCandidate"><code class="docutils literal notranslate"><span class="pre">DupCandidate</span></code></a><ul class="nav section-nav flex-column">

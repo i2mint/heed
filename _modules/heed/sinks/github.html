@@ -729,27 +729,85 @@ window.runMermaid = runMermaid;</script>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Mapping</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Iterable</span><span class="p">,</span> <span class="n">Mapping</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">heed.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">Category</span><span class="p">,</span> <span class="n">Report</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">heed.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">Category</span><span class="p">,</span> <span class="n">Report</span><span class="p">,</span> <span class="n">Status</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">heed.board</span><span class="w"> </span><span class="kn">import</span> <span class="n">PublicItem</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">heed.sinks.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseSink</span><span class="p">,</span> <span class="n">SinkResult</span>
 
 <span class="c1"># A callable that creates an issue and returns the GitHub API's issue dict.</span>
 <span class="n">CreateIssue</span> <span class="o">=</span> <span class="n">Callable</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span>
 
-<span class="n">DEFAULT_LABELS</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="n">Category</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="n">Category</span><span class="o">.</span><span class="n">bug</span><span class="p">:</span> <span class="p">(</span><span class="s2">"bug"</span><span class="p">,),</span>
-    <span class="n">Category</span><span class="o">.</span><span class="n">feature</span><span class="p">:</span> <span class="p">(</span><span class="s2">"enhancement"</span><span class="p">,),</span>
-    <span class="n">Category</span><span class="o">.</span><span class="n">question</span><span class="p">:</span> <span class="p">(</span><span class="s2">"question"</span><span class="p">,),</span>
-    <span class="n">Category</span><span class="o">.</span><span class="n">other</span><span class="p">:</span> <span class="p">(),</span>
+<span class="c1"># A callable ``(*, labels, state) -&gt; issues`` listing a repo's issues (the board's read</span>
+<span class="c1"># side).</span>
+<span class="n">ListIssues</span> <span class="o">=</span> <span class="n">Callable</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]]</span>
+
+
+<div class="viewcode-block" id="CategoryTreatment">
+<a class="viewcode-back" href="../../../_autosummary/heed.sinks.github.html#heed.CategoryTreatment">[docs]</a>
+<span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">CategoryTreatment</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""What one category of report becomes as a GitHub issue.</span>
+
+<span class="sd">    ``detail="light"`` is the feature-request intake: the idea and who asked, without</span>
+<span class="sd">    the browser/console/network dump or a screenshot, which say nothing about a wish.</span>
+<span class="sd">    """</span>
+
+    <span class="n">labels</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># None: the category's default labels</span>
+    <span class="n">title_prefix</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">""</span>
+    <span class="n">detail</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># "full" | "light"; None: the category's default</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">__post_init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">labels</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>  <span class="c1"># "bug" means one label, not three letters</span>
+            <span class="nb">object</span><span class="o">.</span><span class="fm">__setattr__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">"labels"</span><span class="p">,</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">labels</span><span class="p">,))</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">detail</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="s2">"full"</span><span class="p">,</span> <span class="s2">"light"</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"detail must be 'full' or 'light', got </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">detail</span><span class="si">!r}</span><span class="s2">"</span><span class="p">)</span></div>
+
+
+
+<span class="n">DEFAULT_TREATMENTS</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="n">Category</span><span class="p">,</span> <span class="n">CategoryTreatment</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="n">Category</span><span class="o">.</span><span class="n">bug</span><span class="p">:</span> <span class="n">CategoryTreatment</span><span class="p">((</span><span class="s2">"bug"</span><span class="p">,)),</span>
+    <span class="n">Category</span><span class="o">.</span><span class="n">feature</span><span class="p">:</span> <span class="n">CategoryTreatment</span><span class="p">((</span><span class="s2">"enhancement"</span><span class="p">,),</span> <span class="n">detail</span><span class="o">=</span><span class="s2">"light"</span><span class="p">),</span>
+    <span class="n">Category</span><span class="o">.</span><span class="n">question</span><span class="p">:</span> <span class="n">CategoryTreatment</span><span class="p">((</span><span class="s2">"question"</span><span class="p">,),</span> <span class="n">detail</span><span class="o">=</span><span class="s2">"light"</span><span class="p">),</span>
+    <span class="n">Category</span><span class="o">.</span><span class="n">other</span><span class="p">:</span> <span class="n">CategoryTreatment</span><span class="p">((),</span> <span class="n">detail</span><span class="o">=</span><span class="s2">"full"</span><span class="p">),</span>
 <span class="p">}</span>
+
+<span class="c1"># Kept for callers that read the label defaults.</span>
+<span class="n">DEFAULT_LABELS</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="n">Category</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="n">category</span><span class="p">:</span> <span class="n">treatment</span><span class="o">.</span><span class="n">labels</span> <span class="k">for</span> <span class="n">category</span><span class="p">,</span> <span class="n">treatment</span> <span class="ow">in</span> <span class="n">DEFAULT_TREATMENTS</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+<span class="p">}</span>
+
+<span class="c1">#: Issue labels a maintainer applies to move an item along; the board reads them back.</span>
+<span class="n">DEFAULT_STATUS_LABELS</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Status</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">"triaged"</span><span class="p">:</span> <span class="n">Status</span><span class="o">.</span><span class="n">triaged</span><span class="p">,</span>
+    <span class="s2">"planned"</span><span class="p">:</span> <span class="n">Status</span><span class="o">.</span><span class="n">planned</span><span class="p">,</span>
+    <span class="s2">"in progress"</span><span class="p">:</span> <span class="n">Status</span><span class="o">.</span><span class="n">started</span><span class="p">,</span>
+    <span class="s2">"duplicate"</span><span class="p">:</span> <span class="n">Status</span><span class="o">.</span><span class="n">duplicate</span><span class="p">,</span>
+    <span class="s2">"wontfix"</span><span class="p">:</span> <span class="n">Status</span><span class="o">.</span><span class="n">declined</span><span class="p">,</span>
+<span class="p">}</span>
+
+<span class="c1">#: The most pages (of 100 issues) one board read will fetch.</span>
+<span class="n">MAX_BOARD_PAGES</span> <span class="o">=</span> <span class="mi">10</span>
+
+<span class="c1">#: A maintainer adds this label to put an item on the public board. Opt-in, because the</span>
+<span class="c1">#: title of an unmoderated report must not reach a public page by default.</span>
+<span class="n">DEFAULT_PUBLIC_LABEL</span> <span class="o">=</span> <span class="s2">"public"</span>
 
 
 <div class="viewcode-block" id="GitHubIssuesSink">
 <a class="viewcode-back" href="../../../_autosummary/heed.sinks.github.html#heed.GitHubIssuesSink">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">GitHubIssuesSink</span><span class="p">(</span><span class="n">BaseSink</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">"""Route a report to a GitHub issue via an injected ``create_issue`` callable."""</span>
+<span class="w">    </span><span class="sd">"""Route a report to a GitHub issue via an injected ``create_issue`` callable.</span>
+
+<span class="sd">    ``treatments`` says, per category, the labels, a title prefix and how much context</span>
+<span class="sd">    the issue carries (``label_map`` is the older labels-only spelling and still wins</span>
+<span class="sd">    for labels). With ``list_issues`` it can also read its issues back as a board's</span>
+<span class="sd">    :class:`~heed.board.PublicItem` entries: only those carrying ``public_label``, with</span>
+<span class="sd">    status from ``status_labels`` (or the issue's closed state) and votes from the 👍</span>
+<span class="sd">    reactions.</span>
+<span class="sd">    """</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -757,29 +815,172 @@ window.runMermaid = runMermaid;</script>
         <span class="o">*</span><span class="p">,</span>
         <span class="n">label_map</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="n">Category</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">]]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">screenshot_url</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">Report</span><span class="p">],</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">treatments</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="n">Category</span><span class="p">,</span> <span class="n">CategoryTreatment</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">list_issues</span><span class="p">:</span> <span class="n">ListIssues</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">public_label</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">DEFAULT_PUBLIC_LABEL</span><span class="p">,</span>
+        <span class="n">status_labels</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Status</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_create_issue</span> <span class="o">=</span> <span class="n">create_issue</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_label_map</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">label_map</span> <span class="ow">or</span> <span class="n">DEFAULT_LABELS</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_screenshot_url</span> <span class="o">=</span> <span class="n">screenshot_url</span>
+        <span class="c1"># ``label_map`` is the labels-only spelling and, as before, replaces the whole</span>
+        <span class="c1"># label table (a category it omits gets no label).</span>
+        <span class="n">base</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">DEFAULT_TREATMENTS</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">label_map</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">base</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="n">category</span><span class="p">:</span> <span class="n">CategoryTreatment</span><span class="p">(</span>
+                    <span class="nb">tuple</span><span class="p">(</span><span class="n">label_map</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">category</span><span class="p">,</span> <span class="p">())),</span>
+                    <span class="n">detail</span><span class="o">=</span><span class="n">DEFAULT_TREATMENTS</span><span class="p">[</span><span class="n">category</span><span class="p">]</span><span class="o">.</span><span class="n">detail</span><span class="p">,</span>
+                <span class="p">)</span>
+                <span class="k">for</span> <span class="n">category</span> <span class="ow">in</span> <span class="n">Category</span>
+            <span class="p">}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_treatments</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">category</span><span class="p">:</span> <span class="n">_resolve</span><span class="p">(</span><span class="n">base</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">category</span><span class="p">),</span> <span class="p">(</span><span class="n">treatments</span> <span class="ow">or</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">category</span><span class="p">))</span>
+            <span class="k">for</span> <span class="n">category</span> <span class="ow">in</span> <span class="n">Category</span>
+        <span class="p">}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_list_issues</span> <span class="o">=</span> <span class="n">list_issues</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_public_label</span> <span class="o">=</span> <span class="n">public_label</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_status_labels</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span>
+            <span class="n">DEFAULT_STATUS_LABELS</span> <span class="k">if</span> <span class="n">status_labels</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">status_labels</span>
+        <span class="p">)</span>
+
+<div class="viewcode-block" id="GitHubIssuesSink.treatment">
+<a class="viewcode-back" href="../../../_autosummary/heed.sinks.github.html#heed.GitHubIssuesSink.treatment">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">treatment</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">category</span><span class="p">:</span> <span class="n">Category</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CategoryTreatment</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""The treatment applied to reports of ``category``."""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_treatments</span><span class="p">[</span><span class="n">Category</span><span class="p">(</span><span class="n">category</span><span class="p">)]</span></div>
+
 
     <span class="k">def</span><span class="w"> </span><span class="nf">submit</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">report</span><span class="p">:</span> <span class="n">Report</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SinkResult</span><span class="p">:</span>
-        <span class="n">labels</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_label_map</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">report</span><span class="o">.</span><span class="n">category</span><span class="p">,</span> <span class="p">()))</span> <span class="o">+</span> <span class="nb">list</span><span class="p">(</span><span class="n">report</span><span class="o">.</span><span class="n">labels</span><span class="p">)</span>
+        <span class="n">treatment</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">treatment</span><span class="p">(</span><span class="n">report</span><span class="o">.</span><span class="n">category</span><span class="p">)</span>
+        <span class="n">labels</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">treatment</span><span class="o">.</span><span class="n">labels</span><span class="p">)</span> <span class="o">+</span> <span class="nb">list</span><span class="p">(</span><span class="n">report</span><span class="o">.</span><span class="n">labels</span><span class="p">)</span>
+        <span class="n">light</span> <span class="o">=</span> <span class="n">treatment</span><span class="o">.</span><span class="n">detail</span> <span class="o">==</span> <span class="s2">"light"</span>
+        <span class="c1"># A screenshot the server kept is always linked, even in a light issue: kept</span>
+        <span class="c1"># data that nothing references would be retained for no reason.</span>
         <span class="n">url</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_screenshot_url</span><span class="p">(</span><span class="n">report</span><span class="p">)</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_screenshot_url</span> <span class="k">else</span> <span class="kc">None</span>
-        <span class="n">body</span> <span class="o">=</span> <span class="n">render_issue_body</span><span class="p">(</span><span class="n">report</span><span class="p">,</span> <span class="n">screenshot_url</span><span class="o">=</span><span class="n">url</span><span class="p">)</span>
-        <span class="n">issue</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_issue</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="n">report</span><span class="o">.</span><span class="n">title</span><span class="p">,</span> <span class="n">body</span><span class="o">=</span><span class="n">body</span><span class="p">,</span> <span class="n">labels</span><span class="o">=</span><span class="n">labels</span><span class="p">)</span>
+        <span class="n">body</span> <span class="o">=</span> <span class="n">render_issue_body</span><span class="p">(</span><span class="n">report</span><span class="p">,</span> <span class="n">screenshot_url</span><span class="o">=</span><span class="n">url</span><span class="p">,</span> <span class="n">light</span><span class="o">=</span><span class="n">light</span><span class="p">)</span>
+        <span class="n">issue</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_issue</span><span class="p">(</span>
+            <span class="n">title</span><span class="o">=</span><span class="n">treatment</span><span class="o">.</span><span class="n">title_prefix</span> <span class="o">+</span> <span class="n">report</span><span class="o">.</span><span class="n">title</span><span class="p">,</span> <span class="n">body</span><span class="o">=</span><span class="n">body</span><span class="p">,</span> <span class="n">labels</span><span class="o">=</span><span class="n">labels</span>
+        <span class="p">)</span>
         <span class="n">number</span> <span class="o">=</span> <span class="n">issue</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"number"</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">SinkResult</span><span class="p">(</span>
             <span class="n">ok</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
             <span class="n">external_ref</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">number</span><span class="p">)</span> <span class="k">if</span> <span class="n">number</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
             <span class="n">url</span><span class="o">=</span><span class="n">issue</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"html_url"</span><span class="p">),</span>
-        <span class="p">)</span></div>
+        <span class="p">)</span>
 
+<div class="viewcode-block" id="GitHubIssuesSink.public_items">
+<a class="viewcode-back" href="../../../_autosummary/heed.sinks.github.html#heed.GitHubIssuesSink.public_items">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">public_items</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">category</span><span class="p">:</span> <span class="n">Category</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">PublicItem</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">"""The board's items: issues labelled ``public_label``, as :class:`PublicItem`.</span>
+
+<span class="sd">        Empty without ``list_issues``. Only title, category, status, link, votes and</span>
+<span class="sd">        dates leave the sink: never an issue body (which holds the reporter's</span>
+<span class="sd">        environment and identity).</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_list_issues</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">[]</span>
+        <span class="n">wanted</span> <span class="o">=</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">category</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">Category</span><span class="p">(</span><span class="n">category</span><span class="p">)</span>
+        <span class="n">items</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">issue</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_list_issues</span><span class="p">(</span><span class="n">labels</span><span class="o">=</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_public_label</span><span class="p">],</span> <span class="n">state</span><span class="o">=</span><span class="s2">"all"</span><span class="p">):</span>
+            <span class="k">if</span> <span class="s2">"pull_request"</span> <span class="ow">in</span> <span class="n">issue</span> <span class="ow">or</span> <span class="n">issue</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"number"</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">continue</span>  <span class="c1"># the issues API also returns pull requests</span>
+            <span class="n">names</span> <span class="o">=</span> <span class="p">[</span><span class="n">_label_name</span><span class="p">(</span><span class="n">label</span><span class="p">)</span> <span class="k">for</span> <span class="n">label</span> <span class="ow">in</span> <span class="n">issue</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"labels"</span><span class="p">,</span> <span class="p">())]</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_public_label</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">names</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="n">item_category</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_category_of</span><span class="p">(</span><span class="n">names</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">wanted</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">item_category</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">wanted</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="n">items</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="n">PublicItem</span><span class="p">(</span>
+                    <span class="n">ref</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">issue</span><span class="p">[</span><span class="s2">"number"</span><span class="p">]),</span>
+                    <span class="n">title</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">issue</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"title"</span><span class="p">)</span> <span class="ow">or</span> <span class="s2">""</span><span class="p">),</span>
+                    <span class="n">category</span><span class="o">=</span><span class="n">item_category</span><span class="p">,</span>
+                    <span class="n">status</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_status_of</span><span class="p">(</span><span class="n">issue</span><span class="p">,</span> <span class="nb">set</span><span class="p">(</span><span class="n">names</span><span class="p">)),</span>
+                    <span class="n">url</span><span class="o">=</span><span class="n">issue</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"html_url"</span><span class="p">),</span>
+                    <span class="n">votes</span><span class="o">=</span><span class="n">_votes</span><span class="p">(</span><span class="n">issue</span><span class="p">),</span>
+                    <span class="n">created_at</span><span class="o">=</span><span class="n">issue</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"created_at"</span><span class="p">),</span>
+                    <span class="n">closed_at</span><span class="o">=</span><span class="n">issue</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"closed_at"</span><span class="p">),</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">items</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_category_of</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">names</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Category</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""The category whose labels the issue carries; the earliest label wins."""</span>
+        <span class="n">have</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">names</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">names</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">category</span><span class="p">,</span> <span class="n">treatment</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_treatments</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="n">labels</span> <span class="o">=</span> <span class="n">treatment</span><span class="o">.</span><span class="n">labels</span> <span class="ow">or</span> <span class="p">()</span>
+                <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">labels</span> <span class="ow">and</span> <span class="nb">set</span><span class="p">(</span><span class="n">labels</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="n">have</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="n">category</span>
+        <span class="k">return</span> <span class="n">Category</span><span class="o">.</span><span class="n">other</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_status_of</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">issue</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">names</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Status</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Status from the issue's state and labels.</span>
+
+<span class="sd">        A closed issue is finished whatever stage label it still carries; a terminal</span>
+<span class="sd">        label (duplicate, wontfix) wins over the state; of several stage labels the</span>
+<span class="sd">        furthest along counts.</span>
+<span class="sd">        """</span>
+        <span class="n">marked</span> <span class="o">=</span> <span class="p">[</span><span class="n">s</span> <span class="k">for</span> <span class="n">label</span><span class="p">,</span> <span class="n">s</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_status_labels</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">label</span> <span class="ow">in</span> <span class="n">names</span><span class="p">]</span>
+        <span class="n">terminal</span> <span class="o">=</span> <span class="p">[</span><span class="n">s</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">marked</span> <span class="k">if</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">_TERMINAL</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">terminal</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">terminal</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">issue</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"state"</span><span class="p">)</span> <span class="o">==</span> <span class="s2">"closed"</span><span class="p">:</span>
+            <span class="n">reason</span> <span class="o">=</span> <span class="n">issue</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"state_reason"</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">reason</span> <span class="o">==</span> <span class="s2">"duplicate"</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">Status</span><span class="o">.</span><span class="n">duplicate</span>
+            <span class="k">return</span> <span class="n">Status</span><span class="o">.</span><span class="n">declined</span> <span class="k">if</span> <span class="n">reason</span> <span class="o">==</span> <span class="s2">"not_planned"</span> <span class="k">else</span> <span class="n">Status</span><span class="o">.</span><span class="n">completed</span>
+        <span class="n">stages</span> <span class="o">=</span> <span class="p">[</span><span class="n">s</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">marked</span> <span class="k">if</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">_STAGES</span><span class="p">]</span>
+        <span class="k">return</span> <span class="nb">max</span><span class="p">(</span><span class="n">stages</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="n">_STAGES</span><span class="o">.</span><span class="n">index</span><span class="p">)</span> <span class="k">if</span> <span class="n">stages</span> <span class="k">else</span> <span class="n">Status</span><span class="o">.</span><span class="n">received</span></div>
+
+
+
+<span class="c1">#: Open-issue stages, least to furthest along.</span>
+<span class="n">_STAGES</span> <span class="o">=</span> <span class="p">(</span><span class="n">Status</span><span class="o">.</span><span class="n">received</span><span class="p">,</span> <span class="n">Status</span><span class="o">.</span><span class="n">triaged</span><span class="p">,</span> <span class="n">Status</span><span class="o">.</span><span class="n">planned</span><span class="p">,</span> <span class="n">Status</span><span class="o">.</span><span class="n">started</span><span class="p">)</span>
+<span class="n">_TERMINAL</span> <span class="o">=</span> <span class="p">(</span><span class="n">Status</span><span class="o">.</span><span class="n">duplicate</span><span class="p">,</span> <span class="n">Status</span><span class="o">.</span><span class="n">declined</span><span class="p">,</span> <span class="n">Status</span><span class="o">.</span><span class="n">completed</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_resolve</span><span class="p">(</span>
+    <span class="n">default</span><span class="p">:</span> <span class="n">CategoryTreatment</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="n">given</span><span class="p">:</span> <span class="n">CategoryTreatment</span> <span class="o">|</span> <span class="kc">None</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CategoryTreatment</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""``given`` over ``default``, field by field (``None`` keeps the default)."""</span>
+    <span class="n">base_labels</span> <span class="o">=</span> <span class="p">()</span> <span class="k">if</span> <span class="n">default</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">default</span><span class="o">.</span><span class="n">labels</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">default</span><span class="o">.</span><span class="n">labels</span>
+    <span class="n">base_detail</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="s2">"full"</span> <span class="k">if</span> <span class="n">default</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">default</span><span class="o">.</span><span class="n">detail</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">default</span><span class="o">.</span><span class="n">detail</span>
+    <span class="p">)</span>
+    <span class="k">if</span> <span class="n">given</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">CategoryTreatment</span><span class="p">(</span>
+            <span class="n">base_labels</span><span class="p">,</span> <span class="n">default</span><span class="o">.</span><span class="n">title_prefix</span> <span class="k">if</span> <span class="n">default</span> <span class="k">else</span> <span class="s2">""</span><span class="p">,</span> <span class="n">base_detail</span>
+        <span class="p">)</span>
+    <span class="k">return</span> <span class="n">CategoryTreatment</span><span class="p">(</span>
+        <span class="n">labels</span><span class="o">=</span><span class="n">base_labels</span> <span class="k">if</span> <span class="n">given</span><span class="o">.</span><span class="n">labels</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">given</span><span class="o">.</span><span class="n">labels</span><span class="p">),</span>
+        <span class="n">title_prefix</span><span class="o">=</span><span class="n">given</span><span class="o">.</span><span class="n">title_prefix</span><span class="p">,</span>
+        <span class="n">detail</span><span class="o">=</span><span class="n">base_detail</span> <span class="k">if</span> <span class="n">given</span><span class="o">.</span><span class="n">detail</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">given</span><span class="o">.</span><span class="n">detail</span><span class="p">,</span>
+    <span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_label_name</span><span class="p">(</span><span class="n">label</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="n">label</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"name"</span><span class="p">,</span> <span class="s2">""</span><span class="p">))</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">label</span><span class="p">,</span> <span class="n">Mapping</span><span class="p">)</span> <span class="k">else</span> <span class="nb">str</span><span class="p">(</span><span class="n">label</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_votes</span><span class="p">(</span><span class="n">issue</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+    <span class="n">reactions</span> <span class="o">=</span> <span class="n">issue</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"reactions"</span><span class="p">)</span>
+    <span class="n">plus</span> <span class="o">=</span> <span class="n">reactions</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"+1"</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">reactions</span><span class="p">,</span> <span class="n">Mapping</span><span class="p">)</span> <span class="k">else</span> <span class="mi">0</span>
+    <span class="k">return</span> <span class="n">plus</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">plus</span><span class="p">,</span> <span class="nb">int</span><span class="p">)</span> <span class="ow">and</span> <span class="n">plus</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="mi">0</span>
 
 
 <div class="viewcode-block" id="render_issue_body">
 <a class="viewcode-back" href="../../../_autosummary/heed.sinks.github.html#heed.render_issue_body">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">render_issue_body</span><span class="p">(</span><span class="n">report</span><span class="p">:</span> <span class="n">Report</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">screenshot_url</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">"""Render a report as a GitHub-flavoured markdown issue body."""</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">render_issue_body</span><span class="p">(</span>
+    <span class="n">report</span><span class="p">:</span> <span class="n">Report</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">screenshot_url</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">light</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Render a report as a GitHub-flavoured markdown issue body.</span>
+
+<span class="sd">    ``light`` leaves out the environment, console and network (a feature request's</span>
+<span class="sd">    intake; a screenshot the server kept is still linked): the idea, the page it came</span>
+<span class="sd">    from, and who asked.</span>
+<span class="sd">    """</span>
     <span class="n">lines</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="k">if</span> <span class="n">report</span><span class="o">.</span><span class="n">body</span><span class="p">:</span>
         <span class="n">lines</span> <span class="o">+=</span> <span class="p">[</span><span class="n">report</span><span class="o">.</span><span class="n">body</span><span class="p">,</span> <span class="s2">""</span><span class="p">]</span>
@@ -788,7 +989,7 @@ window.runMermaid = runMermaid;</script>
     <span class="n">meta</span> <span class="o">=</span> <span class="p">[</span><span class="sa">f</span><span class="s2">"- **Category**: </span><span class="si">{</span><span class="n">report</span><span class="o">.</span><span class="n">category</span><span class="o">.</span><span class="n">value</span><span class="si">}</span><span class="s2">"</span><span class="p">]</span>
     <span class="k">if</span> <span class="n">report</span><span class="o">.</span><span class="n">page_url</span><span class="p">:</span>
         <span class="n">meta</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">"- **URL**: </span><span class="si">{</span><span class="n">report</span><span class="o">.</span><span class="n">page_url</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">report</span><span class="o">.</span><span class="n">env</span><span class="o">.</span><span class="n">browser</span> <span class="ow">or</span> <span class="n">report</span><span class="o">.</span><span class="n">env</span><span class="o">.</span><span class="n">os</span><span class="p">:</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">light</span> <span class="ow">and</span> <span class="p">(</span><span class="n">report</span><span class="o">.</span><span class="n">env</span><span class="o">.</span><span class="n">browser</span> <span class="ow">or</span> <span class="n">report</span><span class="o">.</span><span class="n">env</span><span class="o">.</span><span class="n">os</span><span class="p">):</span>
         <span class="n">env_line</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"- **Env**: </span><span class="si">{</span><span class="n">report</span><span class="o">.</span><span class="n">env</span><span class="o">.</span><span class="n">browser</span><span class="w"> </span><span class="ow">or</span><span class="w"> </span><span class="s1">'?'</span><span class="si">}</span><span class="s2"> on </span><span class="si">{</span><span class="n">report</span><span class="o">.</span><span class="n">env</span><span class="o">.</span><span class="n">os</span><span class="w"> </span><span class="ow">or</span><span class="w"> </span><span class="s1">'?'</span><span class="si">}</span><span class="s2">"</span>
         <span class="k">if</span> <span class="n">report</span><span class="o">.</span><span class="n">env</span><span class="o">.</span><span class="n">viewport</span><span class="p">:</span>
             <span class="n">env_line</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">" (</span><span class="si">{</span><span class="n">report</span><span class="o">.</span><span class="n">env</span><span class="o">.</span><span class="n">viewport</span><span class="si">}</span><span class="s2">)"</span>
@@ -798,6 +999,8 @@ window.runMermaid = runMermaid;</script>
 
     <span class="k">if</span> <span class="n">screenshot_url</span><span class="p">:</span>
         <span class="n">lines</span> <span class="o">+=</span> <span class="p">[</span><span class="sa">f</span><span class="s2">"![screenshot](</span><span class="si">{</span><span class="n">screenshot_url</span><span class="si">}</span><span class="s2">)"</span><span class="p">,</span> <span class="s2">""</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">light</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">lines</span><span class="p">)</span><span class="o">.</span><span class="n">rstrip</span><span class="p">()</span> <span class="o">+</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span>
     <span class="k">if</span> <span class="n">report</span><span class="o">.</span><span class="n">console</span><span class="p">:</span>
         <span class="n">lines</span> <span class="o">+=</span> <span class="n">_collapsible</span><span class="p">(</span>
             <span class="s2">"Console"</span><span class="p">,</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="sa">f</span><span class="s2">"[</span><span class="si">{</span><span class="n">e</span><span class="o">.</span><span class="n">level</span><span class="si">}</span><span class="s2">] </span><span class="si">{</span><span class="n">e</span><span class="o">.</span><span class="n">message</span><span class="si">}</span><span class="s2">"</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">report</span><span class="o">.</span><span class="n">console</span><span class="p">)</span>
@@ -850,6 +1053,21 @@ window.runMermaid = runMermaid;</script>
     <span class="k">def</span><span class="w"> </span><span class="nf">create_issue</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">title</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">body</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">labels</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
         <span class="k">return</span> <span class="n">api</span><span class="o">.</span><span class="n">issues</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="n">title</span><span class="p">,</span> <span class="n">body</span><span class="o">=</span><span class="n">body</span><span class="p">,</span> <span class="n">labels</span><span class="o">=</span><span class="n">labels</span><span class="p">)</span>
 
+    <span class="k">def</span><span class="w"> </span><span class="nf">list_issues</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">labels</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">state</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"all"</span><span class="p">):</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">itertools</span><span class="w"> </span><span class="kn">import</span> <span class="n">islice</span>
+
+        <span class="kn">from</span><span class="w"> </span><span class="nn">ghapi.all</span><span class="w"> </span><span class="kn">import</span> <span class="n">paged</span>
+
+        <span class="n">pages</span> <span class="o">=</span> <span class="n">paged</span><span class="p">(</span>
+            <span class="n">api</span><span class="o">.</span><span class="n">issues</span><span class="o">.</span><span class="n">list_for_repo</span><span class="p">,</span>
+            <span class="n">labels</span><span class="o">=</span><span class="s2">","</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">labels</span><span class="p">),</span>
+            <span class="n">state</span><span class="o">=</span><span class="n">state</span><span class="p">,</span>
+            <span class="n">per_page</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">for</span> <span class="n">page</span> <span class="ow">in</span> <span class="n">islice</span><span class="p">(</span><span class="n">pages</span><span class="p">,</span> <span class="n">MAX_BOARD_PAGES</span><span class="p">):</span>
+            <span class="k">yield from</span> <span class="n">page</span>
+
+    <span class="n">kwargs</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">"list_issues"</span><span class="p">,</span> <span class="n">list_issues</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">GitHubIssuesSink</span><span class="p">(</span><span class="n">create_issue</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
 
 </pre></div>

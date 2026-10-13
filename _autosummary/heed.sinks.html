@@ -320,6 +320,7 @@
   <div class="bd-toc-item navbar-nav"><ul class="current nav bd-sidenav">
 <li class="toctree-l1 current active has-children"><a class="reference internal" href="heed.html">heed</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
 <li class="toctree-l2"><a class="reference internal" href="heed.base.html">heed.base</a></li>
+<li class="toctree-l2"><a class="reference internal" href="heed.board.html">heed.board</a></li>
 <li class="toctree-l2"><a class="reference internal" href="heed.config.html">heed.config</a></li>
 <li class="toctree-l2"><a class="reference internal" href="heed.images.html">heed.images</a></li>
 <li class="toctree-l2"><a class="reference internal" href="heed.ingest.html">heed.ingest</a></li>
@@ -328,6 +329,7 @@
 <li class="toctree-l2"><a class="reference internal" href="heed.serving.html">heed.serving</a></li>
 <li class="toctree-l2 current active has-children"><a aria-current="page" class="current reference internal" href="#">heed.sinks</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l3"><a class="reference internal" href="heed.sinks.base.html">heed.sinks.base</a></li>
+<li class="toctree-l3"><a class="reference internal" href="heed.sinks.category.html">heed.sinks.category</a></li>
 <li class="toctree-l3"><a class="reference internal" href="heed.sinks.github.html">heed.sinks.github</a></li>
 <li class="toctree-l3"><a class="reference internal" href="heed.sinks.store.html">heed.sinks.store</a></li>
 </ul>
@@ -409,7 +411,7 @@
 <tr class="row-odd"><td><p><a class="reference internal" href="#heed.sinks.github_sink_from_token" title="heed.sinks.github_sink_from_token"><code class="xref py py-obj docutils literal notranslate"><span class="pre">github_sink_from_token</span></code></a>(repo, token, **kwargs)</p></td>
 <td><p>Build a GitHubIssuesSink that creates issues in <code class="docutils literal notranslate"><span class="pre">repo</span></code> ('owner/name').</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#heed.sinks.render_issue_body" title="heed.sinks.render_issue_body"><code class="xref py py-obj docutils literal notranslate"><span class="pre">render_issue_body</span></code></a>(report, *[, screenshot_url])</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#heed.sinks.render_issue_body" title="heed.sinks.render_issue_body"><code class="xref py py-obj docutils literal notranslate"><span class="pre">render_issue_body</span></code></a>(report, *[, ...])</p></td>
 <td><p>Render a report as a GitHub-flavoured markdown issue body.</p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="#heed.sinks.get_sink_class" title="heed.sinks.get_sink_class"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_sink_class</span></code></a>(name)</p></td>
@@ -438,6 +440,12 @@
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="#heed.sinks.GitHubIssuesSink" title="heed.sinks.GitHubIssuesSink"><code class="xref py py-obj docutils literal notranslate"><span class="pre">GitHubIssuesSink</span></code></a>(create_issue, *[, ...])</p></td>
 <td><p>Route a report to a GitHub issue via an injected <code class="docutils literal notranslate"><span class="pre">create_issue</span></code> callable.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#heed.sinks.CategorySink" title="heed.sinks.CategorySink"><code class="xref py py-obj docutils literal notranslate"><span class="pre">CategorySink</span></code></a>(sinks, *, default)</p></td>
+<td><p>Route by <code class="docutils literal notranslate"><span class="pre">report.category</span></code>; unlisted categories go to <code class="docutils literal notranslate"><span class="pre">default</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#heed.sinks.CategoryTreatment" title="heed.sinks.CategoryTreatment"><code class="xref py py-obj docutils literal notranslate"><span class="pre">CategoryTreatment</span></code></a>([labels, title_prefix, detail])</p></td>
+<td><p>What one category of report becomes as a GitHub issue.</p></td>
 </tr>
 </tbody>
 </table>
@@ -469,6 +477,92 @@
 </dl>
 </dd></dl>
 
+<dl class="py method">
+<dt class="sig sig-object py" id="heed.sinks.BaseSink.public_items">
+<span class="sig-name descname"><span class="pre">public_items</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">category</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/sinks/base.html#BaseSink.public_items"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.sinks.BaseSink.public_items" title="Link to this definition">#</a></dt>
+<dd><p>The items a public board may show (default: none; see <a class="reference internal" href="heed.board.html#module-heed.board" title="heed.board"><code class="xref py py-mod docutils literal notranslate"><span class="pre">heed.board</span></code></a>).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a>[<a class="reference internal" href="heed.board.html#heed.board.PublicItem" title="heed.board.PublicItem"><code class="xref py py-class docutils literal notranslate"><span class="pre">PublicItem</span></code></a>]</span></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="heed.sinks.CategorySink">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">heed.sinks.</span></span><span class="sig-name descname"><span class="pre">CategorySink</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sinks</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">default</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/sinks/category.html#CategorySink"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.sinks.CategorySink" title="Link to this definition">#</a></dt>
+<dd><p>Bases: <a class="reference internal" href="heed.sinks.base.html#heed.sinks.base.BaseSink" title="heed.sinks.base.BaseSink"><code class="xref py py-class docutils literal notranslate"><span class="pre">BaseSink</span></code></a></p>
+<p>Route by <code class="docutils literal notranslate"><span class="pre">report.category</span></code>; unlisted categories go to <code class="docutils literal notranslate"><span class="pre">default</span></code>.</p>
+<dl class="field-list simple">
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="heed.sinks.CategorySink.acknowledge">
+<span class="sig-name descname"><span class="pre">acknowledge</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">report</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/sinks/category.html#CategorySink.acknowledge"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.sinks.CategorySink.acknowledge" title="Link to this definition">#</a></dt>
+<dd><p>Hook called after a successful submit (default: no-op).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a></span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="heed.sinks.CategorySink.find_duplicates">
+<span class="sig-name descname"><span class="pre">find_duplicates</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">report</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/sinks/category.html#CategorySink.find_duplicates"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.sinks.CategorySink.find_duplicates" title="Link to this definition">#</a></dt>
+<dd><p>Return likely duplicates of <code class="docutils literal notranslate"><span class="pre">report</span></code> (default: none).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a>[<a class="reference internal" href="heed.sinks.base.html#heed.sinks.base.DupCandidate" title="heed.sinks.base.DupCandidate"><code class="xref py py-class docutils literal notranslate"><span class="pre">DupCandidate</span></code></a>]</span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="heed.sinks.CategorySink.public_items">
+<span class="sig-name descname"><span class="pre">public_items</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">category</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/sinks/category.html#CategorySink.public_items"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.sinks.CategorySink.public_items" title="Link to this definition">#</a></dt>
+<dd><p>Every distinct member sink’s public items (a shared link once).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a>[<a class="reference internal" href="heed.board.html#heed.board.PublicItem" title="heed.board.PublicItem"><code class="xref py py-class docutils literal notranslate"><span class="pre">PublicItem</span></code></a>]</span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="heed.sinks.CategorySink.sink_for">
+<span class="sig-name descname"><span class="pre">sink_for</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">category</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/sinks/category.html#CategorySink.sink_for"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.sinks.CategorySink.sink_for" title="Link to this definition">#</a></dt>
+<dd><p>The sink that receives reports of <code class="docutils literal notranslate"><span class="pre">category</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference internal" href="heed.sinks.base.html#heed.sinks.base.Sink" title="heed.sinks.base.Sink"><code class="xref py py-class docutils literal notranslate"><span class="pre">Sink</span></code></a></span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="heed.sinks.CategorySink.sinks">
+<span class="sig-name descname"><span class="pre">sinks</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/sinks/category.html#CategorySink.sinks"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.sinks.CategorySink.sinks" title="Link to this definition">#</a></dt>
+<dd><p>Every distinct member sink, including the default.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a>[<a class="reference internal" href="heed.sinks.base.html#heed.sinks.base.Sink" title="heed.sinks.base.Sink"><code class="xref py py-class docutils literal notranslate"><span class="pre">Sink</span></code></a>]</span></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="heed.sinks.CategoryTreatment">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">heed.sinks.</span></span><span class="sig-name descname"><span class="pre">CategoryTreatment</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">labels</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">title_prefix</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">detail</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/sinks/github.html#CategoryTreatment"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.sinks.CategoryTreatment" title="Link to this definition">#</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/builtins/functions.html#object" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>What one category of report becomes as a GitHub issue.</p>
+<p><code class="docutils literal notranslate"><span class="pre">detail=&quot;light&quot;</span></code> is the feature-request intake: the idea and who asked, without
+the browser/console/network dump or a screenshot, which say nothing about a wish.</p>
+<dl class="field-list simple">
+</dl>
 </dd></dl>
 
 <dl class="py class">
@@ -488,11 +582,42 @@
 
 <dl class="py class">
 <dt class="sig sig-object py" id="heed.sinks.GitHubIssuesSink">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">heed.sinks.</span></span><span class="sig-name descname"><span class="pre">GitHubIssuesSink</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">create_issue</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">label_map</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">screenshot_url</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/sinks/github.html#GitHubIssuesSink"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.sinks.GitHubIssuesSink" title="Link to this definition">#</a></dt>
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">heed.sinks.</span></span><span class="sig-name descname"><span class="pre">GitHubIssuesSink</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">create_issue</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">label_map</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">screenshot_url</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">treatments</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">list_issues</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">public_label</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'public'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">status_labels</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/sinks/github.html#GitHubIssuesSink"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.sinks.GitHubIssuesSink" title="Link to this definition">#</a></dt>
 <dd><p>Bases: <a class="reference internal" href="heed.sinks.base.html#heed.sinks.base.BaseSink" title="heed.sinks.base.BaseSink"><code class="xref py py-class docutils literal notranslate"><span class="pre">BaseSink</span></code></a></p>
 <p>Route a report to a GitHub issue via an injected <code class="docutils literal notranslate"><span class="pre">create_issue</span></code> callable.</p>
+<p><code class="docutils literal notranslate"><span class="pre">treatments</span></code> says, per category, the labels, a title prefix and how much context
+the issue carries (<code class="docutils literal notranslate"><span class="pre">label_map</span></code> is the older labels-only spelling and still wins
+for labels). With <code class="docutils literal notranslate"><span class="pre">list_issues</span></code> it can also read its issues back as a board’s
+<a class="reference internal" href="heed.board.html#heed.board.PublicItem" title="heed.board.PublicItem"><code class="xref py py-class docutils literal notranslate"><span class="pre">PublicItem</span></code></a> entries: only those carrying <code class="docutils literal notranslate"><span class="pre">public_label</span></code>, with
+status from <code class="docutils literal notranslate"><span class="pre">status_labels</span></code> (or the issue’s closed state) and votes from the 👍
+reactions.</p>
 <dl class="field-list simple">
 </dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="heed.sinks.GitHubIssuesSink.public_items">
+<span class="sig-name descname"><span class="pre">public_items</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">category</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/sinks/github.html#GitHubIssuesSink.public_items"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.sinks.GitHubIssuesSink.public_items" title="Link to this definition">#</a></dt>
+<dd><p>The board’s items: issues labelled <code class="docutils literal notranslate"><span class="pre">public_label</span></code>, as <code class="xref py py-class docutils literal notranslate"><span class="pre">PublicItem</span></code>.</p>
+<p>Empty without <code class="docutils literal notranslate"><span class="pre">list_issues</span></code>. Only title, category, status, link, votes and
+dates leave the sink: never an issue body (which holds the reporter’s
+environment and identity).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a>[<a class="reference internal" href="heed.board.html#heed.board.PublicItem" title="heed.board.PublicItem"><code class="xref py py-class docutils literal notranslate"><span class="pre">PublicItem</span></code></a>]</span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="heed.sinks.GitHubIssuesSink.treatment">
+<span class="sig-name descname"><span class="pre">treatment</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">category</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/sinks/github.html#GitHubIssuesSink.treatment"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.sinks.GitHubIssuesSink.treatment" title="Link to this definition">#</a></dt>
+<dd><p>The treatment applied to reports of <code class="docutils literal notranslate"><span class="pre">category</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference internal" href="heed.sinks.github.html#heed.sinks.github.CategoryTreatment" title="heed.sinks.github.CategoryTreatment"><code class="xref py py-class docutils literal notranslate"><span class="pre">CategoryTreatment</span></code></a></span></p>
+</dd>
+</dl>
+</dd></dl>
+
 </dd></dl>
 
 <dl class="py class">
@@ -566,8 +691,11 @@ App installation token or a PAT) — never shipped to the browser.</p>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="heed.sinks.render_issue_body">
-<span class="sig-prename descclassname"><span class="pre">heed.sinks.</span></span><span class="sig-name descname"><span class="pre">render_issue_body</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">report</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">screenshot_url</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/sinks/github.html#render_issue_body"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.sinks.render_issue_body" title="Link to this definition">#</a></dt>
+<span class="sig-prename descclassname"><span class="pre">heed.sinks.</span></span><span class="sig-name descname"><span class="pre">render_issue_body</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">report</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">screenshot_url</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">light</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/sinks/github.html#render_issue_body"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.sinks.render_issue_body" title="Link to this definition">#</a></dt>
 <dd><p>Render a report as a GitHub-flavoured markdown issue body.</p>
+<p><code class="docutils literal notranslate"><span class="pre">light</span></code> leaves out the environment, console and network (a feature request’s
+intake; a screenshot the server kept is still linked): the idea, the page it came
+from, and who asked.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></span></p>
@@ -581,10 +709,13 @@ App installation token or a PAT) — never shipped to the browser.</p>
 <tr class="row-odd"><td><p><a class="reference internal" href="heed.sinks.base.html#module-heed.sinks.base" title="heed.sinks.base"><code class="xref py py-obj docutils literal notranslate"><span class="pre">base</span></code></a></p></td>
 <td><p>The sink abstraction — where a report goes (strategy pattern).</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="heed.sinks.github.html#module-heed.sinks.github" title="heed.sinks.github"><code class="xref py py-obj docutils literal notranslate"><span class="pre">github</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="heed.sinks.category.html#module-heed.sinks.category" title="heed.sinks.category"><code class="xref py py-obj docutils literal notranslate"><span class="pre">category</span></code></a></p></td>
+<td><p>A sink that sends each category of report to its own sink.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="heed.sinks.github.html#module-heed.sinks.github" title="heed.sinks.github"><code class="xref py py-obj docutils literal notranslate"><span class="pre">github</span></code></a></p></td>
 <td><p>A sink that turns a report into a GitHub issue.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="heed.sinks.store.html#module-heed.sinks.store" title="heed.sinks.store"><code class="xref py py-obj docutils literal notranslate"><span class="pre">store</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="heed.sinks.store.html#module-heed.sinks.store" title="heed.sinks.store"><code class="xref py py-obj docutils literal notranslate"><span class="pre">store</span></code></a></p></td>
 <td><p>A sink that persists reports into a Mapping (the default, dependency-free sink).</p></td>
 </tr>
 </tbody>
@@ -642,13 +773,27 @@ App installation token or a PAT) — never shipped to the browser.</p>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.sinks.BaseSink"><code class="docutils literal notranslate"><span class="pre">BaseSink</span></code></a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.sinks.BaseSink.acknowledge"><code class="docutils literal notranslate"><span class="pre">BaseSink.acknowledge()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.sinks.BaseSink.find_duplicates"><code class="docutils literal notranslate"><span class="pre">BaseSink.find_duplicates()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.sinks.BaseSink.public_items"><code class="docutils literal notranslate"><span class="pre">BaseSink.public_items()</span></code></a></li>
 </ul>
 </li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.sinks.CategorySink"><code class="docutils literal notranslate"><span class="pre">CategorySink</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.sinks.CategorySink.acknowledge"><code class="docutils literal notranslate"><span class="pre">CategorySink.acknowledge()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.sinks.CategorySink.find_duplicates"><code class="docutils literal notranslate"><span class="pre">CategorySink.find_duplicates()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.sinks.CategorySink.public_items"><code class="docutils literal notranslate"><span class="pre">CategorySink.public_items()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.sinks.CategorySink.sink_for"><code class="docutils literal notranslate"><span class="pre">CategorySink.sink_for()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.sinks.CategorySink.sinks"><code class="docutils literal notranslate"><span class="pre">CategorySink.sinks()</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.sinks.CategoryTreatment"><code class="docutils literal notranslate"><span class="pre">CategoryTreatment</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.sinks.DupCandidate"><code class="docutils literal notranslate"><span class="pre">DupCandidate</span></code></a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.sinks.DupCandidate.model_config"><code class="docutils literal notranslate"><span class="pre">DupCandidate.model_config</span></code></a></li>
 </ul>
 </li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.sinks.GitHubIssuesSink"><code class="docutils literal notranslate"><span class="pre">GitHubIssuesSink</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.sinks.GitHubIssuesSink"><code class="docutils literal notranslate"><span class="pre">GitHubIssuesSink</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.sinks.GitHubIssuesSink.public_items"><code class="docutils literal notranslate"><span class="pre">GitHubIssuesSink.public_items()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.sinks.GitHubIssuesSink.treatment"><code class="docutils literal notranslate"><span class="pre">GitHubIssuesSink.treatment()</span></code></a></li>
+</ul>
+</li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.sinks.Sink"><code class="docutils literal notranslate"><span class="pre">Sink</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.sinks.SinkResult"><code class="docutils literal notranslate"><span class="pre">SinkResult</span></code></a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.sinks.SinkResult.model_config"><code class="docutils literal notranslate"><span class="pre">SinkResult.model_config</span></code></a></li>

@@ -22,6 +22,8 @@ heed.sinks
       DupCandidate
       StoreSink
       GitHubIssuesSink
+      CategorySink
+      CategoryTreatment
    
 .. rubric:: Modules
 
@@ -30,5 +32,6 @@ heed.sinks
    :recursive:
 
    base
+   category
    github
    store

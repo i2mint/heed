@@ -15,6 +15,8 @@
       screenshot_url_resolver
       new_report_id
       github_sink_from_token
+      roadmap
+      changelog
       process_submission
       make_router
       make_app
@@ -55,6 +57,9 @@
       SinkResult
       StoreSink
       GitHubIssuesSink
+      CategorySink
+      CategoryTreatment
+      PublicItem
       HeedConfig
       RateLimiter
       InMemoryRateLimiter
@@ -70,6 +75,7 @@
    :recursive:
 
    base
+   board
    config
    images
    ingest

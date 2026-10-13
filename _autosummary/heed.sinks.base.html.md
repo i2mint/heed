@@ -4,8 +4,8 @@ The sink abstraction — where a report goes (strategy pattern).
 
 A sink is the only thing that decides what becomes of a report. The ingest layer calls
 `Sink.submit()`; richer sinks may also offer duplicate detection and
-acknowledgement. New destinations are added by writing a sink, never by editing a
-dispatcher.
+acknowledgement, and may list its public items for a board ([`heed.board`](heed.board.html.md#module-heed.board)). New
+destinations are added by writing a sink, never by editing a dispatcher.
 
 ### Classes
 
@@ -34,6 +34,13 @@ Return likely duplicates of `report` (default: none).
 
 * **Return type:**
   [`list`](https://docs.python.org/3/builtins/stdtypes.html#list)[[`DupCandidate`](#heed.sinks.base.DupCandidate)]
+
+#### public_items(, category=None)
+
+The items a public board may show (default: none; see [`heed.board`](heed.board.html.md#module-heed.board)).
+
+* **Return type:**
+  [`list`](https://docs.python.org/3/builtins/stdtypes.html#list)[[`PublicItem`](heed.board.html.md#heed.board.PublicItem)]
 
 ### *class* heed.sinks.base.DupCandidate(\*\*data)
 

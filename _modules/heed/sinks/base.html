@@ -718,8 +718,8 @@ window.runMermaid = runMermaid;</script>
 
 <span class="sd">A sink is the only thing that decides what becomes of a report. The ingest layer calls</span>
 <span class="sd">:meth:`Sink.submit`; richer sinks may also offer duplicate detection and</span>
-<span class="sd">acknowledgement. New destinations are added by writing a sink, never by editing a</span>
-<span class="sd">dispatcher.</span>
+<span class="sd">acknowledgement, and may list its public items for a board (:mod:`heed.board`). New</span>
+<span class="sd">destinations are added by writing a sink, never by editing a dispatcher.</span>
 <span class="sd">"""</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
@@ -728,7 +728,8 @@ window.runMermaid = runMermaid;</script>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">pydantic</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseModel</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">heed.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">Report</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">heed.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">Category</span><span class="p">,</span> <span class="n">Report</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">heed.board</span><span class="w"> </span><span class="kn">import</span> <span class="n">PublicItem</span>
 
 
 <div class="viewcode-block" id="SinkResult">
@@ -784,6 +785,13 @@ window.runMermaid = runMermaid;</script>
     <span class="k">def</span><span class="w"> </span><span class="nf">acknowledge</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">report</span><span class="p">:</span> <span class="n">Report</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">"""Hook called after a successful submit (default: no-op)."""</span>
         <span class="k">return</span> <span class="kc">None</span></div>
+
+
+<div class="viewcode-block" id="BaseSink.public_items">
+<a class="viewcode-back" href="../../../_autosummary/heed.sinks.base.html#heed.BaseSink.public_items">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">public_items</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">category</span><span class="p">:</span> <span class="n">Category</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">PublicItem</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">"""The items a public board may show (default: none; see :mod:`heed.board`)."""</span>
+        <span class="k">return</span> <span class="p">[]</span></div>
 </div>
 
 </pre></div>

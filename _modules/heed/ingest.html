@@ -747,6 +747,7 @@ window.runMermaid = runMermaid;</script>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">heed.base</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">Attachment</span><span class="p">,</span>
+    <span class="n">Environment</span><span class="p">,</span>
     <span class="n">Identity</span><span class="p">,</span>
     <span class="n">Report</span><span class="p">,</span>
     <span class="n">ReportSubmission</span><span class="p">,</span>
@@ -816,6 +817,16 @@ window.runMermaid = runMermaid;</script>
     <span class="n">config</span> <span class="o">=</span> <span class="n">config</span> <span class="ow">or</span> <span class="n">HeedConfig</span><span class="p">()</span>
     <span class="n">report_id</span> <span class="o">=</span> <span class="n">id_gen</span><span class="p">()</span>
 
+    <span class="n">light</span> <span class="o">=</span> <span class="n">submission</span><span class="o">.</span><span class="n">category</span><span class="o">.</span><span class="n">value</span> <span class="ow">in</span> <span class="n">config</span><span class="o">.</span><span class="n">light_categories</span>
+    <span class="k">if</span> <span class="n">light</span><span class="p">:</span>
+        <span class="n">submission</span> <span class="o">=</span> <span class="n">submission</span><span class="o">.</span><span class="n">model_copy</span><span class="p">(</span>
+            <span class="n">update</span><span class="o">=</span><span class="p">{</span>
+                <span class="s2">"env"</span><span class="p">:</span> <span class="n">Environment</span><span class="p">(</span><span class="n">extra</span><span class="o">=</span><span class="n">submission</span><span class="o">.</span><span class="n">env</span><span class="o">.</span><span class="n">extra</span><span class="p">),</span>
+                <span class="s2">"console"</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
+                <span class="s2">"network"</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="p">}</span>
+        <span class="p">)</span>
+        <span class="n">screenshot</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># nothing would use it, so it is not kept</span>
     <span class="n">attachments</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Attachment</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="k">if</span> <span class="n">screenshot</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">attachment_store</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">ext</span> <span class="o">=</span> <span class="n">IMAGE_EXTENSIONS</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">screenshot_media_type</span><span class="p">,</span> <span class="s2">"bin"</span><span class="p">)</span>

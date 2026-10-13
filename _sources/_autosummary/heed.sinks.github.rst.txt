@@ -4,6 +4,14 @@ heed.sinks.github
 .. automodule:: heed.sinks.github
 
    
+   .. rubric:: Module Attributes
+
+   .. autosummary::
+   
+      DEFAULT_STATUS_LABELS
+      MAX_BOARD_PAGES
+      DEFAULT_PUBLIC_LABEL
+   
    .. rubric:: Functions
 
    .. autosummary::
@@ -15,5 +23,6 @@ heed.sinks.github
 
    .. autosummary::
    
+      CategoryTreatment
       GitHubIssuesSink
    
