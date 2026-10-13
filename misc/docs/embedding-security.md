@@ -67,7 +67,7 @@ Every piece is also injectable on `make_router(...)`: `rate_limiter`, `origin_ra
 
 ## Stored screenshots
 
-Sanitizing reduces what a stored screenshot can carry, but neither rewrite makes the bytes safe to serve on their own: even a re-encoded pixel stream can contain attacker-chosen byte runs. heed does not serve attachments today. Whatever serves them later (for example a public screenshot URL embedded in a GitHub issue) must send every response with `heed.attachment_headers(media_type, filename=...)`:
+Sanitizing reduces what a stored screenshot can carry, but neither rewrite makes the bytes safe to serve on their own: even a re-encoded pixel stream can contain attacker-chosen byte runs. `heed.make_attachment_app` / `make_attachment_router` serve them (see *Serving screenshots* below). Anything else that serves them must send every response with `heed.attachment_headers(media_type, filename=...)`:
 
 - `Content-Type` is the stored, sniffed image type; anything else is sent as `application/octet-stream` with `Content-Disposition: attachment`.
 - `X-Content-Type-Options: nosniff`, so a browser never reinterprets the bytes.
@@ -76,6 +76,24 @@ Sanitizing reduces what a stored screenshot can carry, but neither rewrite makes
 - `Cross-Origin-Resource-Policy: same-site`, or `cross-origin` with `cross_origin=True`, which embedding as an `<img>` on another site (a GitHub issue) needs. Only opt in for attachments that are meant to be public.
 
 Serve attachments from an origin separate from the app's (a dedicated subdomain), so a rendering mistake cannot reach the app's cookies or storage.
+
+### Serving screenshots
+
+```python
+from heed import AttachmentSigner, GitHubIssuesSink, make_attachment_app, screenshot_url_resolver
+
+signer = AttachmentSigner(key)  # or set HEED_ATTACHMENT_SIGNING_KEY and pass config=
+files = make_attachment_app(attachment_store, signer=signer,
+                            allowed_hosts=["files.example.com"], cross_origin=True)
+sink = GitHubIssuesSink(..., screenshot_url=screenshot_url_resolver(
+    "https://files.example.com/attachments", signer))
+```
+
+- **Signed URLs by default.** Report ids are not secret: the submit response, the report JSON, logs and holding stores carry them. The route serves a ref only with an HMAC-SHA256 signature the backend made (`HEED_ATTACHMENT_SIGNING_KEY`, at least 32 bytes), so only screenshots a sink chose to link are reachable, and held or rejected reports' screenshots have no URL. `allow_unsigned=True` turns this off, for stores whose every screenshot may be public.
+- **Expiry is optional** (`HEED_ATTACHMENT_URL_TTL_SECONDS`). Without it a GitHub issue keeps its image; revoke by deleting the attachment or rotating the key (`previous_keys=` keeps old URLs valid during a rotation).
+- **A dedicated origin.** Run `make_attachment_app` on its own subdomain and set `allowed_hosts` (`HEED_ATTACHMENT_HOSTS`); any other `Host` gets 421. The app has no docs or OpenAPI routes.
+- **Nothing but heed's refs.** Only `{32 hex}.{png,jpg,webp}` reaches the store; the bytes are re-sniffed and anything that is not the named image is sent as an opaque download. A missing, malformed, unsigned or expired ref is the same bare 404; other paths and methods get a bare status, never framework JSON or a slash redirect.
+- **Re-encode where you serve.** With `screenshot_sanitizer="strip"` (no Pillow) compressed pixel data is stored as sent; the route logs a warning when Pillow is missing. The headers above keep such bytes inert in a browser either way.
 
 ## CSP guidance for embedders
 

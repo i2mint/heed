@@ -22,6 +22,8 @@ Public API (Phase 1):
               make_heuristic_moderator, chain_moderators, release_held,
               recover_claimed, discard_held
     Storage   make_report_store, make_attachment_store
+    Serving   make_attachment_router, make_attachment_app, AttachmentSigner,
+              screenshot_url_resolver (a separate origin for screenshots, #19)
 
 Example:
     >>> from heed import StoreSink, ReportSubmission, process_submission
@@ -69,6 +71,12 @@ from heed.security import (
     make_bot_verifier,
     make_rate_limiter,
 )
+from heed.serving import (
+    AttachmentSigner,
+    make_attachment_app,
+    make_attachment_router,
+    screenshot_url_resolver,
+)
 from heed.sinks import (
     BaseSink,
     GitHubIssuesSink,
@@ -82,6 +90,10 @@ from heed.storage import make_attachment_store, make_report_store
 __version__ = "0.0.1"
 
 __all__ = [
+    "AttachmentSigner",
+    "make_attachment_app",
+    "make_attachment_router",
+    "screenshot_url_resolver",
     "__version__",
     # models
     "Report",
