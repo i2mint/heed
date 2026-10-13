@@ -83,6 +83,8 @@ describe("<HeedFeedback>", () => {
     render({ endpoint: "/r", id: "fb", title: "Feedback", "data-testid": "x", "aria-label": "Send feedback" });
     const el = element();
     expect([el.id, el.title, el.dataset.testid, el.getAttribute("aria-label")]).toEqual(["fb", "Feedback", "x", "Send feedback"]);
+    render({ endpoint: "/r" });
+    expect([el.hasAttribute("id"), el.hasAttribute("title"), el.hasAttribute("data-testid")]).toEqual([false, false, false]);
   });
 
   it("re-applies only changed props, so a bad value warns once", () => {

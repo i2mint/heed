@@ -50,10 +50,11 @@ const EVENTS = { onOpen: "heed:open", onClose: "heed:close", onSubmitted: "heed:
 
 export const HeedFeedback = forwardRef<HeedFeedbackHandle, HeedFeedbackProps>(function HeedFeedback(props, ref) {
   const { onOpen, onClose, onSubmitted, onError, className, style, ...rest } = props;
+  const { id, title, ...others } = rest;
   const attributes: Record<string, unknown> = {};
   const options: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(rest)) {
-    if (key === "id" || key === "title" || key.startsWith("data-") || key.startsWith("aria-")) attributes[key] = value;
+  for (const [key, value] of Object.entries(others)) {
+    if (key.startsWith("data-") || key.startsWith("aria-")) attributes[key] = value;
     else options[key] = value;
   }
   const el = useRef<HeedFeedbackElement>(null);
@@ -85,9 +86,12 @@ export const HeedFeedback = forwardRef<HeedFeedbackHandle, HeedFeedbackProps>(fu
     for (const [key, value] of Object.entries(given)) if (!(key in before) || before[key] !== value) changes[key] = value;
     previous.current = given;
     if (Object.keys(changes).length) element.configure(changes);
-    // React 18 does not map className onto custom elements.
-    if (className) element.setAttribute("class", className);
-    else element.removeAttribute("class");
+    // Kept right here: React 18 does not map className onto custom elements, and
+    // React 19 assigns a removed id/title as the string "undefined".
+    for (const [name, value] of [["class", className], ["id", id], ["title", title]] as const) {
+      if (value) element.setAttribute(name, value);
+      else element.removeAttribute(name);
+    }
   });
 
   useEffect(() => {
@@ -104,5 +108,6 @@ export const HeedFeedback = forwardRef<HeedFeedbackHandle, HeedFeedbackProps>(fu
     return () => listeners.forEach((off) => off());
   }, []);
 
-  return createElement(TAG, { ...attributes, ref: el, style });
+  // id/title also go through React when set, so server-side rendering includes them.
+  return createElement(TAG, { ...attributes, ...(id ? { id } : {}), ...(title ? { title } : {}), ref: el, style });
 });
