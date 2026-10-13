@@ -38,7 +38,7 @@ function scriptUrl(w: HeedGlobals, url: string): string {
 export function loadSibling<T>(win: Window, file: string, integrity: string, read: () => T | undefined, what: string): Promise<T> {
   const have = read();
   if (have !== undefined) return Promise.resolve(have);
-  if (!ownScript) return Promise.reject(new Error(`heed: cannot locate the ${what}; use the npm package's entry or pass your own`));
+  if (!ownScript) return Promise.reject(new Error(`heed: cannot locate the ${what}; this copy of heed was bundled into an app: import the npm package's entry`));
   const url = new URL(file, ownScript.src).href;
   return new Promise<T>((resolve, reject) => {
     const doc = win.document;

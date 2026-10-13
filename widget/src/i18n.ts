@@ -102,6 +102,9 @@ export function ensureLocale(lang: string): Promise<boolean> {
   return loading[lang];
 }
 
+/** Whether `lang` needs no fetch (English, or already loaded). */
+export const hasLocale = (lang: string): boolean => lang === "en" || lang in loaded;
+
 /** English, then the language's translations (if loaded), then the embedder's own strings. */
 export function messagesFor(lang: string, overrides: MessageOverrides | null | undefined): Messages {
   return { ...MESSAGES, ...loaded[lang], ...overrides } as Messages;
@@ -116,7 +119,7 @@ export function cleanMessages(value: unknown): MessageOverrides | undefined {
   if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
   const out: Record<string, unknown> = {};
   for (const [key, v] of Object.entries(value)) {
-    const expected = key in MESSAGES ? typeof (MESSAGES as Record<string, unknown>)[key] : undefined;
+    const expected = Object.prototype.hasOwnProperty.call(MESSAGES, key) ? typeof (MESSAGES as Record<string, unknown>)[key] : undefined;
     if (expected && typeof v === expected) out[key] = v;
     else console.warn(`heed: ignoring message ${key}`);
   }

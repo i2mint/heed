@@ -30,7 +30,7 @@ import {
 } from "./options.js";
 import { CONTRACT } from "./contract.gen.js";
 import { type SubmitOutcome, sendReport } from "./submit.js";
-import { MESSAGES, type Messages, categoryLabel, ensureLocale, messagesFor, pickLanguage } from "./i18n.js";
+import { MESSAGES, type Messages, categoryLabel, ensureLocale, hasLocale, messagesFor, pickLanguage } from "./i18n.js";
 import { captureWithin, screenshotStrategy } from "./capture.js";
 import { applyStyles } from "./styles.js";
 import { type BotGate, createBotGate } from "./botgate.js";
@@ -68,6 +68,7 @@ interface Shot {
 }
 
 interface Ui {
+  root: HTMLDivElement;
   launcher: HTMLButtonElement;
   dialog: HTMLDialogElement;
   heading: HTMLHeadingElement;
@@ -118,7 +119,10 @@ export class HeedFeedbackElement extends Base {
 
   /** Merge options (unknown keys and bad values are dropped with a warning). */
   configure(options: Partial<HeedOptions> | Record<string, unknown>): this {
-    this.#imperative = { ...this.#imperative, ...cleanOptions(options as Record<string, unknown>) };
+    const given = cleanOptions(options as Record<string, unknown>);
+    // `messages` accumulate across calls (a later call adds to, or replaces single texts of, earlier ones).
+    if (given.messages) given.messages = { ...this.#imperative.messages, ...given.messages };
+    this.#imperative = { ...this.#imperative, ...given };
     this.#sync();
     return this;
   }
@@ -168,6 +172,7 @@ export class HeedFeedbackElement extends Base {
       return;
     }
     const ui = (this.#ui ??= this.#build());
+    if (!hasLocale(this.#requested)) this.#requested = ""; // the last language load failed: try again
     this.#sync();
     if (ui.dialog.open) {
       if (isModal(ui.dialog)) return;
@@ -243,7 +248,8 @@ export class HeedFeedbackElement extends Base {
     const doneClose = h(doc, "button", { type: "button", class: "primary" }, tx("close"));
     const done = h(doc, "div", { class: "done", hidden: true }, doneMessage, doneLink, h(doc, "div", { class: "actions" }, doneClose));
     const dialog = h(doc, "dialog", { part: "dialog", "aria-labelledby": id("heading") }, heading, form, done);
-    root.append(h(doc, "div", { class: "root" }, launcher, dialog));
+    const rootBox = h(doc, "div", { class: "root" }, launcher, dialog);
+    root.append(rootBox);
 
     launcher.addEventListener("click", () => this.open());
     cancel.addEventListener("click", () => this.close());
@@ -256,7 +262,7 @@ export class HeedFeedbackElement extends Base {
     title.addEventListener("input", () => {
       if (error.textContent) this.#setStatus("", false);
     });
-    return { launcher, dialog, heading, form, categoryLabel, category, title, body, honeypot, note, gate, shotRow, shotBox, shotState, preview, status, error, submit, doneClose, done, doneMessage, doneLink };
+    return { root: rootBox, launcher, dialog, heading, form, categoryLabel, category, title, body, honeypot, note, gate, shotRow, shotBox, shotState, preview, status, error, submit, doneClose, done, doneMessage, doneLink };
   }
 
   /** The visitor's language: `lang`, else the nearest `lang` above the element, else the browser's. */
@@ -279,8 +285,9 @@ export class HeedFeedbackElement extends Base {
     const m = messagesFor(lang, o.messages);
     if (this.#requested !== lang) {
       this.#requested = lang;
-      void ensureLocale(lang).then((ok) => (ok ? this.#sync() : void (this.#requested = ""))); // a later open retries
+      void ensureLocale(lang).then((ok) => ok && this.#sync()); // a failed load is retried by the next open()
     }
+    ui.root.lang = lang; // screen readers read the texts in their language, whatever the page's
     for (const [node, key] of this.#texts) node.data = m[key];
     // An explicit label or heading beats the translation; the English default does not.
     ui.launcher.textContent = o.label !== MESSAGES.label ? o.label : m.label;
@@ -295,7 +302,7 @@ export class HeedFeedbackElement extends Base {
     ui.honeypot.disabled = !o.honeypotField;
     ui.note.textContent = o.screenshot ? m.noteShot : m.note;
     ui.shotRow.hidden = !o.screenshot;
-    const wanted = `${lang}|${m.cat_bug}|${o.categories.join(",")}`; // rebuilt when the labels change
+    const wanted = o.categories.map((c) => `${c}=${categoryLabel(m, c)}`).join("|"); // rebuilt when a label changes
     if (ui.category.dataset.categories !== wanted) {
       const previous = ui.category.value;
       ui.category.replaceChildren(

@@ -57,6 +57,7 @@ describe("messages", () => {
   it("cleanMessages keeps known keys of the right type and drops the rest", () => {
     vi.spyOn(console, "warn").mockImplementation(() => {});
     expect(cleanMessages({ send: "Go", retryIn: (s: number) => `${s}s`, nope: "x", cancel: 3 })).toEqual({ send: "Go", retryIn: expect.any(Function) });
+    expect(cleanMessages(JSON.parse('{"constructor": "x", "toString": "y", "send": "Go"}'))).toEqual({ send: "Go" });
     expect(cleanMessages("x")).toBeUndefined();
     expect(cleanMessages(["a"])).toBeUndefined();
   });
@@ -75,6 +76,41 @@ describe("<heed-feedback> language", () => {
     el.configure({ messages: { send: "Go", cat_bug: "Broken" } });
     expect($(el, "button[type=submit]").textContent).toBe("Go");
     expect(($(el, "select") as HTMLSelectElement).options[0].textContent).toBe("Broken");
+  });
+
+  it("relabels any category after mount, not just the first, and messages accumulate across calls", () => {
+    const el = mount();
+    el.configure({ messages: { cat_question: "Q?" } });
+    el.configure({ messages: { cat_feature: "IDEA" } });
+    const labels = Array.from(($(el, "select") as HTMLSelectElement).options).map((o) => o.textContent);
+    expect(labels).toContain("Q?");
+    expect(labels).toContain("IDEA");
+    el.configure({ messages: { send: "Go" } });
+    expect($(el, "button[type=submit]").textContent).toBe("Go");
+    expect(Array.from(($(el, "select") as HTMLSelectElement).options).map((o) => o.textContent)).toContain("Q?");
+  });
+
+  it("marks its content with the language it speaks", async () => {
+    const el = mount({ lang: "de" });
+    expect($(el, ".root").getAttribute("lang")).toBe("de");
+    el.setAttribute("lang", "ja");
+    expect($(el, ".root").getAttribute("lang")).toBe("en");
+  });
+
+  it("retries a failed translation download on the next open, not on every update", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const loader = vi.fn(async () => {
+      throw new Error("offline");
+    });
+    setLocaleLoader(loader);
+    const el = mount({ lang: "pt" });
+    await vi.waitFor(() => expect(loader).toHaveBeenCalledTimes(1));
+    el.configure({ heading: "A" });
+    el.configure({ heading: "B" });
+    await nextTick();
+    expect(loader).toHaveBeenCalledTimes(1);
+    el.open();
+    await vi.waitFor(() => expect(loader).toHaveBeenCalledTimes(2));
   });
 
   it("follows the lang attribute, loading the translations on demand", async () => {
