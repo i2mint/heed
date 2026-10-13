@@ -32,6 +32,10 @@ class CategorySink(BaseSink):
         """The sink that receives reports of ``category``."""
         return self._sinks.get(Category(category), self._default)
 
+    def sinks(self) -> list[Sink]:
+        """Every distinct member sink, including the default."""
+        return self._distinct()
+
     def _distinct(self) -> list[Sink]:
         seen: list[Sink] = []
         for sink in (*self._sinks.values(), self._default):

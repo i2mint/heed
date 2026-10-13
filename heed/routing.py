@@ -238,7 +238,8 @@ def release_held(
         if destination is None:
             raise LookupError(f"No sink for the report's origin {report.origin!r}")
         if any(
-            getattr(destination, "store", None) is store
+            getattr(sink_, "store", None) is store
+            for sink_ in _leaf_sinks(destination)
             for store in (holding_store, claims)
         ):
             raise ValueError("the destination sink writes to the holding store itself")
@@ -253,6 +254,16 @@ def release_held(
     else:
         _unclaim(report_id, raw, holding_store, claims, claim_key)
     return result
+
+
+def _leaf_sinks(sink):
+    """``sink``, or the sinks inside a composite one (e.g. a ``CategorySink``)."""
+    members = getattr(sink, "sinks", None)
+    if callable(members):
+        for inner in members():
+            yield from _leaf_sinks(inner)
+    else:
+        yield sink
 
 
 def discard_held(

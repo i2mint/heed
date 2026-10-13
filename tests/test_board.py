@@ -407,3 +407,64 @@ def test_ingest_drops_screenshot_and_browser_details_for_light_categories():
     assert bug.attachments and bug.env.browser == "Firefox" and bug.console
     kept = run("feature", light_categories=())
     assert kept.attachments and kept.env.browser == "Firefox"
+
+
+# ------------------------------------------- review fixes (heed#50 review round 2)
+
+
+@pytest.mark.parametrize("category", list(Category))
+def test_every_category_goes_through_the_github_sink(category):
+    gh = FakeGitHub()
+    GitHubIssuesSink(gh.create_issue).submit(_report(category=category))
+    assert len(gh.created) == 1 and isinstance(gh.created[0]["labels"], list)
+
+
+def test_other_survives_partial_treatments_and_a_default_label_table():
+    gh = FakeGitHub()
+    sink = GitHubIssuesSink(
+        gh.create_issue,
+        treatments={Category.other: CategoryTreatment(title_prefix="x ")},
+    )
+    sink.submit(_report(category=Category.other, title="t"))
+    assert gh.created[0]["title"] == "x t" and gh.created[0]["labels"] == []
+    from heed.sinks.github import DEFAULT_LABELS
+
+    assert all(isinstance(v, tuple) for v in DEFAULT_LABELS.values())
+    GitHubIssuesSink(gh.create_issue, label_map=DEFAULT_LABELS)
+
+
+def test_light_categories_are_validated_and_readable_from_the_environment():
+    from heed import HeedConfig
+
+    assert HeedConfig().light_categories == ["feature", "question"]
+    with pytest.raises(ValueError, match="unknown categories"):
+        HeedConfig(light_categories=["features"])
+    with pytest.raises(TypeError):
+        HeedConfig(light_categories="feature")
+    env = {"HEED_LIGHT_CATEGORIES": "feature, bug"}
+    assert HeedConfig.from_env(env).light_categories == ["feature", "bug"]
+    assert HeedConfig.from_env({"HEED_LIGHT_CATEGORIES": "none"}).light_categories == []
+
+
+def test_release_into_a_category_sink_that_writes_to_holding_is_refused():
+    from heed import release_held
+
+    held: dict = {}
+    holding = StoreSink(held)
+    report = _report(category=Category.feature)
+    held[report.id] = report.model_dump_json()
+    sink = CategorySink({"feature": holding}, default=StoreSink({}))
+    with pytest.raises(ValueError, match="holding store"):
+        release_held(report.id, holding_store=held, sink=sink)
+    assert report.id in held
+
+
+def test_a_duplicate_close_reason_is_a_duplicate_and_a_missing_title_is_blank():
+    sink, _ = _board_sink(
+        [
+            _issue(1, "dup", ["public"], state="closed", state_reason="duplicate"),
+            {**_issue(2, "x", ["public"]), "title": None},
+        ]
+    )
+    items = sink.public_items()
+    assert items[0].status is Status.duplicate and items[1].title == ""

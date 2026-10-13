@@ -50,7 +50,7 @@ DEFAULT_TREATMENTS: dict[Category, CategoryTreatment] = {
     Category.bug: CategoryTreatment(("bug",)),
     Category.feature: CategoryTreatment(("enhancement",), detail="light"),
     Category.question: CategoryTreatment(("question",), detail="light"),
-    Category.other: CategoryTreatment(),
+    Category.other: CategoryTreatment((), detail="full"),
 }
 
 # Kept for callers that read the label defaults.
@@ -165,7 +165,7 @@ class GitHubIssuesSink(BaseSink):
             items.append(
                 PublicItem(
                     ref=str(issue["number"]),
-                    title=str(issue.get("title", "")),
+                    title=str(issue.get("title") or ""),
                     category=item_category,
                     status=self._status_of(issue, set(names)),
                     url=issue.get("html_url"),
@@ -198,8 +198,10 @@ class GitHubIssuesSink(BaseSink):
         if terminal:
             return terminal[0]
         if issue.get("state") == "closed":
-            declined = issue.get("state_reason") == "not_planned"
-            return Status.declined if declined else Status.completed
+            reason = issue.get("state_reason")
+            if reason == "duplicate":
+                return Status.duplicate
+            return Status.declined if reason == "not_planned" else Status.completed
         stages = [s for s in marked if s in _STAGES]
         return max(stages, key=_STAGES.index) if stages else Status.received
 
@@ -213,13 +215,18 @@ def _resolve(
     default: CategoryTreatment | None, given: CategoryTreatment | None
 ) -> CategoryTreatment:
     """``given`` over ``default``, field by field (``None`` keeps the default)."""
-    default = default or CategoryTreatment(labels=(), detail="full")
+    base_labels = () if default is None or default.labels is None else default.labels
+    base_detail = (
+        "full" if default is None or default.detail is None else default.detail
+    )
     if given is None:
-        return default
+        return CategoryTreatment(
+            base_labels, default.title_prefix if default else "", base_detail
+        )
     return CategoryTreatment(
-        labels=default.labels if given.labels is None else tuple(given.labels),
+        labels=base_labels if given.labels is None else tuple(given.labels),
         title_prefix=given.title_prefix,
-        detail=default.detail if given.detail is None else given.detail,
+        detail=base_detail if given.detail is None else given.detail,
     )
 
 

@@ -12,6 +12,7 @@ import os
 from collections.abc import Mapping
 from dataclasses import dataclass, field, fields
 
+from heed.base import Category
 from heed.security import parse_networks
 
 ENV_PREFIX = "HEED_"
@@ -77,7 +78,7 @@ class HeedConfig:
     # Categories taken as a light intake (a wish, a question): the screenshot, console,
     # network and browser details are dropped on the server, whatever the client sent.
     # The widget's `lightCategories` option mirrors this default.
-    light_categories: tuple[str, ...] = ("feature", "question")
+    light_categories: list[str] = field(default_factory=lambda: ["feature", "question"])
 
     def __post_init__(self):
         if self.max_body_bytes < self.max_screenshot_bytes:
@@ -101,6 +102,14 @@ class HeedConfig:
             parse_networks(self.trusted_proxies)
         except ValueError as e:
             raise ValueError(f"invalid trusted_proxies entry: {e}") from None
+        if isinstance(self.light_categories, str):
+            raise TypeError("light_categories must be a list of category names")
+        known = [c.value for c in Category]
+        unknown = [c for c in self.light_categories if c not in known]
+        if unknown:
+            raise ValueError(
+                f"light_categories names unknown categories {unknown}; known: {known}"
+            )
         if isinstance(self.attachment_previous_keys, str):
             raise TypeError(
                 "attachment_previous_keys must be a list of keys, not a string"
@@ -152,6 +161,8 @@ def _parse_env_value(raw: str, type_hint: str):
     if raw.strip().lower() == "none" and "None" in hint:
         return None
     if hint.startswith("list"):
+        if raw.strip().lower() == "none":
+            return []
         return [item.strip() for item in raw.split(",") if item.strip()]
     if hint.startswith("bool"):
         return raw.strip().lower() in {"1", "true", "yes", "on"}
