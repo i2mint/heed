@@ -40,12 +40,25 @@ def _confined_files(rootdir: str, **kwargs) -> MutableMapping:
 
     class ConfinedFiles(Files):
         """Files that treat a key whose file resolves, through symlinks, to outside
-        ``rootdir`` as missing (a misconfigured root must not serve other files)."""
+        ``rootdir`` as missing -- to read, write, delete, test and list -- so a
+        misconfigured root cannot make heed touch other files."""
 
-        def __getitem__(self, k):
-            if not _stays_under(os.path.join(self.rootdir, k), self.rootdir):
+        def _id_of_key(self, k):
+            path = super()._id_of_key(k)
+            if not _stays_under(path, self.rootdir):
                 raise KeyError(k)
-            return super().__getitem__(k)
+            return path
+
+        def __contains__(self, k):
+            try:
+                return super().__contains__(k)
+            except KeyError:
+                return False
+
+        def __iter__(self):
+            for k in super().__iter__():
+                if _stays_under(os.path.join(self.rootdir, k), self.rootdir):
+                    yield k
 
     return ConfinedFiles(rootdir, **kwargs)
 

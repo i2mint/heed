@@ -263,16 +263,32 @@ def make_attachment_router(
             "allowed_hosts must be a list of hostnames, not a string: "
             f"{allowed_hosts!r}"
         )
+    if isinstance(allowed_hosts, bytes):
+        raise TypeError(f"allowed_hosts must be a list of hostnames: {allowed_hosts!r}")
     hosts = {allowed_hosts} if isinstance(allowed_hosts, str) else set(allowed_hosts)
-    hosts = {h.lower() for h in hosts}
+    hosts = {h.strip().lower() for h in hosts if h.strip()}
+    if not hosts:
+        raise ValueError(
+            "allowed_hosts is empty, so the route would refuse every request; give the "
+            "attachment origin's hostname(s), or ANY_HOST"
+        )
     if ANY_HOST in hosts:
         hosts = None
     if cache_control is None:
         cache_control = cfg.attachment_cache_control
-    if cache_control is not None and not cache_control.isprintable():
-        raise ValueError(f"cache_control must be a single header line: {cache_control!r}")
+    if cache_control is not None and not (
+        isinstance(cache_control, str)
+        and cache_control.strip()
+        and cache_control.isascii()
+        and cache_control.isprintable()
+    ):
+        raise ValueError(
+            f"cache_control must be a non-empty single header line: {cache_control!r}"
+        )
     if max_bytes is None:
         max_bytes = cfg.max_screenshot_bytes
+    if isinstance(max_bytes, bool) or not isinstance(max_bytes, int) or max_bytes <= 0:
+        raise ValueError(f"max_bytes must be a positive int, got {max_bytes!r}")
     if not pillow_available():
         logger.warning(
             "heed: Pillow is not installed, so screenshots ingested here with the "

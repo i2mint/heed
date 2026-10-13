@@ -97,6 +97,10 @@ class HeedConfig:
             parse_networks(self.trusted_proxies)
         except ValueError as e:
             raise ValueError(f"invalid trusted_proxies entry: {e}") from None
+        if isinstance(self.attachment_previous_keys, str):
+            raise TypeError(
+                "attachment_previous_keys must be a list of keys, not a string"
+            )
         if self.attachment_previous_keys and not self.attachment_signing_key:
             raise ValueError(
                 "attachment_previous_keys are set but attachment_signing_key is not; "
