@@ -21,6 +21,7 @@ from __future__ import annotations
 import ipaddress
 import json
 import logging
+import threading
 import time
 import urllib.parse
 import urllib.request
@@ -68,7 +69,7 @@ def cors_headers(
     The request's own origin is echoed (never ``*``) so the response is correct with
     or without credentials; ``Vary: Origin`` keeps shared caches honest.
     """
-    if not origin or not origin_allowed(origin, allowed):
+    if not origin or origin == "null" or not origin_allowed(origin, allowed):
         return {}
     headers = {"Access-Control-Allow-Origin": origin, "Vary": "Origin"}
     if allow_credentials:
@@ -97,8 +98,23 @@ def preflight_headers(
 # ------------------------------------------------------------------------- client ip
 
 
-def _parse_networks(proxies: Iterable[str]) -> list:
-    return [ipaddress.ip_network(p.strip(), strict=False) for p in proxies]
+Network = ipaddress.IPv4Network | ipaddress.IPv6Network
+
+
+def parse_networks(proxies: Iterable[str | Network]) -> list[Network]:
+    """Parse IPs/CIDRs (strings or network objects) into networks; raises ValueError.
+
+    Call it once at startup so a typo fails loudly there, not on every request.
+
+    >>> parse_networks(["127.0.0.1", "10.0.0.0/8"])
+    [IPv4Network('127.0.0.1/32'), IPv4Network('10.0.0.0/8')]
+    """
+    return [
+        p
+        if isinstance(p, (ipaddress.IPv4Network, ipaddress.IPv6Network))
+        else ipaddress.ip_network(p.strip(), strict=False)
+        for p in proxies
+    ]
 
 
 def _in_networks(addr: str, networks: list) -> bool:
@@ -113,7 +129,7 @@ def client_ip(
     peer: str | None,
     forwarded_for: str | None,
     *,
-    trusted_proxies: Iterable[str] = (),
+    trusted_proxies: Iterable[str | Network] = (),
 ) -> str:
     """The client address to rate-limit on.
 
@@ -127,13 +143,35 @@ def client_ip(
     '5.5.5.5'
     """
     peer = peer or "unknown"
-    networks = _parse_networks(trusted_proxies)
+    networks = parse_networks(trusted_proxies)
     if not networks or not forwarded_for or not _in_networks(peer, networks):
         return peer
     for hop in reversed([h.strip() for h in forwarded_for.split(",") if h.strip()]):
         if not _in_networks(hop, networks):
             return hop
     return peer
+
+
+def rate_limit_key(ip: str, *, ipv6_prefix: int = 64) -> str:
+    """The bucket key for ``ip``: IPv4 as-is, IPv6 grouped by its /``ipv6_prefix``.
+
+    One IPv6 host typically owns a whole /64, so per-address buckets are trivially
+    dodged by rotating addresses.
+
+    >>> rate_limit_key("2001:db8::1") == rate_limit_key("2001:db8::ffff")
+    True
+    >>> rate_limit_key("1.2.3.4")
+    '1.2.3.4'
+    """
+    try:
+        addr = ipaddress.ip_address(ip)
+    except ValueError:
+        return ip
+    if addr.version == 6 and addr.ipv4_mapped is not None:
+        return str(addr.ipv4_mapped)
+    if addr.version == 6:
+        return str(ipaddress.ip_network(f"{addr}/{ipv6_prefix}", strict=False))
+    return ip
 
 
 # ---------------------------------------------------------------------- rate limits
@@ -168,8 +206,13 @@ class InMemoryRateLimiter:
         self.max_keys = max_keys
         self._clock = clock
         self._hits: OrderedDict[str, deque] = OrderedDict()
+        self._lock = threading.Lock()  # the router calls limiters from a threadpool
 
     def allow(self, key: str) -> bool:
+        with self._lock:
+            return self._allow(key)
+
+    def _allow(self, key: str) -> bool:
         now = self._clock()
         hits = self._hits.get(key)
         if hits is None:
@@ -216,8 +259,14 @@ class RedisRateLimiter:
         self._clock = clock
 
     @classmethod
-    def from_url(cls, url: str, **kwargs) -> RedisRateLimiter:
-        """Build from a ``redis://`` URL (needs the ``[redis]`` extra)."""
+    def from_url(
+        cls, url: str, *, socket_timeout: float = 0.5, **kwargs
+    ) -> RedisRateLimiter:
+        """Build from a ``redis://`` URL (needs the ``[redis]`` extra).
+
+        ``socket_timeout`` bounds both connect and reads, so a hung Redis costs at most
+        that long before the fallback limiter decides.
+        """
         try:
             import redis  # lazy: optional dependency
         except ImportError as e:  # pragma: no cover - depends on environment
@@ -225,7 +274,10 @@ class RedisRateLimiter:
                 "The Redis rate limiter needs the redis client: "
                 "pip install 'heed[redis]'"
             ) from e
-        return cls(redis.Redis.from_url(url), **kwargs)
+        client = redis.Redis.from_url(
+            url, socket_timeout=socket_timeout, socket_connect_timeout=socket_timeout
+        )
+        return cls(client, **kwargs)
 
     def allow(self, key: str) -> bool:
         window = int(self._clock() // self.window_seconds)

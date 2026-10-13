@@ -12,6 +12,8 @@ import os
 from collections.abc import Mapping
 from dataclasses import dataclass, field, fields
 
+from heed.security import parse_networks
+
 ENV_PREFIX = "HEED_"
 
 
@@ -41,10 +43,13 @@ class HeedConfig:
     # Behind a reverse proxy (Caddy, nginx) set this, or every visitor shares the
     # proxy's address and one rate-limit bucket.
     trusted_proxies: list[str] = field(default_factory=list)
+    ipv6_rate_limit_prefix: int = 64  # IPv6 clients share a bucket per /64
 
     # --- Bot gate (off until a secret is configured) --------------------------------
     bot_gate: str | None = None  # "turnstile" | "hcaptcha"; None infers turnstile
     bot_secret: str | None = field(default=None, repr=False)
+    # Hostnames a challenge must have been solved on (rejects tokens farmed elsewhere).
+    bot_expected_hostnames: list[str] | None = None
     bot_token_field: str = "bot_token"
     # A hidden form field humans leave empty; a filled one is silently dropped.
     honeypot_field: str | None = "hp_website"
@@ -66,6 +71,10 @@ class HeedConfig:
                 "list; reflecting any origin with credentials lets every site on the "
                 "web submit as your logged-in users"
             )
+        try:
+            parse_networks(self.trusted_proxies)
+        except ValueError as e:
+            raise ValueError(f"invalid trusted_proxies entry: {e}") from None
         if self.bot_gate is not None and not self.bot_secret:
             raise ValueError(
                 f"bot_gate={self.bot_gate!r} is set but bot_secret is empty; set "

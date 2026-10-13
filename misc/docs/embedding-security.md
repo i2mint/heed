@@ -8,14 +8,15 @@ The router rejects abuse cheapest-first, so a flood costs as little as possible:
 
 1. CORS preflight (`OPTIONS /report`) answered from the origin allow-list.
 2. Origin allow-list: a missing or unlisted `Origin` gets `403`.
-3. Rate limits: per client IP, then per origin; over the limit gets `429` with `Retry-After`.
+3. Per-IP rate limit (IPv6 grouped by /64); over the limit gets `429` with `Retry-After`. Steps 2–3 run as a route dependency, before any `user_dependency` and before the body is read.
 4. Content type must be `multipart/form-data` or `application/x-www-form-urlencoded` (`415` otherwise).
 5. Body-size cap, enforced on `Content-Length` and again while streaming (`413`); the body is never buffered past the cap.
 6. Form limits: at most one file (`screenshot`), a bounded number of fields, and a per-field byte cap.
 7. Honeypot: a hidden field humans leave empty. A filled one gets a fake success and is routed nowhere.
 8. Bot gate (only when a secret is configured): Turnstile or hCaptcha token verified server-side; fails closed.
-9. Model validation (`heed/base.py`): length limits on every string and list, `page_url` must be an absolute `http(s)` URL, control and bidi-override characters are stripped, `anon_id` is a short opaque token, `env` must be a JSON object. Errors never echo the submitted input back.
-10. Screenshot: size cap, then magic-byte sniffing; only PNG, JPEG and WebP are stored, under the sniffed type, whatever the client claimed.
+9. Per-origin rate limit. It runs after the honeypot and the bot gate on purpose: `Origin` is a header any non-browser client can set, so counting earlier would let spoofed junk exhaust a real site's budget. With the bot gate off, a determined attacker spread over many IPs can still do that; turn the gate on if it happens.
+10. Model validation (`heed/base.py`): length limits on every string and list, `page_url` must be an absolute `http(s)` URL, control and bidi-override characters are stripped, `anon_id` is a short opaque token, `env` must be a JSON object. Errors never echo the submitted input back.
+11. Screenshot: size cap, then magic-byte sniffing; only PNG, JPEG and WebP are stored, under the sniffed type, whatever the client claimed.
 
 The sink is chosen server-side; the browser never names a repository or board.
 
@@ -36,9 +37,11 @@ Every knob is a keyword of `HeedConfig` and can also come from a `HEED_<NAME>` e
 | `origin_rate_limit_per_minute` | 600 | Per origin (all visitors of one site); `None` disables. |
 | `rate_limit_backend` | `"memory"` | `"memory"` (per process) or `"redis"` (shared). |
 | `redis_url` | `None` | Required for the Redis backend, e.g. `redis://localhost:6379/0`. |
+| `ipv6_rate_limit_prefix` | `64` | IPv6 clients share one per-IP bucket per prefix. |
 | `trusted_proxies` | `[]` | IPs/CIDRs of your reverse proxy. Only then is `X-Forwarded-For` used for the client IP. |
 | `bot_gate` | `None` | `"turnstile"` or `"hcaptcha"`; with a secret and no provider, Turnstile is assumed. |
 | `bot_secret` | `None` | The provider's **secret** key. The gate is off until it is set. Keep it in the environment, never in code. |
+| `bot_expected_hostnames` | `None` | Hostnames a challenge must have been solved on; rejects tokens farmed on another site. |
 | `bot_token_field` | `"bot_token"` | Form field carrying the widget's challenge token. |
 | `honeypot_field` | `"hp_website"` | Hidden trap field; `None` disables. |
 
@@ -48,8 +51,8 @@ Every piece is also injectable on `make_router(...)`: `rate_limiter`, `origin_ra
 
 - Set `allowed_origins` to the exact origins of the sites that embed the widget.
 - Behind Caddy or nginx, set `trusted_proxies` to the proxy address (often `127.0.0.1`). Without it every visitor shares the proxy's IP, and one rate-limit bucket.
-- With more than one worker process or host, use `rate_limit_backend="redis"`. The in-memory limiter counts per process, so the effective limit is multiplied by the worker count. If Redis becomes unreachable, the Redis limiter falls back to a per-process in-memory limit rather than dropping all feedback or removing the limit.
-- Turn the bot gate on (`bot_secret`) once spam appears, or from the start on a high-traffic site. Pass `expected_hostnames` to `SiteverifyBotVerifier` to reject tokens solved on another site.
+- With more than one worker process or host, use `rate_limit_backend="redis"`. The in-memory limiter counts per process, so the effective limit is multiplied by the worker count. If Redis becomes unreachable (0.5 s socket timeout), the Redis limiter falls back to a per-process in-memory limit rather than dropping all feedback or removing the limit.
+- Turn the bot gate on (`bot_secret`) once spam appears, or from the start on a high-traffic site. Set `bot_expected_hostnames` to reject tokens solved on another site.
 - Keep a reverse-proxy body limit too (e.g. Caddy `request_body { max_size 6MB }`) as a second line.
 
 ## CSP guidance for embedders

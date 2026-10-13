@@ -332,3 +332,81 @@ def test_config_from_env():
     )
     assert cfg.bot_gate_enabled and cfg.trusted_proxies == ["127.0.0.1", "::1"]
     assert "sekrit" not in repr(cfg) and "redis://" not in repr(cfg)
+
+
+# ------------------------------------------------- adversarial-review regressions
+
+
+def test_gate_runs_before_user_dependency():
+    """Origin + IP limit reject before user_dependency (an auth lookup) runs."""
+    calls = []
+
+    async def user_dep():
+        calls.append(1)
+        return None
+
+    client = _client(
+        user_dependency=user_dep, rate_limiter=InMemoryRateLimiter(max_per_window=1)
+    )
+    assert _post(client, origin="https://evil.example").status_code == 403
+    assert _post(client).status_code == 200
+    assert _post(client).status_code == 429
+    assert calls == [1]
+
+
+def test_screenshot_as_text_field_is_422_not_500():
+    resp = _post(_client(), data={"title": "x", "screenshot": "abc"})
+    assert resp.status_code == 422
+
+
+def test_bad_trusted_proxy_fails_at_config_time():
+    with pytest.raises(ValueError, match="trusted_proxies"):
+        HeedConfig(trusted_proxies=["not-a-cidr"])
+
+
+def test_null_origin_never_echoed():
+    client = _client(config=HeedConfig())
+    resp = _post(client, origin="null")
+    assert "access-control-allow-origin" not in resp.headers
+
+
+def test_honeypot_hits_do_not_spend_origin_budget():
+    client = _client(origin_rate_limiter=InMemoryRateLimiter(max_per_window=1))
+    for _ in range(3):
+        _post(client, data={"title": "x", "hp_website": "spam"})
+    assert _post(client).status_code == 200
+
+
+def test_ipv6_clients_share_a_bucket_per_64():
+    from heed.security import rate_limit_key
+
+    assert rate_limit_key("2001:db8:1:2::1") == rate_limit_key("2001:db8:1:2:ffff::9")
+    assert rate_limit_key("2001:db8:1:2::1") != rate_limit_key("2001:db8:1:3::1")
+    assert rate_limit_key("::ffff:1.2.3.4") == "1.2.3.4"
+
+
+def test_validation_errors_truncate_client_chosen_keys():
+    import json
+
+    env = json.dumps({"extra": {"k" * 500: "v" * 600}})
+    resp = _post(_client(), data={"title": "x", "env": env})
+    assert resp.status_code == 422
+    assert "k" * 100 not in resp.text and "v" * 100 not in resp.text
+
+
+def test_expected_hostnames_reach_the_verifier():
+    v = make_bot_verifier(None, "s", expected_hostnames=["app.example"])
+    assert v.expected_hostnames == {"app.example"}
+
+
+def test_redis_from_url_sets_socket_timeouts(monkeypatch):
+    redis = pytest.importorskip("redis")
+    seen = {}
+
+    def fake_from_url(url, **kw):
+        seen.update(kw)
+        return _FakeRedis()
+
+    monkeypatch.setattr(redis.Redis, "from_url", staticmethod(fake_from_url))
+    RedisRateLimiter.from_url("redis://x:6379/0")
+    assert seen["socket_timeout"] == seen["socket_connect_timeout"] == 0.5

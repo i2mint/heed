@@ -8,8 +8,9 @@ wraps it in a FastAPI ``APIRouter`` you can run standalone (``make_app``) or
 
 The router treats every request as hostile (see ``security.py`` and issue #5). Checks
 run cheapest-first so abuse is rejected before it costs anything: CORS preflight →
-origin allow-list → rate limits (per IP, per origin) → body-size cap (streamed, before
-parsing) → form limits → honeypot → bot gate → model validation → screenshot sniffing.
+origin allow-list → per-IP rate limit (both before ``user_dependency``) → body-size cap
+(streamed, before parsing) → form limits → honeypot → bot gate → per-origin rate limit
+→ model validation → screenshot sniffing.
 
 NOTE: this module does not ``from __future__ import annotations`` — FastAPI resolves
 route-handler annotations against module globals, so the request/response types are
@@ -17,6 +18,7 @@ imported at module level.
 """
 
 import json
+import logging
 from collections.abc import Callable, MutableMapping
 from typing import Any, Optional
 
@@ -25,6 +27,8 @@ from fastapi.responses import JSONResponse
 from pydantic import ValidationError
 from starlette.concurrency import run_in_threadpool
 from starlette.datastructures import UploadFile
+from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.formparsers import MultiPartException
 
 from heed.base import (
     Attachment,
@@ -46,13 +50,17 @@ from heed.security import (
     make_rate_limiter,
     normalize_origin,
     origin_allowed,
+    parse_networks,
     preflight_headers,
+    rate_limit_key,
     sniff_image_type,
 )
 from heed.sinks.base import Sink, SinkResult
 
 _FORM_MEDIA_TYPES = ("multipart/form-data", "application/x-www-form-urlencoded")
 _TEXT_FIELDS = ("title", "body", "category", "page_url", "env", "anon_id")
+_MAX_LOC_CHARS = 64
+logger = logging.getLogger("heed.ingest")
 # Sent on every /report response, success or error.
 _RESPONSE_HEADERS = {"X-Content-Type-Options": "nosniff", "Cache-Control": "no-store"}
 
@@ -152,6 +160,19 @@ async def read_capped_body(request: Request, *, max_bytes: int) -> Optional[byte
     return b"".join(chunks)
 
 
+def _safe_errors(error: ValidationError) -> list[dict[str, Any]]:
+    """Validation errors without the input, and with location parts truncated
+    (``env.extra`` keys are client-chosen and could be long or hostile)."""
+    return [
+        {
+            "loc": [str(part)[:_MAX_LOC_CHARS] for part in err["loc"]],
+            "msg": err["msg"],
+            "type": err["type"],
+        }
+        for err in error.errors(include_url=False, include_input=False)
+    ]
+
+
 def _replay_request(request: Request, body: bytes) -> Request:
     """A Request over the same scope whose body is the already-read ``body``."""
     sent = False
@@ -226,7 +247,15 @@ def make_router(
     ip_limiter = rate_limiter or _limiter(cfg.rate_limit_per_minute, "ip")
     if origin_rate_limiter is None and cfg.origin_rate_limit_per_minute is not None:
         origin_rate_limiter = _limiter(cfg.origin_rate_limit_per_minute, "origin")
-    verifier = bot_verifier or make_bot_verifier(cfg.bot_gate, cfg.bot_secret)
+    verifier = bot_verifier or make_bot_verifier(
+        cfg.bot_gate, cfg.bot_secret, expected_hostnames=cfg.bot_expected_hostnames
+    )
+    trusted_networks = parse_networks(cfg.trusted_proxies)
+    if cfg.allowed_origins is None:
+        logger.warning(
+            "heed: allowed_origins is not set, so any origin may submit reports. "
+            "Set HeedConfig(allowed_origins=[...]) in production."
+        )
     retry_after = str(int(cfg.rate_limit_window_seconds))
     router = APIRouter()
 
@@ -282,7 +311,8 @@ def make_router(
                 max_fields=cfg.max_form_fields,
                 max_part_size=cfg.max_field_bytes,
             )
-        except Exception as e:  # malformed multipart, too many parts, ...
+        except (MultiPartException, StarletteHTTPException) as e:
+            # malformed multipart, too many parts/files, a part over max_part_size
             raise _fail(400, "malformed form data", origin) from e
         try:
             if len(form) > cfg.max_form_fields + 1:
@@ -291,44 +321,51 @@ def make_router(
             for key, value in form.multi_items():
                 if isinstance(value, UploadFile):
                     if key != "screenshot":
-                        raise _fail(400, f"unexpected file field {key!r}", origin)
+                        raise _fail(400, "unexpected file field", origin)
                     fields[key] = await value.read()
+                elif key == "screenshot":
+                    raise _fail(422, "screenshot must be a file upload", origin)
                 else:
                     if len(value.encode()) > cfg.max_field_bytes:
-                        raise _fail(413, f"field {key!r} too large", origin)
+                        raise _fail(413, "form field too large", origin)
                     fields[key] = value
             return fields
         finally:
             await form.close()
 
-    @router.post("/report", openapi_extra=_OPENAPI_REQUEST_BODY)
-    async def submit_report(
-        request: Request,
-        user: Optional[str] = Depends(user_dep),
-    ):
+    async def _admit(request: Request) -> None:
+        """Origin allow-list + per-IP limit. A route-level dependency, so it runs
+        before ``user_dependency`` (which may hit an auth store) and before any body
+        is read."""
         origin = request.headers.get("origin", "")
         if not origin_allowed(origin or None, cfg.allowed_origins):
             raise HTTPException(
                 status_code=403, detail="origin not allowed", headers=_RESPONSE_HEADERS
             )
-
         ip = client_ip(
             request.client.host if request.client else None,
             request.headers.get("x-forwarded-for"),
-            trusted_proxies=cfg.trusted_proxies,
+            trusted_proxies=trusted_networks,
         )
-        if not ip_limiter.allow(ip):
+        # Limiters may do network I/O (Redis): keep it off the event loop.
+        bucket = rate_limit_key(ip, ipv6_prefix=cfg.ipv6_rate_limit_prefix)
+        if not await run_in_threadpool(ip_limiter.allow, bucket):
             raise _fail(
                 429, "rate limit exceeded", origin, **{"Retry-After": retry_after}
             )
-        origin_key = normalize_origin(origin) if origin else "-"
-        if origin_rate_limiter is not None and not origin_rate_limiter.allow(
-            origin_key
-        ):
-            raise _fail(
-                429, "rate limit exceeded", origin, **{"Retry-After": retry_after}
-            )
+        request.state.heed_origin = origin
+        request.state.heed_ip = ip
 
+    @router.post(
+        "/report",
+        dependencies=[Depends(_admit)],
+        openapi_extra=_OPENAPI_REQUEST_BODY,
+    )
+    async def submit_report(
+        request: Request,
+        user: Optional[str] = Depends(user_dep),
+    ):
+        origin, ip = request.state.heed_origin, request.state.heed_ip
         fields = await _parse_form(request, origin)
 
         if cfg.honeypot_field and fields.get(cfg.honeypot_field):
@@ -345,6 +382,16 @@ def make_router(
             if not human:
                 raise _fail(403, "bot verification failed", origin)
 
+        # Per-origin limit only counts submissions that passed the honeypot and the
+        # bot gate, so spoofed-Origin junk cannot exhaust a real site's budget as
+        # cheaply. (Origin is a client-set header; see embedding-security.md.)
+        if origin_rate_limiter is not None:
+            origin_key = normalize_origin(origin) if origin else "-"
+            if not await run_in_threadpool(origin_rate_limiter.allow, origin_key):
+                raise _fail(
+                    429, "rate limit exceeded", origin, **{"Retry-After": retry_after}
+                )
+
         if not isinstance(fields.get("title"), str):
             raise _fail(422, "title is required", origin)
         text = {k: fields.get(k) for k in _TEXT_FIELDS}
@@ -360,9 +407,7 @@ def make_router(
                 anon_id=text["anon_id"],
             )
         except ValidationError as e:
-            detail = e.errors(
-                include_url=False, include_input=False, include_context=False
-            )
+            detail = _safe_errors(e)
             raise _fail(422, detail, origin) from e
         except (ValueError, RecursionError) as e:
             raise _fail(422, "invalid env: must be a JSON object", origin) from e
