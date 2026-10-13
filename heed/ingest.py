@@ -10,7 +10,8 @@ The router treats every request as hostile (see ``security.py`` and issue #5). C
 run cheapest-first so abuse is rejected before it costs anything: CORS preflight →
 origin allow-list → per-IP rate limit (both before ``user_dependency``) → body-size cap
 (streamed, before parsing) → form limits → honeypot → bot gate → per-origin rate limit
-→ model validation → screenshot sniffing.
+→ model validation → screenshot sniffing → screenshot sanitizing (``images.py``: only
+the image survives, so polyglot payloads and EXIF/GPS metadata are never stored).
 
 NOTE: this module does not ``from __future__ import annotations`` — FastAPI resolves
 route-handler annotations against module globals, so the request/response types are
@@ -41,6 +42,12 @@ from heed.base import (
     utcnow,
 )
 from heed.config import HeedConfig
+from heed.images import (
+    BUSY_RETRY_AFTER_SECONDS,
+    ImageSanitizer,
+    SanitizerBusy,
+    make_image_sanitizer,
+)
 from heed.routing import Moderator, SinkResolver, Verdict, accept_all
 from heed.security import (
     IMAGE_EXTENSIONS,
@@ -251,6 +258,7 @@ def make_router(
     resolve_sink: Optional[SinkResolver] = None,
     moderator: Optional[Moderator] = None,
     holding_sink: Optional[Sink] = None,
+    image_sanitizer: Optional[ImageSanitizer] = None,
 ) -> APIRouter:
     """Build a FastAPI APIRouter exposing ``POST /report`` (and its CORS preflight).
 
@@ -261,7 +269,8 @@ def make_router(
     Hardening defaults come from ``config``; any piece can be injected instead:
     ``rate_limiter`` (per client IP), ``origin_rate_limiter`` (per Origin) and
     ``bot_verifier`` (by default built from ``config.bot_secret``, i.e. off until a
-    secret is configured).
+    secret is configured) and ``image_sanitizer`` (by default from
+    ``config.screenshot_sanitizer``: re-encode with Pillow, else a pure-Python strip).
 
     Routing is decided server-side, never by the browser: ``resolve_sink`` maps the
     validated origin to that site's sink (``sink`` is then the fallback and may be
@@ -310,6 +319,11 @@ def make_router(
         origin_rate_limiter = _limiter(cfg.origin_rate_limit_per_minute, "origin")
     verifier = bot_verifier or make_bot_verifier(
         cfg.bot_gate, cfg.bot_secret, expected_hostnames=cfg.bot_expected_hostnames
+    )
+    sanitize_image = image_sanitizer or make_image_sanitizer(
+        cfg.screenshot_sanitizer,
+        max_pixels=cfg.max_screenshot_pixels,
+        max_concurrent=cfg.max_concurrent_reencodes,
     )
     trusted_networks = parse_networks(cfg.trusted_proxies)
     if cfg.allowed_origins is None:
@@ -499,6 +513,23 @@ def make_router(
             shot_type = sniff_image_type(shot)
             if shot_type is None:
                 raise _fail(415, "screenshot must be a PNG, JPEG or WebP image", origin)
+            try:
+                shot = await run_in_threadpool(sanitize_image, shot, shot_type)
+            except SanitizerBusy as e:
+                raise _fail(
+                    503,
+                    "busy, retry shortly",
+                    origin,
+                    **{"Retry-After": str(BUSY_RETRY_AFTER_SECONDS)},
+                ) from e
+            except ValueError as e:
+                raise _fail(
+                    415,
+                    "screenshot is not a well-formed PNG, JPEG or WebP image",
+                    origin,
+                ) from e
+            if len(shot) > cfg.max_screenshot_bytes:  # a re-encode can grow the file
+                raise _fail(413, "screenshot too large", origin)
 
         report, result = await run_in_threadpool(
             process_submission,

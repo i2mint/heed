@@ -152,9 +152,14 @@ def test_screenshot_must_be_an_image():
 
 def test_screenshot_stored_with_sniffed_type():
     attachments: dict = {}
-    jpeg = b"\xff\xd8\xff\xe0" + b"\x00" * 16
+    # The smallest structurally valid JPEG (SOI, one scan, EOI): stored after a strip.
+    jpeg = b"\xff\xd8\xff\xda\x00\x08\x01\x01\x00\x00\x3f\x00\x00\xff\xd9"
     resp = _post(
-        _client(attachments=attachments), files={"screenshot": ("s.png", jpeg)}
+        _client(
+            attachments=attachments,
+            config=HeedConfig(allowed_origins=[ORIGIN], screenshot_sanitizer="strip"),
+        ),
+        files={"screenshot": ("s.png", jpeg)},
     )
     assert resp.status_code == 200
     assert list(attachments) == [f"{resp.json()['id']}.jpg"]
