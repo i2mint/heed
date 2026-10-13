@@ -55,20 +55,34 @@ def _backend(*, router_kwargs=None, **config):
         thread.join(5)
 
 
-def _embed_page(backend: str, *, extra_attrs: str = "") -> str:
-    bundle = load_widget_manifest()["entries"]["widget"]
+NONCE = "t3st-n0nce"
+
+
+def _page(backend: str, body: str, *, csp_extra: str = "") -> str:
+    """An embedding page under a strict CSP: no inline style, Trusted Types required,
+    scripts only from the backend (or with the test nonce)."""
     csp = (
-        f"default-src 'none'; script-src {backend}; connect-src {backend}; "
-        "style-src 'none'; require-trusted-types-for 'script'"
+        f"default-src 'none'; script-src {backend} 'nonce-{NONCE}'; "
+        f"connect-src {backend}; style-src 'none'; require-trusted-types-for 'script'"
+        f"{csp_extra}"
     )
     return f"""<!doctype html>
 <html><head><meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="{csp}">
 <title>embedder</title></head>
 <body><h1>Some site</h1>
-<script src="{backend}/heed/widget/{bundle}"></script>
-<heed-feedback endpoint="{backend}/heed/report" {extra_attrs}></heed-feedback>
+{body}
 </body></html>"""
+
+
+def _embed_page(backend: str) -> str:
+    """The bundle plus a hand-written element (no loader)."""
+    bundle = load_widget_manifest()["entries"]["widget"]
+    return _page(
+        backend,
+        f'<script src="{backend}/heed/widget/{bundle}"></script>\n'
+        f'<heed-feedback endpoint="{backend}/heed/report"></heed-feedback>',
+    )
 
 
 @pytest.fixture(scope="module")
@@ -86,7 +100,11 @@ def browser():
 def _open_page(browser, url):
     page = browser.new_page(viewport={"width": 1024, "height": 700})
     problems: list[str] = []
+    page.heed_warnings = warnings = []
     page.on("pageerror", lambda e: problems.append(str(e)))
+    page.on(
+        "console", lambda m: warnings.append(m.text) if m.type == "warning" else None
+    )
     page.on(
         "console",
         lambda m: (
@@ -103,7 +121,7 @@ def _open_page(browser, url):
 
 
 @contextmanager
-def _site(browser, *, allow_page=True, router_kwargs=None, **config):
+def _site(browser, *, page=_embed_page, allow_page=True, router_kwargs=None, **config):
     """A page on one origin embedding the widget from a backend on another.
 
     The page server starts first so the backend can allow exactly its origin (or,
@@ -132,9 +150,9 @@ def _site(browser, *, allow_page=True, router_kwargs=None, **config):
         with _backend(
             allowed_origins=allowed, router_kwargs=router_kwargs, **config
         ) as (backend, store):
-            holder["html"] = _embed_page(backend)
-            with _open_page(browser, origin + "/") as (page, problems):
-                yield page, problems, store, origin
+            holder["html"] = page(backend)
+            with _open_page(browser, origin + "/") as (tab, problems):
+                yield tab, problems, store, origin
     finally:
         server.shutdown()
 
@@ -240,4 +258,157 @@ def test_focus_and_modality_survive_success_and_reparenting(browser):
         )
         page.keyboard.press("Escape")
         assert not page.get_by_role("dialog").is_visible()
+        assert problems == []
+
+
+def _loader_page(script_attrs: str = "", before: str = ""):
+    """The documented embed: one async loader tag, optionally after inline calls."""
+
+    def page(backend: str) -> str:
+        return _page(
+            backend,
+            f"{before}\n"
+            f'<script async src="{backend}/heed/widget/heed.js" {script_attrs}>'
+            "</script>",
+        )
+
+    return page
+
+
+def test_one_script_tag_is_enough(browser):
+    with _site(browser, page=_loader_page('data-label="Report a problem"')) as (
+        page,
+        problems,
+        store,
+        origin,
+    ):
+        page.get_by_role("button", name="Report a problem").click()
+        page.get_by_label("Title").fill("via the loader")
+        page.get_by_role("button", name="Send").click()
+        page.get_by_text("Your report was sent").wait_for()
+        assert problems == []
+        (saved,) = [json.loads(v) for v in store.values()]
+        assert (saved["title"], saved["origin"]) == ("via the loader", origin)
+        assert page.evaluate("typeof heed.version") == "string"
+
+
+def test_loader_pinned_with_sri_pins_the_bundle(browser):
+    manifest = load_widget_manifest()
+    loader = manifest["entries"]["loader"]
+    integrity = manifest["files"][loader]["integrity"]
+
+    def page(backend):
+        return _page(
+            backend,
+            f'<script async src="{backend}/heed/widget/{loader}" '
+            f'integrity="{integrity}" crossorigin="anonymous"></script>',
+        )
+
+    with _site(browser, page=page) as (tab, problems, _store, _origin):
+        tab.get_by_role("button", name="Feedback").wait_for()
+        bundle_tag = tab.evaluate(
+            "() => { const s = document.querySelector('script[src*=heed-widget-]');"
+            " return s && [s.integrity, s.crossOrigin]; }"
+        )
+        widget = manifest["entries"]["widget"]
+        assert bundle_tag == [manifest["files"][widget]["integrity"], "anonymous"]
+        assert problems == []
+
+
+def test_calls_queued_before_the_loader_arrives_are_replayed(browser):
+    stub = (
+        f'<script nonce="{NONCE}">'
+        'window.heed=typeof window.heed=="function"?window.heed:'
+        "function(){(heed.q=heed.q||[]).push(arguments)};"
+        'heed("init", {heading: "Tell us"});'
+        'heed("on", "open", function(){ document.title = "opened"; });'
+        'heed("open");'
+        "</script>"
+    )
+    page = _loader_page('data-position="none"', before=stub)
+    with _site(browser, page=page) as (tab, problems, _store, _origin):
+        tab.get_by_role("dialog").wait_for()
+        assert tab.get_by_role("heading", name="Tell us").is_visible()
+        assert tab.title() == "opened"
+        assert not tab.get_by_role("button", name="Feedback").is_visible()
+        assert problems == []
+
+
+def test_data_auto_false_waits_for_init(browser):
+    page = _loader_page('data-auto="false"')
+    with _site(browser, page=page) as (tab, problems, _store, _origin):
+        tab.wait_for_function("window.heed && window.heed.loaded")
+        assert tab.locator("heed-feedback").count() == 0
+        tab.evaluate("heed.init({label: 'Now'})")
+        tab.get_by_role("button", name="Now").wait_for()
+        assert problems == []
+
+
+def test_a_trusted_types_allow_list_without_heed_is_reported_not_crashed(browser):
+    def page(backend):
+        return _page(
+            backend,
+            f'<script async src="{backend}/heed/widget/heed.js"></script>',
+            csp_extra="; trusted-types app",
+        )
+
+    with _site(browser, page=page) as (tab, problems, _store, _origin):
+        tab.wait_for_function("window.heed && window.heed.q")
+        tab.wait_for_timeout(300)
+        assert any("trusted-types" in w for w in tab.heed_warnings)
+        assert not any("Failed to set" in p for p in problems), problems
+
+
+def test_unsubscribing_before_the_bundle_arrives(browser):
+    script = (
+        f'<script nonce="{NONCE}">'
+        "window.calls = 0;"
+        "var off = heed.on('open', function(){ window.calls++; }); off();"
+        "heed.on('open', function(){ window.calls += 10; });"
+        "</script>"
+    )
+
+    def page(backend):
+        # A synchronous loader, so the inline script runs right after it.
+        return _page(
+            backend, f'<script src="{backend}/heed/widget/heed.js"></script>{script}'
+        )
+
+    with _site(browser, page=page) as (tab, problems, _store, _origin):
+        tab.get_by_role("button", name="Feedback").click()
+        tab.get_by_role("dialog").wait_for()
+        assert tab.evaluate("window.calls") == 10
+        assert problems == []
+
+
+def test_earlier_builds_stay_served(browser):
+    """A loader cached before an upgrade still finds its bundle."""
+    manifest = load_widget_manifest()
+    old = [
+        n
+        for n, m in manifest["files"].items()
+        if m.get("immutable") and m["version"] != manifest["version"]
+    ]
+    with _backend() as (backend, _store):
+        tab = browser.new_page()
+        try:
+            for name in old:
+                r = tab.request.get(f"{backend}/heed/widget/{name}")
+                assert r.status == 200 and r.headers["cache-control"].endswith(
+                    "immutable"
+                )
+        finally:
+            tab.close()
+
+
+def test_an_element_with_id_heed_does_not_stop_the_embed(browser):
+    def page(backend):
+        return _page(
+            backend,
+            '<div id="heed">the page\'s own</div>'
+            f'<script async src="{backend}/heed/widget/heed.js"></script>',
+        )
+
+    with _site(browser, page=page) as (tab, problems, _store, _origin):
+        tab.get_by_role("button", name="Feedback").wait_for()
         assert problems == []

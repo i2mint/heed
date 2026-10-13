@@ -4,29 +4,79 @@ The embeddable half of heed: a `<heed-feedback>` Web Component that lets any vis
 
 ## Embed it
 
-The heed backend serves the built widget itself (`make_app` does by default; with your own app, `include_router(make_widget_router(), prefix="/heed")`):
+The heed backend serves the widget itself (`make_app` does by default; with your own app, `include_router(make_widget_router(), prefix="/heed")`). A site adds one tag:
+
+```html
+<script async src="https://feedback.example/heed/widget/heed.js"></script>
+```
+
+That is all: a "Feedback" button appears in the bottom-right corner, and reports go to the `report` route of the backend that served the script. The backend must list the embedding site in `allowed_origins` (see `misc/docs/embedding-security.md`).
+
+`heed.js` is a loader of about 1 kB. It installs `window.heed`, then loads the widget bundle once the page has finished loading and the browser is idle (at once if the page asks to open the widget), so it never delays the page. Options go in `data-*` attributes, named like the element attributes below:
+
+```html
+<script async src="https://feedback.example/heed/widget/heed.js"
+        data-label="Report a problem" data-position="bottom-left" data-categories="bug feature"></script>
+```
+
+`data-auto="false"` loads the widget without mounting it, for pages that call `heed.init()` themselves. A page that writes its own `<heed-feedback>` element keeps it: the loader then mounts nothing (and lends the element its endpoint if it has none). The mounted widget is put back when a page swaps `<body>` on navigation (Turbo, htmx boost, pjax).
+
+### From code
+
+```js
+heed.init({ label: "Help us improve", extra: () => ({ app_version: "2.3.1" }) }); // mount or reconfigure
+heed.open();                                   // open the dialog (e.g. from your own menu item)
+heed.close();
+const off = heed.on("submitted", (detail) => console.log("report", detail.id)); // off() stops listening
+heed.ready((api) => console.log("heed", api.version)); // once the bundle has loaded
+heed.destroy();                                // remove the widget heed mounted
+```
+
+Until the bundle has loaded, calls are buffered and return nothing, except `on`, whose unsubscribe works at any time. `heed.init()` returns the `<heed-feedback>` element once `heed.loaded` is true; use `heed.ready()` to wait for that.
+
+To call `heed` before the loader has arrived, define the queue first; calls are buffered and replayed in order:
+
+```html
+<script>window.heed = typeof window.heed == "function" ? window.heed : function () { (heed.q = heed.q || []).push(arguments) };</script>
+<script async src="https://feedback.example/heed/widget/heed.js"></script>
+<script>heed("init", { heading: "Tell us what happened" });</script>
+```
+
+(Under a CSP without `'unsafe-inline'`, give those inline scripts a nonce, or call `heed` from your own bundled code.)
+
+### Pinning a version
+
+`heed.js` and `heed-widget.js` are stable names that always serve the current build (cached for five minutes). Every build is also published under content-hashed names that are cached forever; their `integrity` values are in `heed/static/widget/manifest.json` (`entries.loader`, `entries.widget`). Pinning the hashed loader with Subresource Integrity pins the whole chain, because the loader carries the bundle's hashed name and SRI hash:
+
+```html
+<script async src="https://feedback.example/heed/widget/heed-<hash>.js"
+        integrity="sha384-…" crossorigin="anonymous"></script>
+```
+
+Hashed files of the previous five widget versions stay published after an upgrade, so a pin, a loader cached before the upgrade, or a replica still on the old version keeps working; re-pin within those five versions.
+
+### From a CDN or another path
+
+The loader's default endpoint is the `report` route beside the `widget/` folder it was served from. Served from anywhere else (a CDN, a renamed path), give it `data-endpoint`, and mirror the hashed files next to it, since the loader fetches the bundle relative to its own URL. If the loader is injected in a way that leaves `document.currentScript` empty and renamed, mark its tag with `data-heed-loader`. Under a nonce-based CSP the loader passes its own nonce to the bundle it adds.
+
+`window.heed` is the widget's global name. If the page already uses it for something else, the loader leaves it alone, warns in the console, and does not load.
+
+### Without the loader
+
+The bundle works on its own too: load `heed-widget.js` and write the element, which is handy for frameworks that render markup:
 
 ```html
 <script src="https://feedback.example/heed/widget/heed-widget.js" defer></script>
 <heed-feedback endpoint="https://feedback.example/heed/report"></heed-feedback>
 ```
 
-`heed-widget.js` is a stable name that always serves the current build (cached for five minutes). To pin one build with Subresource Integrity, use its content-hashed name and `integrity` value from `heed/static/widget/manifest.json` (`entries.widget`); a pinned name stops existing when heed is upgraded, so re-pin then:
-
-```html
-<script src="https://feedback.example/heed/widget/heed-widget-<hash>.js"
-        integrity="sha384-…" crossorigin="anonymous" defer></script>
-```
-
-That is all: a "Feedback" button appears in the bottom-right corner. The backend must list the embedding site in `allowed_origins` (see `misc/docs/embedding-security.md`).
-
 ## Options
 
-Every option has a default; set it as an attribute, or from code with `el.configure({...})`. Function-valued options are code-only.
+Every option has a default; set it as an element attribute, as a `data-*` attribute on the loader tag, or from code with `heed.init({...})` / `el.configure({...})`. Function-valued options are code-only. `endpoint` defaults to the backend that served the loader.
 
 | Option (attribute) | Default | What it does |
 |---|---|---|
-| `endpoint` (`endpoint`) | — | URL of the backend's `POST /report`. Required. |
+| `endpoint` (`endpoint`) | the loader's backend | URL of the backend's `POST /report`. Required when the bundle is used without the loader. |
 | `label` (`label`) | `Feedback` | Launcher button text. |
 | `position` (`position`) | `bottom-right` | `bottom-left`, or `none` for no launcher (open it with `el.open()`). |
 | `heading` (`heading`) | `Send feedback` | Dialog heading. |
@@ -59,7 +109,7 @@ Set CSS custom properties on the element (`--heed-accent`, `--heed-accent-fg`, `
 
 ## Content-Security-Policy
 
-The widget needs no `'unsafe-inline'` and no `'unsafe-eval'`: its styles are constructed stylesheets and its DOM is built without `innerHTML`, so it also runs under `require-trusted-types-for 'script'`. Allow the backend's origin in `script-src` and `connect-src`.
+The widget needs no `'unsafe-inline'` and no `'unsafe-eval'`: its styles are constructed stylesheets and its DOM is built without `innerHTML`, so it also runs under `require-trusted-types-for 'script'`. Allow the backend's origin in `script-src` and `connect-src`. Under Trusted Types, the loader creates a policy named `heed` that only passes the bundle's own URL; if your CSP lists allowed policy names (`trusted-types ...`), add `heed` (and `'allow-duplicates'` if the page creates a policy of that name itself); otherwise the loader warns in the console and the widget does not load.
 
 ## Develop
 
@@ -70,5 +120,7 @@ npm run check    # TypeScript
 npm test         # unit tests (vitest + jsdom)
 npm run build    # writes heed/static/widget/ and its manifest; fails over the size budget
 ```
+
+Bump `version` in `package.json` for every widget change that ships: hashed files are retained per version (the previous five), and a rebuild without a bump replaces the current version's files.
 
 `src/contract.gen.ts` is generated from heed's Pydantic models (`python -m heed.widget contract > widget/src/contract.gen.ts`); a Python test fails when it is stale. The built files are committed so the Python package ships them; CI rebuilds and fails if they differ. `tests/test_widget_browser.py` runs the built widget in headless Chromium against a real backend (`pip install playwright uvicorn && playwright install chromium`).

@@ -65,7 +65,7 @@ const oneOf =
   <T extends string>(...allowed: T[]): Parse<T> =>
   (s) =>
     (allowed as string[]).includes(s) ? (s as T) : undefined;
-const bool: Parse<boolean> = (s) =>
+export const parseBool: Parse<boolean> = (s) =>
   ["", "true", "1", "yes"].includes(s.toLowerCase()) ? true : ["false", "0", "no"].includes(s.toLowerCase()) ? false : undefined;
 // setTimeout fires at once for delays past 2^31 - 1 ms, so longer ones are capped.
 const MAX_TIMER_MS = 2_147_483_647;
@@ -96,7 +96,7 @@ export const OPTION_SPECS: Specs = {
   heading: { default: "Send feedback", attr: "heading", parse: text },
   categories: { default: [...CONTRACT.categories], attr: "categories", parse: categories },
   pageUrl: { default: "path", attr: "page-url", parse: oneOf("path", "full") },
-  withCredentials: { default: false, attr: "with-credentials", parse: bool },
+  withCredentials: { default: false, attr: "with-credentials", parse: parseBool },
   timeoutMs: { default: 30_000, attr: "timeout-ms", parse: positiveInt },
   botTokenField: { default: CONTRACT.fields.bot_token, attr: "bot-token-field", parse: text },
   honeypotField: { default: CONTRACT.fields.honeypot ?? "", attr: "honeypot-field", parse: text },
@@ -118,12 +118,17 @@ export function defaultOptions(): HeedOptions {
   return out as unknown as HeedOptions;
 }
 
-/** Options set by attributes on `el` (attributes that are absent or unparsable are skipped). */
-export function optionsFromAttributes(el: Element): Partial<HeedOptions> {
+/**
+ * Options set by attributes (absent or unparsable ones are skipped). `source` is an
+ * element (its attributes), or a lookup by attribute name, e.g. over a `<script>`
+ * tag's `data-*` attributes.
+ */
+export function optionsFromAttributes(source: Element | ((attr: string) => string | null | undefined)): Partial<HeedOptions> {
+  const get = typeof source === "function" ? source : (attr: string) => source.getAttribute(attr);
   const out: Record<string, unknown> = {};
   for (const [key, spec] of Object.entries(OPTION_SPECS as Record<string, OptionSpec<unknown>>)) {
     if (!spec.attr || !spec.parse) continue;
-    const raw = el.getAttribute(spec.attr);
+    const raw = get(spec.attr) ?? null;
     if (raw === null) continue;
     const value = spec.parse(raw.trim());
     if (value !== undefined) out[key] = value;

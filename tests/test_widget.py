@@ -51,6 +51,20 @@ def test_built_widget_is_shipped_with_its_manifest():
     assert meta["gzip_bytes"] <= 8_000
     stable = manifest["files"]["heed-widget.js"]
     assert stable["immutable"] is False and "integrity" not in stable
+    loader = manifest["entries"]["loader"]
+    assert manifest["files"][loader]["gzip_bytes"] <= 1_300
+    assert manifest["files"]["heed.js"]["immutable"] is False
+
+
+def test_loader_pins_the_bundle_it_loads():
+    """The loader embeds the bundle's hashed name and SRI hash (an SRI chain)."""
+    manifest = load_widget_manifest()
+    widget = manifest["entries"]["widget"]
+    root = Path(__file__).resolve().parent.parent / "heed" / "static" / "widget"
+    for loader in (manifest["entries"]["loader"], "heed.js"):
+        code = (root / loader).read_text()
+        assert widget in code
+        assert manifest["files"][widget]["integrity"] in code
 
 
 def _client(**kwargs) -> TestClient:
