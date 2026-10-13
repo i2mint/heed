@@ -20,7 +20,8 @@ Public API (Phase 1):
   Backend   process_submission, make_router, make_app, HeedConfig
   Hardening RateLimiter, InMemoryRateLimiter, RedisRateLimiter, make_rate_limiter,
   <br/>
-  > BotVerifier, SiteverifyBotVerifier, make_bot_verifier
+  > BotVerifier, SiteverifyBotVerifier, make_bot_verifier,
+  > make_image_sanitizer, strip_image, reencode_image, attachment_headers
   > (see misc/docs/embedding-security.md)
   <br/>
   Routing   sinks_by_origin, Verdict, accept_all, hold_all,
@@ -42,22 +43,26 @@ True
 
 ### Functions
 
-| [`new_report_id`](#heed.new_report_id)()                                   | Return a fresh opaque report id (uuid4 hex).                                  |
-|----------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------|
-| [`github_sink_from_token`](#heed.github_sink_from_token)(repo, token, \*\*kwargs)   | Build a GitHubIssuesSink that creates issues in `repo` ('owner/name').        |
-| [`process_submission`](#heed.process_submission)(submission, sink, \*[, ...])   | Enrich `submission` into a Report, store any screenshot, and route to `sink`. |
-| [`make_router`](#heed.make_router)(sink, \*[, config, ...])              | Build a FastAPI APIRouter exposing `POST /report` (and its CORS preflight).   |
-| [`make_app`](#heed.make_app)(sink, \*[, config, ...])                 | A standalone FastAPI app serving the heed router under `prefix`.              |
-| [`make_rate_limiter`](#heed.make_rate_limiter)([backend, window_seconds, ...]) | Build a limiter from the `rate_limiter_backends` registry by name.            |
-| [`make_bot_verifier`](#heed.make_bot_verifier)(provider, secret, \*\*kwargs)   | Return a verifier, or `None` (gate off) when no secret is configured.         |
-| [`sinks_by_origin`](#heed.sinks_by_origin)(sinks, \*[, default])             | A resolver from an `{origin: sink}` mapping (origins compared normalized).    |
-| [`accept_all`](#heed.accept_all)(report)                                | The default moderator: everything goes straight to the sink.                  |
-| [`hold_all`](#heed.hold_all)(report)                                  | Full pre-moderation: every report waits for a human.                          |
-| [`make_heuristic_moderator`](#heed.make_heuristic_moderator)(\*[, max_links, ...])    | Hold reports with more than `max_links` links or any of `blocked_terms`.      |
-| [`chain_moderators`](#heed.chain_moderators)(\*moderators)                    | Combine moderators; the most severe verdict wins (reject > hold > accept).    |
-| [`release_held`](#heed.release_held)(report_id, \*, holding_store[, ...]) | Release a held report: route it on and remove it from holding.                |
-| [`make_report_store`](#heed.make_report_store)([rootdir])                      | A text store for report JSON.                                                 |
-| [`make_attachment_store`](#heed.make_attachment_store)([rootdir])                  | A bytes store for attachments.                                                |
+| [`new_report_id`](#heed.new_report_id)()                                    | Return a fresh opaque report id (uuid4 hex).                                  |
+|-----------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------|
+| [`github_sink_from_token`](#heed.github_sink_from_token)(repo, token, \*\*kwargs)    | Build a GitHubIssuesSink that creates issues in `repo` ('owner/name').        |
+| [`process_submission`](#heed.process_submission)(submission, sink, \*[, ...])    | Enrich `submission` into a Report, store any screenshot, and route to `sink`. |
+| [`make_router`](#heed.make_router)(sink, \*[, config, ...])               | Build a FastAPI APIRouter exposing `POST /report` (and its CORS preflight).   |
+| [`make_app`](#heed.make_app)(sink, \*[, config, ...])                  | A standalone FastAPI app serving the heed router under `prefix`.              |
+| [`make_rate_limiter`](#heed.make_rate_limiter)([backend, window_seconds, ...])  | Build a limiter from the `rate_limiter_backends` registry by name.            |
+| [`make_bot_verifier`](#heed.make_bot_verifier)(provider, secret, \*\*kwargs)    | Return a verifier, or `None` (gate off) when no secret is configured.         |
+| [`make_image_sanitizer`](#heed.make_image_sanitizer)([name, max_pixels, ...])      | Build a sanitizer from the `image_sanitizers` registry by name.               |
+| [`strip_image`](#heed.strip_image)(data, media_type)                      | Keep only what renders the image; truncate at its end.                        |
+| [`reencode_image`](#heed.reencode_image)(data, media_type, \*[, max_pixels]) | Strip `data`, then decode it and save its first frame afresh, same format.    |
+| [`attachment_headers`](#heed.attachment_headers)(media_type, \*[, ...])          | Headers for serving a stored screenshot (issue #15).                          |
+| [`sinks_by_origin`](#heed.sinks_by_origin)(sinks, \*[, default])              | A resolver from an `{origin: sink}` mapping (origins compared normalized).    |
+| [`accept_all`](#heed.accept_all)(report)                                 | The default moderator: everything goes straight to the sink.                  |
+| [`hold_all`](#heed.hold_all)(report)                                   | Full pre-moderation: every report waits for a human.                          |
+| [`make_heuristic_moderator`](#heed.make_heuristic_moderator)(\*[, max_links, ...])     | Hold reports with more than `max_links` links or any of `blocked_terms`.      |
+| [`chain_moderators`](#heed.chain_moderators)(\*moderators)                     | Combine moderators; the most severe verdict wins (reject > hold > accept).    |
+| [`release_held`](#heed.release_held)(report_id, \*, holding_store[, ...])  | Release a held report: route it on and remove it from holding.                |
+| [`make_report_store`](#heed.make_report_store)([rootdir])                       | A text store for report JSON.                                                 |
+| [`make_attachment_store`](#heed.make_attachment_store)([rootdir])                   | A bytes store for attachments.                                                |
 
 ### Classes
 
@@ -142,7 +147,7 @@ Bases: [`BaseSink`](heed.sinks.base.md#heed.sinks.base.BaseSink)
 
 Route a report to a GitHub issue via an injected `create_issue` callable.
 
-### *class* heed.HeedConfig(\*, allowed_origins=None, handle_cors=True, cors_allow_credentials=False, cors_max_age_seconds=600, max_body_bytes=6000000, max_screenshot_bytes=5000000, max_field_bytes=100000, max_form_fields=16, rate_limit_per_minute=30, origin_rate_limit_per_minute=600, rate_limit_window_seconds=60.0, rate_limit_backend='memory', redis_url=None, trusted_proxies=<factory>, ipv6_rate_limit_prefix=64, bot_gate=None, bot_secret=None, bot_expected_hostnames=None, bot_token_field='bot_token', honeypot_field='hp_website', accept_console=False, accept_network=False)
+### *class* heed.HeedConfig(\*, allowed_origins=None, handle_cors=True, cors_allow_credentials=False, cors_max_age_seconds=600, max_body_bytes=6000000, max_screenshot_bytes=5000000, screenshot_sanitizer='auto', max_screenshot_pixels=25000000, max_concurrent_reencodes=2, max_field_bytes=100000, max_form_fields=16, rate_limit_per_minute=30, origin_rate_limit_per_minute=600, rate_limit_window_seconds=60.0, rate_limit_backend='memory', redis_url=None, trusted_proxies=<factory>, ipv6_rate_limit_prefix=64, bot_gate=None, bot_secret=None, bot_expected_hostnames=None, bot_token_field='bot_token', honeypot_field='hp_website', accept_console=False, accept_network=False)
 
 Bases: [`object`](https://docs.python.org/3/builtins/functions.html#object)
 
@@ -325,6 +330,27 @@ The default moderator: everything goes straight to the sink.
 * **Return type:**
   [`Verdict`](heed.routing.md#heed.routing.Verdict)
 
+### heed.attachment_headers(media_type, , filename=None, cross_origin=False)
+
+Headers for serving a stored screenshot (issue #15). Use them on every response
+that returns attachment bytes, ideally from an origin separate from the app’s.
+
+Only the image types heed accepts are served as themselves; anything else is sent as
+an opaque download. Embedding is limited to the same site
+(`Cross-Origin-Resource-Policy: same-site`) unless `cross_origin=True`, which a
+screenshot embedded elsewhere (e.g. in a GitHub issue) needs.
+
+* **Return type:**
+  [`dict`](https://docs.python.org/3/builtins/stdtypes.html#dict)
+
+```pycon
+>>> h = attachment_headers("image/png", filename="r1.png")
+>>> h["Content-Type"], h["X-Content-Type-Options"], h["Content-Disposition"]
+('image/png', 'nosniff', 'inline; filename="r1.png"')
+>>> attachment_headers("text/html")["Content-Type"]
+'application/octet-stream'
+```
+
 ### heed.chain_moderators(\*moderators)
 
 Combine moderators; the most severe verdict wins (reject > hold > accept).
@@ -390,6 +416,16 @@ false positive costs a human click, not a lost report.
 ['accept', 'hold', 'hold']
 ```
 
+### heed.make_image_sanitizer(name='auto', , max_pixels=25000000, max_concurrent=2, busy_wait_seconds=2.0)
+
+Build a sanitizer from the `image_sanitizers` registry by name.
+
+Fails at construction (not on the first upload) when the name is unknown or its
+dependency is missing.
+
+* **Return type:**
+  [`Callable`](https://docs.python.org/3/library/collections.abc.html#collections.abc.Callable)[[[`bytes`](https://docs.python.org/3/builtins/stdtypes.html#bytes), [`str`](https://docs.python.org/3/builtins/stdtypes.html#str)], [`bytes`](https://docs.python.org/3/builtins/stdtypes.html#bytes)]
+
 ### heed.make_rate_limiter(backend='memory', , max_per_window, window_seconds=60.0, namespace='ip', redis_url=None)
 
 Build a limiter from the `rate_limiter_backends` registry by name.
@@ -404,7 +440,7 @@ A text store for report JSON. In-memory unless `rootdir` is given.
 * **Return type:**
   [`MutableMapping`](https://docs.python.org/3/library/collections.abc.html#collections.abc.MutableMapping)
 
-### heed.make_router(sink, , config=None, attachment_store=None, rate_limiter=None, origin_rate_limiter=None, bot_verifier=None, user_dependency=None, resolve_sink=None, moderator=None, holding_sink=None)
+### heed.make_router(sink, , config=None, attachment_store=None, rate_limiter=None, origin_rate_limiter=None, bot_verifier=None, user_dependency=None, resolve_sink=None, moderator=None, holding_sink=None, image_sanitizer=None)
 
 Build a FastAPI APIRouter exposing `POST /report` (and its CORS preflight).
 
@@ -415,7 +451,8 @@ bind identity when an auth layer like enlace_auth is present.
 Hardening defaults come from `config`; any piece can be injected instead:
 `rate_limiter` (per client IP), `origin_rate_limiter` (per Origin) and
 `bot_verifier` (by default built from `config.bot_secret`, i.e. off until a
-secret is configured).
+secret is configured) and `image_sanitizer` (by default from
+`config.screenshot_sanitizer`: re-encode with Pillow, else a pure-Python strip).
 
 Routing is decided server-side, never by the browser: `resolve_sink` maps the
 validated origin to that site’s sink (`sink` is then the fallback and may be
@@ -444,6 +481,18 @@ unless enabled in `config`. `moderator` decides first: `hold` sends the report
 
 * **Return type:**
   [`tuple`](https://docs.python.org/3/builtins/stdtypes.html#tuple)[[`Report`](heed.base.md#heed.base.Report), [`SinkResult`](heed.sinks.base.md#heed.sinks.base.SinkResult)]
+
+### heed.reencode_image(data, media_type, , max_pixels=25000000)
+
+Strip `data`, then decode it and save its first frame afresh, same format.
+
+Images over `max_pixels` are refused before any pixel is decoded (a small file can
+declare a huge canvas). Nothing but pixels (and PNG palette transparency) is carried
+over: no comment, EXIF, ICC profile or other metadata. Raises `ValueError` on a
+malformed, oversized or too costly image.
+
+* **Return type:**
+  [`bytes`](https://docs.python.org/3/builtins/stdtypes.html#bytes)
 
 ### heed.release_held(report_id, , holding_store, sink=None, resolve_sink=None)
 
@@ -476,11 +525,22 @@ the router refuses them.
 (True, None)
 ```
 
+### heed.strip_image(data, media_type)
+
+Keep only what renders the image; truncate at its end. Pure Python.
+
+Raises `ValueError` when `data` is not a well-formed `media_type` image, or
+one too costly to decode (over `MAX_JPEG_SCANS` scans, `_MAX_PARTS` parts).
+
+* **Return type:**
+  [`bytes`](https://docs.python.org/3/builtins/stdtypes.html#bytes)
+
 ### Modules
 
 | [`base`](heed.base.md#module-heed.base)         | Domain model for heed — the single source of truth shared by widget and backend.   |
 |--------------------------------------------------------------------------------|------------------------------------------------------------------------------------|
 | [`config`](heed.config.md#module-heed.config)     | Configuration for the heed backend (smart defaults; keyword-only).                 |
+| [`images`](heed.images.md#module-heed.images)     | Neutralise uploaded screenshots before they are stored (issue #15).                |
 | [`ingest`](heed.ingest.md#module-heed.ingest)     | The ingest layer — build a Report from a submission and route it to a sink.        |
 | [`routing`](heed.routing.md#module-heed.routing)   | Where a report goes: server-side site resolution and moderation (holding state).   |
 | [`security`](heed.security.md#module-heed.security) | Public-endpoint hardening (the ingest endpoint is unauthenticated and hostile).    |

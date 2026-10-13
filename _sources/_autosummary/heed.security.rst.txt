@@ -4,10 +4,17 @@ heed.security
 .. automodule:: heed.security
 
    
+   .. rubric:: Module Attributes
+
+   .. autosummary::
+   
+      ATTACHMENT_RESPONSE_HEADERS
+   
    .. rubric:: Functions
 
    .. autosummary::
    
+      attachment_headers
       client_ip
       cors_headers
       make_bot_verifier

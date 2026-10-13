@@ -726,7 +726,8 @@ window.runMermaid = runMermaid;</script>
 <span class="sd">- **Bot gate**: the :class:`BotVerifier` protocol and :class:`SiteverifyBotVerifier`</span>
 <span class="sd">  for Cloudflare Turnstile / hCaptcha, built by :func:`make_bot_verifier` only when a</span>
 <span class="sd">  secret is configured (off otherwise).</span>
-<span class="sd">- **Attachments**: :func:`sniff_image_type` checks screenshot magic bytes.</span>
+<span class="sd">- **Attachments**: :func:`sniff_image_type` checks screenshot magic bytes (and</span>
+<span class="sd">  ``images.py`` rewrites them); :func:`attachment_headers` is how to serve them.</span>
 <span class="sd">"""</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
@@ -1241,6 +1242,53 @@ window.runMermaid = runMermaid;</script>
         <span class="k">if</span> <span class="n">matches</span><span class="p">(</span><span class="n">data</span><span class="p">):</span>
             <span class="k">return</span> <span class="n">media_type</span>
     <span class="k">return</span> <span class="kc">None</span></div>
+
+
+
+<span class="c1">#: Response headers for serving a stored attachment, whatever its bytes contain:</span>
+<span class="c1">#: never sniffed as another type, never allowed to run script or load anything, never</span>
+<span class="c1">#: cached by shared caches.</span>
+<span class="n">ATTACHMENT_RESPONSE_HEADERS</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">"X-Content-Type-Options"</span><span class="p">:</span> <span class="s2">"nosniff"</span><span class="p">,</span>
+    <span class="s2">"Content-Security-Policy"</span><span class="p">:</span> <span class="s2">"default-src 'none'; sandbox"</span><span class="p">,</span>
+    <span class="s2">"Referrer-Policy"</span><span class="p">:</span> <span class="s2">"no-referrer"</span><span class="p">,</span>
+    <span class="s2">"Cache-Control"</span><span class="p">:</span> <span class="s2">"private, no-store"</span><span class="p">,</span>
+<span class="p">}</span>
+
+
+<div class="viewcode-block" id="attachment_headers">
+<a class="viewcode-back" href="../../_autosummary/heed.security.html#heed.attachment_headers">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">attachment_headers</span><span class="p">(</span>
+    <span class="n">media_type</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">filename</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">cross_origin</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Headers for serving a stored screenshot (issue #15). Use them on every response</span>
+<span class="sd">    that returns attachment bytes, ideally from an origin separate from the app's.</span>
+
+<span class="sd">    Only the image types heed accepts are served as themselves; anything else is sent as</span>
+<span class="sd">    an opaque download. Embedding is limited to the same site</span>
+<span class="sd">    (``Cross-Origin-Resource-Policy: same-site``) unless ``cross_origin=True``, which a</span>
+<span class="sd">    screenshot embedded elsewhere (e.g. in a GitHub issue) needs.</span>
+
+<span class="sd">    &gt;&gt;&gt; h = attachment_headers("image/png", filename="r1.png")</span>
+<span class="sd">    &gt;&gt;&gt; h["Content-Type"], h["X-Content-Type-Options"], h["Content-Disposition"]</span>
+<span class="sd">    ('image/png', 'nosniff', 'inline; filename="r1.png"')</span>
+<span class="sd">    &gt;&gt;&gt; attachment_headers("text/html")["Content-Type"]</span>
+<span class="sd">    'application/octet-stream'</span>
+<span class="sd">    """</span>
+    <span class="n">known</span> <span class="o">=</span> <span class="n">media_type</span> <span class="ow">in</span> <span class="n">IMAGE_EXTENSIONS</span>
+    <span class="n">headers</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">"Content-Type"</span><span class="p">:</span> <span class="n">media_type</span> <span class="k">if</span> <span class="n">known</span> <span class="k">else</span> <span class="s2">"application/octet-stream"</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">ATTACHMENT_RESPONSE_HEADERS</span><span class="p">,</span>
+        <span class="s2">"Cross-Origin-Resource-Policy"</span><span class="p">:</span> <span class="s2">"cross-origin"</span> <span class="k">if</span> <span class="n">cross_origin</span> <span class="k">else</span> <span class="s2">"same-site"</span><span class="p">,</span>
+    <span class="p">}</span>
+    <span class="n">disposition</span> <span class="o">=</span> <span class="s2">"inline"</span> <span class="k">if</span> <span class="n">known</span> <span class="k">else</span> <span class="s2">"attachment"</span>
+    <span class="k">if</span> <span class="n">filename</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">safe</span> <span class="o">=</span> <span class="s2">""</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+            <span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">filename</span> <span class="k">if</span> <span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="n">isascii</span><span class="p">()</span> <span class="ow">and</span> <span class="n">c</span><span class="o">.</span><span class="n">isalnum</span><span class="p">())</span> <span class="ow">or</span> <span class="n">c</span> <span class="ow">in</span> <span class="s2">"._-"</span>
+        <span class="p">)</span>
+        <span class="n">disposition</span> <span class="o">+=</span> <span class="sa">f</span><span class="s1">'; filename="</span><span class="si">{</span><span class="n">safe</span><span class="w"> </span><span class="ow">or</span><span class="w"> </span><span class="s2">"attachment"</span><span class="si">}</span><span class="s1">"'</span>
+    <span class="n">headers</span><span class="p">[</span><span class="s2">"Content-Disposition"</span><span class="p">]</span> <span class="o">=</span> <span class="n">disposition</span>
+    <span class="k">return</span> <span class="n">headers</span></div>
 
 </pre></div>
 

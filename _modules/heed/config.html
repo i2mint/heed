@@ -745,6 +745,11 @@ window.runMermaid = runMermaid;</script>
     <span class="c1"># --- Payload caps ---------------------------------------------------------------</span>
     <span class="n">max_body_bytes</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">6_000_000</span>  <span class="c1"># whole request; must leave room for a screenshot</span>
     <span class="n">max_screenshot_bytes</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">5_000_000</span>
+    <span class="c1"># Rewrite accepted screenshots so only the image survives (polyglots, EXIF/GPS):</span>
+    <span class="c1"># "auto" | "reencode" (Pillow) | "strip" (pure Python) | "none". See images.py.</span>
+    <span class="n">screenshot_sanitizer</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"auto"</span>
+    <span class="n">max_screenshot_pixels</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">25_000_000</span>  <span class="c1"># refused before decoding (re-encode only)</span>
+    <span class="n">max_concurrent_reencodes</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span>  <span class="c1"># per process; beyond it a submission gets 503</span>
     <span class="n">max_field_bytes</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">100_000</span>  <span class="c1"># any single non-file form field</span>
     <span class="n">max_form_fields</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">16</span>
 

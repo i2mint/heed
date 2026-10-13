@@ -723,7 +723,8 @@ window.runMermaid = runMermaid;</script>
 <span class="sd">run cheapest-first so abuse is rejected before it costs anything: CORS preflight →</span>
 <span class="sd">origin allow-list → per-IP rate limit (both before ``user_dependency``) → body-size cap</span>
 <span class="sd">(streamed, before parsing) → form limits → honeypot → bot gate → per-origin rate limit</span>
-<span class="sd">→ model validation → screenshot sniffing.</span>
+<span class="sd">→ model validation → screenshot sniffing → screenshot sanitizing (``images.py``: only</span>
+<span class="sd">the image survives, so polyglot payloads and EXIF/GPS metadata are never stored).</span>
 
 <span class="sd">NOTE: this module does not ``from __future__ import annotations`` — FastAPI resolves</span>
 <span class="sd">route-handler annotations against module globals, so the request/response types are</span>
@@ -754,6 +755,12 @@ window.runMermaid = runMermaid;</script>
     <span class="n">utcnow</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">heed.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">HeedConfig</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">heed.images</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">BUSY_RETRY_AFTER_SECONDS</span><span class="p">,</span>
+    <span class="n">ImageSanitizer</span><span class="p">,</span>
+    <span class="n">SanitizerBusy</span><span class="p">,</span>
+    <span class="n">make_image_sanitizer</span><span class="p">,</span>
+<span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">heed.routing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Moderator</span><span class="p">,</span> <span class="n">SinkResolver</span><span class="p">,</span> <span class="n">Verdict</span><span class="p">,</span> <span class="n">accept_all</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">heed.security</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">IMAGE_EXTENSIONS</span><span class="p">,</span>
@@ -972,6 +979,7 @@ window.runMermaid = runMermaid;</script>
     <span class="n">resolve_sink</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">SinkResolver</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">moderator</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Moderator</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">holding_sink</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Sink</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">image_sanitizer</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">ImageSanitizer</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">APIRouter</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Build a FastAPI APIRouter exposing ``POST /report`` (and its CORS preflight).</span>
 
@@ -982,7 +990,8 @@ window.runMermaid = runMermaid;</script>
 <span class="sd">    Hardening defaults come from ``config``; any piece can be injected instead:</span>
 <span class="sd">    ``rate_limiter`` (per client IP), ``origin_rate_limiter`` (per Origin) and</span>
 <span class="sd">    ``bot_verifier`` (by default built from ``config.bot_secret``, i.e. off until a</span>
-<span class="sd">    secret is configured).</span>
+<span class="sd">    secret is configured) and ``image_sanitizer`` (by default from</span>
+<span class="sd">    ``config.screenshot_sanitizer``: re-encode with Pillow, else a pure-Python strip).</span>
 
 <span class="sd">    Routing is decided server-side, never by the browser: ``resolve_sink`` maps the</span>
 <span class="sd">    validated origin to that site's sink (``sink`` is then the fallback and may be</span>
@@ -1031,6 +1040,11 @@ window.runMermaid = runMermaid;</script>
         <span class="n">origin_rate_limiter</span> <span class="o">=</span> <span class="n">_limiter</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">origin_rate_limit_per_minute</span><span class="p">,</span> <span class="s2">"origin"</span><span class="p">)</span>
     <span class="n">verifier</span> <span class="o">=</span> <span class="n">bot_verifier</span> <span class="ow">or</span> <span class="n">make_bot_verifier</span><span class="p">(</span>
         <span class="n">cfg</span><span class="o">.</span><span class="n">bot_gate</span><span class="p">,</span> <span class="n">cfg</span><span class="o">.</span><span class="n">bot_secret</span><span class="p">,</span> <span class="n">expected_hostnames</span><span class="o">=</span><span class="n">cfg</span><span class="o">.</span><span class="n">bot_expected_hostnames</span>
+    <span class="p">)</span>
+    <span class="n">sanitize_image</span> <span class="o">=</span> <span class="n">image_sanitizer</span> <span class="ow">or</span> <span class="n">make_image_sanitizer</span><span class="p">(</span>
+        <span class="n">cfg</span><span class="o">.</span><span class="n">screenshot_sanitizer</span><span class="p">,</span>
+        <span class="n">max_pixels</span><span class="o">=</span><span class="n">cfg</span><span class="o">.</span><span class="n">max_screenshot_pixels</span><span class="p">,</span>
+        <span class="n">max_concurrent</span><span class="o">=</span><span class="n">cfg</span><span class="o">.</span><span class="n">max_concurrent_reencodes</span><span class="p">,</span>
     <span class="p">)</span>
     <span class="n">trusted_networks</span> <span class="o">=</span> <span class="n">parse_networks</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">trusted_proxies</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">cfg</span><span class="o">.</span><span class="n">allowed_origins</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
@@ -1220,6 +1234,23 @@ window.runMermaid = runMermaid;</script>
             <span class="n">shot_type</span> <span class="o">=</span> <span class="n">sniff_image_type</span><span class="p">(</span><span class="n">shot</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">shot_type</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="n">_fail</span><span class="p">(</span><span class="mi">415</span><span class="p">,</span> <span class="s2">"screenshot must be a PNG, JPEG or WebP image"</span><span class="p">,</span> <span class="n">origin</span><span class="p">)</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">shot</span> <span class="o">=</span> <span class="k">await</span> <span class="n">run_in_threadpool</span><span class="p">(</span><span class="n">sanitize_image</span><span class="p">,</span> <span class="n">shot</span><span class="p">,</span> <span class="n">shot_type</span><span class="p">)</span>
+            <span class="k">except</span> <span class="n">SanitizerBusy</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">_fail</span><span class="p">(</span>
+                    <span class="mi">503</span><span class="p">,</span>
+                    <span class="s2">"busy, retry shortly"</span><span class="p">,</span>
+                    <span class="n">origin</span><span class="p">,</span>
+                    <span class="o">**</span><span class="p">{</span><span class="s2">"Retry-After"</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">BUSY_RETRY_AFTER_SECONDS</span><span class="p">)},</span>
+                <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span>
+            <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">_fail</span><span class="p">(</span>
+                    <span class="mi">415</span><span class="p">,</span>
+                    <span class="s2">"screenshot is not a well-formed PNG, JPEG or WebP image"</span><span class="p">,</span>
+                    <span class="n">origin</span><span class="p">,</span>
+                <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">shot</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">cfg</span><span class="o">.</span><span class="n">max_screenshot_bytes</span><span class="p">:</span>  <span class="c1"># a re-encode can grow the file</span>
+                <span class="k">raise</span> <span class="n">_fail</span><span class="p">(</span><span class="mi">413</span><span class="p">,</span> <span class="s2">"screenshot too large"</span><span class="p">,</span> <span class="n">origin</span><span class="p">)</span>
 
         <span class="n">report</span><span class="p">,</span> <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">run_in_threadpool</span><span class="p">(</span>
             <span class="n">process_submission</span><span class="p">,</span>

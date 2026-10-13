@@ -15,12 +15,19 @@ composes them and deployments swap implementations without touching it:
 - **Bot gate**: the [`BotVerifier`](#heed.security.BotVerifier) protocol and [`SiteverifyBotVerifier`](#heed.security.SiteverifyBotVerifier)
   for Cloudflare Turnstile / hCaptcha, built by [`make_bot_verifier()`](#heed.security.make_bot_verifier) only when a
   secret is configured (off otherwise).
-- **Attachments**: [`sniff_image_type()`](#heed.security.sniff_image_type) checks screenshot magic bytes.
+- **Attachments**: [`sniff_image_type()`](#heed.security.sniff_image_type) checks screenshot magic bytes (and
+  `images.py` rewrites them); [`attachment_headers()`](#heed.security.attachment_headers) is how to serve them.
+
+### Module Attributes
+
+| [`ATTACHMENT_RESPONSE_HEADERS`](#heed.security.ATTACHMENT_RESPONSE_HEADERS)   | Response headers for serving a stored attachment, whatever its bytes contain: never sniffed as another type, never allowed to run script or load anything, never cached by shared caches.   |
+|--------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 
 ### Functions
 
-| [`client_ip`](#heed.security.client_ip)(peer, forwarded_for, \*[, ...])         | The client address to rate-limit on.                                            |
+| [`attachment_headers`](#heed.security.attachment_headers)(media_type, \*[, ...])         | Headers for serving a stored screenshot (issue #15).                            |
 |----------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------|
+| [`client_ip`](#heed.security.client_ip)(peer, forwarded_for, \*[, ...])         | The client address to rate-limit on.                                            |
 | [`cors_headers`](#heed.security.cors_headers)(origin, allowed, \*[, ...])          | CORS response headers for `origin`, or `{}` when it is not allowed.             |
 | [`make_bot_verifier`](#heed.security.make_bot_verifier)(provider, secret, \*\*kwargs)   | Return a verifier, or `None` (gate off) when no secret is configured.           |
 | [`make_rate_limiter`](#heed.security.make_rate_limiter)([backend, window_seconds, ...]) | Build a limiter from the `rate_limiter_backends` registry by name.              |
@@ -39,6 +46,12 @@ composes them and deployments swap implementations without touching it:
 | [`RateLimiter`](#heed.security.RateLimiter)(\*args, \*\*kwargs)                | Decide whether a request keyed by `key` (e.g. client IP) is allowed now.     |
 | [`RedisRateLimiter`](#heed.security.RedisRateLimiter)(client, \*[, ...])            | Fixed-window limiter in Redis — one count shared by every worker and host.   |
 | [`SiteverifyBotVerifier`](#heed.security.SiteverifyBotVerifier)(secret, \*[, ...])       | Turnstile / hCaptcha verification (both speak the same siteverify protocol). |
+
+### heed.security.ATTACHMENT_RESPONSE_HEADERS *= {'Cache-Control': 'private, no-store', 'Content-Security-Policy': "default-src 'none'; sandbox", 'Referrer-Policy': 'no-referrer', 'X-Content-Type-Options': 'nosniff'}*
+
+Response headers for serving a stored attachment, whatever its bytes contain:
+never sniffed as another type, never allowed to run script or load anything, never
+cached by shared caches.
 
 ### *class* heed.security.BotVerifier(\*args, \*\*kwargs)
 
@@ -93,6 +106,27 @@ Turnstile / hCaptcha verification (both speak the same siteverify protocol).
 Fails closed: a missing token, a network error, or a malformed answer all verify
 as False. `expected_hostnames`, when given, also rejects tokens solved on
 another site. `http_post` is injectable (tests never touch the network).
+
+### heed.security.attachment_headers(media_type, , filename=None, cross_origin=False)
+
+Headers for serving a stored screenshot (issue #15). Use them on every response
+that returns attachment bytes, ideally from an origin separate from the app’s.
+
+Only the image types heed accepts are served as themselves; anything else is sent as
+an opaque download. Embedding is limited to the same site
+(`Cross-Origin-Resource-Policy: same-site`) unless `cross_origin=True`, which a
+screenshot embedded elsewhere (e.g. in a GitHub issue) needs.
+
+* **Return type:**
+  [`dict`](https://docs.python.org/3/builtins/stdtypes.html#dict)
+
+```pycon
+>>> h = attachment_headers("image/png", filename="r1.png")
+>>> h["Content-Type"], h["X-Content-Type-Options"], h["Content-Disposition"]
+('image/png', 'nosniff', 'inline; filename="r1.png"')
+>>> attachment_headers("text/html")["Content-Type"]
+'application/octet-stream'
+```
 
 ### heed.security.client_ip(peer, forwarded_for, , trusted_proxies=())
 

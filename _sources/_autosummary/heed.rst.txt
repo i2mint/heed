@@ -15,6 +15,10 @@
       make_app
       make_rate_limiter
       make_bot_verifier
+      make_image_sanitizer
+      strip_image
+      reencode_image
+      attachment_headers
       sinks_by_origin
       accept_all
       hold_all
@@ -58,6 +62,7 @@
 
    base
    config
+   images
    ingest
    routing
    security

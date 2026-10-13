@@ -321,6 +321,7 @@
 <li class="toctree-l1 current active has-children"><a class="reference internal" href="heed.html">heed</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
 <li class="toctree-l2"><a class="reference internal" href="heed.base.html">heed.base</a></li>
 <li class="toctree-l2"><a class="reference internal" href="heed.config.html">heed.config</a></li>
+<li class="toctree-l2"><a class="reference internal" href="heed.images.html">heed.images</a></li>
 <li class="toctree-l2"><a class="reference internal" href="heed.ingest.html">heed.ingest</a></li>
 <li class="toctree-l2"><a class="reference internal" href="heed.routing.html">heed.routing</a></li>
 <li class="toctree-l2 current active"><a aria-current="page" class="current reference internal" href="#">heed.security</a></li>
@@ -412,39 +413,52 @@ across workers), looked up by name via <a class="reference internal" href="#heed
 <li><p><strong>Bot gate</strong>: the <a class="reference internal" href="#heed.security.BotVerifier" title="heed.security.BotVerifier"><code class="xref py py-class docutils literal notranslate"><span class="pre">BotVerifier</span></code></a> protocol and <a class="reference internal" href="#heed.security.SiteverifyBotVerifier" title="heed.security.SiteverifyBotVerifier"><code class="xref py py-class docutils literal notranslate"><span class="pre">SiteverifyBotVerifier</span></code></a>
 for Cloudflare Turnstile / hCaptcha, built by <a class="reference internal" href="#heed.security.make_bot_verifier" title="heed.security.make_bot_verifier"><code class="xref py py-func docutils literal notranslate"><span class="pre">make_bot_verifier()</span></code></a> only when a
 secret is configured (off otherwise).</p></li>
-<li><p><strong>Attachments</strong>: <a class="reference internal" href="#heed.security.sniff_image_type" title="heed.security.sniff_image_type"><code class="xref py py-func docutils literal notranslate"><span class="pre">sniff_image_type()</span></code></a> checks screenshot magic bytes.</p></li>
+<li><p><strong>Attachments</strong>: <a class="reference internal" href="#heed.security.sniff_image_type" title="heed.security.sniff_image_type"><code class="xref py py-func docutils literal notranslate"><span class="pre">sniff_image_type()</span></code></a> checks screenshot magic bytes (and
+<code class="docutils literal notranslate"><span class="pre">images.py</span></code> rewrites them); <a class="reference internal" href="#heed.security.attachment_headers" title="heed.security.attachment_headers"><code class="xref py py-func docutils literal notranslate"><span class="pre">attachment_headers()</span></code></a> is how to serve them.</p></li>
 </ul>
+<p class="rubric">Module Attributes</p>
+<div class="pst-scrollable-table-container"><table class="autosummary longtable table">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#heed.security.ATTACHMENT_RESPONSE_HEADERS" title="heed.security.ATTACHMENT_RESPONSE_HEADERS"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ATTACHMENT_RESPONSE_HEADERS</span></code></a></p></td>
+<td><p>Response headers for serving a stored attachment, whatever its bytes contain: never sniffed as another type, never allowed to run script or load anything, never cached by shared caches.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
 <p class="rubric">Functions</p>
 <div class="pst-scrollable-table-container"><table class="autosummary longtable table">
 <tbody>
-<tr class="row-odd"><td><p><a class="reference internal" href="#heed.security.client_ip" title="heed.security.client_ip"><code class="xref py py-obj docutils literal notranslate"><span class="pre">client_ip</span></code></a>(peer, forwarded_for, *[, ...])</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#heed.security.attachment_headers" title="heed.security.attachment_headers"><code class="xref py py-obj docutils literal notranslate"><span class="pre">attachment_headers</span></code></a>(media_type, *[, ...])</p></td>
+<td><p>Headers for serving a stored screenshot (issue #15).</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#heed.security.client_ip" title="heed.security.client_ip"><code class="xref py py-obj docutils literal notranslate"><span class="pre">client_ip</span></code></a>(peer, forwarded_for, *[, ...])</p></td>
 <td><p>The client address to rate-limit on.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#heed.security.cors_headers" title="heed.security.cors_headers"><code class="xref py py-obj docutils literal notranslate"><span class="pre">cors_headers</span></code></a>(origin, allowed, *[, ...])</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#heed.security.cors_headers" title="heed.security.cors_headers"><code class="xref py py-obj docutils literal notranslate"><span class="pre">cors_headers</span></code></a>(origin, allowed, *[, ...])</p></td>
 <td><p>CORS response headers for <code class="docutils literal notranslate"><span class="pre">origin</span></code>, or <code class="docutils literal notranslate"><span class="pre">{}</span></code> when it is not allowed.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#heed.security.make_bot_verifier" title="heed.security.make_bot_verifier"><code class="xref py py-obj docutils literal notranslate"><span class="pre">make_bot_verifier</span></code></a>(provider, secret, **kwargs)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#heed.security.make_bot_verifier" title="heed.security.make_bot_verifier"><code class="xref py py-obj docutils literal notranslate"><span class="pre">make_bot_verifier</span></code></a>(provider, secret, **kwargs)</p></td>
 <td><p>Return a verifier, or <code class="docutils literal notranslate"><span class="pre">None</span></code> (gate off) when no secret is configured.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#heed.security.make_rate_limiter" title="heed.security.make_rate_limiter"><code class="xref py py-obj docutils literal notranslate"><span class="pre">make_rate_limiter</span></code></a>([backend, window_seconds, ...])</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#heed.security.make_rate_limiter" title="heed.security.make_rate_limiter"><code class="xref py py-obj docutils literal notranslate"><span class="pre">make_rate_limiter</span></code></a>([backend, window_seconds, ...])</p></td>
 <td><p>Build a limiter from the <code class="xref py py-data docutils literal notranslate"><span class="pre">rate_limiter_backends</span></code> registry by name.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#heed.security.normalize_origin" title="heed.security.normalize_origin"><code class="xref py py-obj docutils literal notranslate"><span class="pre">normalize_origin</span></code></a>(origin)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#heed.security.normalize_origin" title="heed.security.normalize_origin"><code class="xref py py-obj docutils literal notranslate"><span class="pre">normalize_origin</span></code></a>(origin)</p></td>
 <td><p>Canonical form of an origin for comparison (lower-case, no trailing slash).</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#heed.security.origin_allowed" title="heed.security.origin_allowed"><code class="xref py py-obj docutils literal notranslate"><span class="pre">origin_allowed</span></code></a>(origin, allowed)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#heed.security.origin_allowed" title="heed.security.origin_allowed"><code class="xref py py-obj docutils literal notranslate"><span class="pre">origin_allowed</span></code></a>(origin, allowed)</p></td>
 <td><p>True if origin is permitted; <code class="docutils literal notranslate"><span class="pre">allowed=None</span></code> allows any (the dev default).</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#heed.security.parse_networks" title="heed.security.parse_networks"><code class="xref py py-obj docutils literal notranslate"><span class="pre">parse_networks</span></code></a>(proxies)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#heed.security.parse_networks" title="heed.security.parse_networks"><code class="xref py py-obj docutils literal notranslate"><span class="pre">parse_networks</span></code></a>(proxies)</p></td>
 <td><p>Parse IPs/CIDRs (strings or network objects) into networks; raises ValueError.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#heed.security.preflight_headers" title="heed.security.preflight_headers"><code class="xref py py-obj docutils literal notranslate"><span class="pre">preflight_headers</span></code></a>(origin, allowed, *[, ...])</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#heed.security.preflight_headers" title="heed.security.preflight_headers"><code class="xref py py-obj docutils literal notranslate"><span class="pre">preflight_headers</span></code></a>(origin, allowed, *[, ...])</p></td>
 <td><p>Headers answering a CORS preflight, or <code class="docutils literal notranslate"><span class="pre">{}</span></code> when the origin is not allowed.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#heed.security.rate_limit_key" title="heed.security.rate_limit_key"><code class="xref py py-obj docutils literal notranslate"><span class="pre">rate_limit_key</span></code></a>(ip, *[, ipv6_prefix])</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#heed.security.rate_limit_key" title="heed.security.rate_limit_key"><code class="xref py py-obj docutils literal notranslate"><span class="pre">rate_limit_key</span></code></a>(ip, *[, ipv6_prefix])</p></td>
 <td><p>The bucket key for <code class="docutils literal notranslate"><span class="pre">ip</span></code>: IPv4 as-is, IPv6 grouped by its /<code class="docutils literal notranslate"><span class="pre">ipv6_prefix</span></code>.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#heed.security.sniff_image_type" title="heed.security.sniff_image_type"><code class="xref py py-obj docutils literal notranslate"><span class="pre">sniff_image_type</span></code></a>(data)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#heed.security.sniff_image_type" title="heed.security.sniff_image_type"><code class="xref py py-obj docutils literal notranslate"><span class="pre">sniff_image_type</span></code></a>(data)</p></td>
 <td><p>The media type of <code class="docutils literal notranslate"><span class="pre">data</span></code> from its magic bytes, or None if not an allowed image.</p></td>
 </tr>
 </tbody>
@@ -471,6 +485,14 @@ secret is configured (off otherwise).</p></li>
 </tbody>
 </table>
 </div>
+<dl class="py data">
+<dt class="sig sig-object py" id="heed.security.ATTACHMENT_RESPONSE_HEADERS">
+<span class="sig-prename descclassname"><span class="pre">heed.security.</span></span><span class="sig-name descname"><span class="pre">ATTACHMENT_RESPONSE_HEADERS</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{'Cache-Control':</span> <span class="pre">'private,</span> <span class="pre">no-store',</span> <span class="pre">'Content-Security-Policy':</span> <span class="pre">&quot;default-src</span> <span class="pre">'none';</span> <span class="pre">sandbox&quot;,</span> <span class="pre">'Referrer-Policy':</span> <span class="pre">'no-referrer',</span> <span class="pre">'X-Content-Type-Options':</span> <span class="pre">'nosniff'}</span></span><a class="headerlink" href="#heed.security.ATTACHMENT_RESPONSE_HEADERS" title="Link to this definition">#</a></dt>
+<dd><p>Response headers for serving a stored attachment, whatever its bytes contain:
+never sniffed as another type, never allowed to run script or load anything, never
+cached by shared caches.</p>
+</dd></dl>
+
 <dl class="py class">
 <dt class="sig sig-object py" id="heed.security.BotVerifier">
 <span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">heed.security.</span></span><span class="sig-name descname"><span class="pre">BotVerifier</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/security.html#BotVerifier"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.security.BotVerifier" title="Link to this definition">#</a></dt>
@@ -534,6 +556,29 @@ as False. <code class="docutils literal notranslate"><span class="pre">expected_
 another site. <code class="docutils literal notranslate"><span class="pre">http_post</span></code> is injectable (tests never touch the network).</p>
 <dl class="field-list simple">
 </dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="heed.security.attachment_headers">
+<span class="sig-prename descclassname"><span class="pre">heed.security.</span></span><span class="sig-name descname"><span class="pre">attachment_headers</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">media_type</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">filename</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cross_origin</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/security.html#attachment_headers"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.security.attachment_headers" title="Link to this definition">#</a></dt>
+<dd><p>Headers for serving a stored screenshot (issue #15). Use them on every response
+that returns attachment bytes, ideally from an origin separate from the app’s.</p>
+<p>Only the image types heed accepts are served as themselves; anything else is sent as
+an opaque download. Embedding is limited to the same site
+(<code class="docutils literal notranslate"><span class="pre">Cross-Origin-Resource-Policy:</span> <span class="pre">same-site</span></code>) unless <code class="docutils literal notranslate"><span class="pre">cross_origin=True</span></code>, which a
+screenshot embedded elsewhere (e.g. in a GitHub issue) needs.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#dict" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">dict</span></code></a></span></p>
+</dd>
+</dl>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">h</span> <span class="o">=</span> <span class="n">attachment_headers</span><span class="p">(</span><span class="s2">"image/png"</span><span class="p">,</span> <span class="n">filename</span><span class="o">=</span><span class="s2">"r1.png"</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">h</span><span class="p">[</span><span class="s2">"Content-Type"</span><span class="p">],</span> <span class="n">h</span><span class="p">[</span><span class="s2">"X-Content-Type-Options"</span><span class="p">],</span> <span class="n">h</span><span class="p">[</span><span class="s2">"Content-Disposition"</span><span class="p">]</span>
+<span class="go">('image/png', 'nosniff', 'inline; filename="r1.png"')</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">attachment_headers</span><span class="p">(</span><span class="s2">"text/html"</span><span class="p">)[</span><span class="s2">"Content-Type"</span><span class="p">]</span>
+<span class="go">'application/octet-stream'</span>
+</pre></div>
+</div>
 </dd></dl>
 
 <dl class="py function">
@@ -737,6 +782,7 @@ dodged by rotating addresses.</p>
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.security.ATTACHMENT_RESPONSE_HEADERS"><code class="docutils literal notranslate"><span class="pre">ATTACHMENT_RESPONSE_HEADERS</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.security.BotVerifier"><code class="docutils literal notranslate"><span class="pre">BotVerifier</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.security.InMemoryRateLimiter"><code class="docutils literal notranslate"><span class="pre">InMemoryRateLimiter</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.security.RateLimiter"><code class="docutils literal notranslate"><span class="pre">RateLimiter</span></code></a></li>
@@ -745,6 +791,7 @@ dodged by rotating addresses.</p>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.security.SiteverifyBotVerifier"><code class="docutils literal notranslate"><span class="pre">SiteverifyBotVerifier</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.security.attachment_headers"><code class="docutils literal notranslate"><span class="pre">attachment_headers()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.security.client_ip"><code class="docutils literal notranslate"><span class="pre">client_ip()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.security.cors_headers"><code class="docutils literal notranslate"><span class="pre">cors_headers()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.security.make_bot_verifier"><code class="docutils literal notranslate"><span class="pre">make_bot_verifier()</span></code></a></li>

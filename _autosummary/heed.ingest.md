@@ -12,7 +12,8 @@ The router treats every request as hostile (see `security.py` and issue #5). Che
 run cheapest-first so abuse is rejected before it costs anything: CORS preflight →
 origin allow-list → per-IP rate limit (both before `user_dependency`) → body-size cap
 (streamed, before parsing) → form limits → honeypot → bot gate → per-origin rate limit
-→ model validation → screenshot sniffing.
+→ model validation → screenshot sniffing → screenshot sanitizing (`images.py`: only
+the image survives, so polyglot payloads and EXIF/GPS metadata are never stored).
 
 #### NOTE
 this module does not `from __future__ import annotations` — FastAPI resolves
@@ -34,7 +35,7 @@ A standalone FastAPI app serving the heed router under `prefix`.
 * **Return type:**
   `FastAPI`
 
-### heed.ingest.make_router(sink, , config=None, attachment_store=None, rate_limiter=None, origin_rate_limiter=None, bot_verifier=None, user_dependency=None, resolve_sink=None, moderator=None, holding_sink=None)
+### heed.ingest.make_router(sink, , config=None, attachment_store=None, rate_limiter=None, origin_rate_limiter=None, bot_verifier=None, user_dependency=None, resolve_sink=None, moderator=None, holding_sink=None, image_sanitizer=None)
 
 Build a FastAPI APIRouter exposing `POST /report` (and its CORS preflight).
 
@@ -45,7 +46,8 @@ bind identity when an auth layer like enlace_auth is present.
 Hardening defaults come from `config`; any piece can be injected instead:
 `rate_limiter` (per client IP), `origin_rate_limiter` (per Origin) and
 `bot_verifier` (by default built from `config.bot_secret`, i.e. off until a
-secret is configured).
+secret is configured) and `image_sanitizer` (by default from
+`config.screenshot_sanitizer`: re-encode with Pillow, else a pure-Python strip).
 
 Routing is decided server-side, never by the browser: `resolve_sink` maps the
 validated origin to that site’s sink (`sink` is then the fallback and may be

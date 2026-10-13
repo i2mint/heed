@@ -53,7 +53,7 @@
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
     <link rel="next" title="heed.routing" href="heed.routing.html" />
-    <link rel="prev" title="heed.config" href="heed.config.html" />
+    <link rel="prev" title="heed.images" href="heed.images.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="color-scheme" content="light dark"/>
   <meta name="docsearch:language" content="en"/>
@@ -321,6 +321,7 @@
 <li class="toctree-l1 current active has-children"><a class="reference internal" href="heed.html">heed</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
 <li class="toctree-l2"><a class="reference internal" href="heed.base.html">heed.base</a></li>
 <li class="toctree-l2"><a class="reference internal" href="heed.config.html">heed.config</a></li>
+<li class="toctree-l2"><a class="reference internal" href="heed.images.html">heed.images</a></li>
 <li class="toctree-l2 current active"><a aria-current="page" class="current reference internal" href="#">heed.ingest</a></li>
 <li class="toctree-l2"><a class="reference internal" href="heed.routing.html">heed.routing</a></li>
 <li class="toctree-l2"><a class="reference internal" href="heed.security.html">heed.security</a></li>
@@ -408,7 +409,8 @@ wraps it in a FastAPI <code class="docutils literal notranslate"><span class="pr
 run cheapest-first so abuse is rejected before it costs anything: CORS preflight →
 origin allow-list → per-IP rate limit (both before <code class="docutils literal notranslate"><span class="pre">user_dependency</span></code>) → body-size cap
 (streamed, before parsing) → form limits → honeypot → bot gate → per-origin rate limit
-→ model validation → screenshot sniffing.</p>
+→ model validation → screenshot sniffing → screenshot sanitizing (<code class="docutils literal notranslate"><span class="pre">images.py</span></code>: only
+the image survives, so polyglot payloads and EXIF/GPS metadata are never stored).</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>this module does not <code class="docutils literal notranslate"><span class="pre">from</span> <span class="pre">__future__</span> <span class="pre">import</span> <span class="pre">annotations</span></code> — FastAPI resolves
@@ -446,7 +448,7 @@ imported at module level.</p>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="heed.ingest.make_router">
-<span class="sig-prename descclassname"><span class="pre">heed.ingest.</span></span><span class="sig-name descname"><span class="pre">make_router</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sink</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">config</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">attachment_store</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rate_limiter</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">origin_rate_limiter</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bot_verifier</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">user_dependency</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">resolve_sink</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">moderator</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">holding_sink</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/ingest.html#make_router"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.ingest.make_router" title="Link to this definition">#</a></dt>
+<span class="sig-prename descclassname"><span class="pre">heed.ingest.</span></span><span class="sig-name descname"><span class="pre">make_router</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sink</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">config</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">attachment_store</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rate_limiter</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">origin_rate_limiter</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bot_verifier</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">user_dependency</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">resolve_sink</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">moderator</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">holding_sink</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">image_sanitizer</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/ingest.html#make_router"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.ingest.make_router" title="Link to this definition">#</a></dt>
 <dd><p>Build a FastAPI APIRouter exposing <code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/report</span></code> (and its CORS preflight).</p>
 <p>Run standalone via <a class="reference internal" href="#heed.ingest.make_app" title="heed.ingest.make_app"><code class="xref py py-func docutils literal notranslate"><span class="pre">make_app()</span></code></a>, or <code class="docutils literal notranslate"><span class="pre">include_router</span></code> it into an enlace app.
 Provide <code class="docutils literal notranslate"><span class="pre">user_dependency</span></code> (a FastAPI dependency returning a user id or None) to
@@ -454,7 +456,8 @@ bind identity when an auth layer like enlace_auth is present.</p>
 <p>Hardening defaults come from <code class="docutils literal notranslate"><span class="pre">config</span></code>; any piece can be injected instead:
 <code class="docutils literal notranslate"><span class="pre">rate_limiter</span></code> (per client IP), <code class="docutils literal notranslate"><span class="pre">origin_rate_limiter</span></code> (per Origin) and
 <code class="docutils literal notranslate"><span class="pre">bot_verifier</span></code> (by default built from <code class="docutils literal notranslate"><span class="pre">config.bot_secret</span></code>, i.e. off until a
-secret is configured).</p>
+secret is configured) and <code class="docutils literal notranslate"><span class="pre">image_sanitizer</span></code> (by default from
+<code class="docutils literal notranslate"><span class="pre">config.screenshot_sanitizer</span></code>: re-encode with Pillow, else a pure-Python strip).</p>
 <p>Routing is decided server-side, never by the browser: <code class="docutils literal notranslate"><span class="pre">resolve_sink</span></code> maps the
 validated origin to that site’s sink (<code class="docutils literal notranslate"><span class="pre">sink</span></code> is then the fallback and may be
 None; an origin resolving to no sink gets 403). <code class="docutils literal notranslate"><span class="pre">moderator</span></code> may hold reports in
@@ -508,12 +511,12 @@ has no length header), so an oversized body is never buffered whole.</p>
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="heed.config.html"
+       href="heed.images.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">heed.config</p>
+        <p class="prev-next-title">heed.images</p>
       </div>
     </a>
     <a class="right-next"

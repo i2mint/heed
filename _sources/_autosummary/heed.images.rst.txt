@@ -1,0 +1,27 @@
+heed.images
+===========
+
+.. automodule:: heed.images
+
+   
+   .. rubric:: Module Attributes
+
+   .. autosummary::
+   
+      REENCODE_OPTIONS
+   
+   .. rubric:: Functions
+
+   .. autosummary::
+   
+      make_image_sanitizer
+      pillow_available
+      reencode_image
+      strip_image
+   
+   .. rubric:: Exceptions
+
+   .. autosummary::
+   
+      SanitizerBusy
+   
