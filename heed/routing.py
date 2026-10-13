@@ -134,39 +134,115 @@ def chain_moderators(*moderators: Moderator) -> Moderator:
     return moderate
 
 
+#: Prefix of the key a report is claimed under, in the holding store itself, while it is
+#: being released (when no separate ``claimed_store`` is given).
+CLAIM_PREFIX = "claimed--"
+
+
 def release_held(
     report_id: str,
     *,
     holding_store: MutableMapping[str, str],
     sink: Sink | None = None,
     resolve_sink: SinkResolver | None = None,
+    claimed_store: MutableMapping[str, str] | None = None,
 ) -> SinkResult:
     """Release a held report: route it on and remove it from holding.
 
     ``holding_store`` is the store behind the holding sink (a ``StoreSink``'s
     ``.store``). The destination is ``sink``, or — for a multi-site backend — the sink
-    ``resolve_sink`` gives for the report's own origin (pass exactly one). The report
-    is claimed (popped) before submitting, so two concurrent releases cannot both
-    send it, and it is put back if the sink fails, so a failed release can be retried.
+    ``resolve_sink`` gives for the report's own origin (pass exactly one).
+
+    The report is claimed before submitting, so a second release while the first is in
+    flight finds nothing to send. Claiming *moves* it: it is written to a claim key
+    (``CLAIM_PREFIX + report_id`` in ``holding_store``, or ``report_id`` in
+    ``claimed_store`` if given) and only then deleted from holding. If the sink fails
+    the report is put back in holding; the claim is deleted only once the sink has
+    accepted it or it is back in holding. So a crash at any point leaves the report
+    in holding, in the claims, or in both -- never lost -- and :func:`recover_claimed`
+    returns stranded claims to holding.
     """
     if (sink is None) == (resolve_sink is None):
         raise ValueError("pass exactly one of sink= or resolve_sink=")
-    raw = holding_store.pop(report_id, None)
-    if raw is None:
+    claims, claim_key = _claim_location(report_id, holding_store, claimed_store)
+    if claimed_store is None and report_id.startswith(CLAIM_PREFIX):
+        raise ValueError(
+            f"{report_id!r} is a claim, not a held report: use recover_claimed() to "
+            "return stranded claims to holding"
+        )
+    raw = holding_store.get(report_id)
+    if raw is None or claim_key in claims:
         raise KeyError(f"No held report with id {report_id!r}")
+    claims[claim_key] = raw
+    try:
+        del holding_store[report_id]
+    except KeyError:  # a concurrent release claimed it first: it owns the claim now
+        raise KeyError(f"No held report with id {report_id!r}") from None
     try:
         report = Report.model_validate_json(raw)
         destination = sink if sink is not None else resolve_sink(report.origin)
         if destination is None:
             raise LookupError(f"No sink for the report's origin {report.origin!r}")
-        if getattr(destination, "store", None) is holding_store:
+        if any(
+            getattr(destination, "store", None) is store
+            for store in (holding_store, claims)
+        ):
             raise ValueError("the destination sink writes to the holding store itself")
         result = destination.submit(
             report.model_copy(update={"status": Status.received})
         )
     except BaseException:  # incl. KeyboardInterrupt/cancellation: never lose it
-        holding_store[report_id] = raw
+        _unclaim(report_id, raw, holding_store, claims, claim_key)
         raise
-    if not result.ok:
-        holding_store[report_id] = raw
+    if result.ok:
+        _drop_claim(claims, claim_key)
+    else:
+        _unclaim(report_id, raw, holding_store, claims, claim_key)
     return result
+
+
+def recover_claimed(
+    *,
+    holding_store: MutableMapping[str, str],
+    claimed_store: MutableMapping[str, str] | None = None,
+) -> list[str]:
+    """Return every claimed report to holding, and the ids returned.
+
+    A claim outlives its :func:`release_held` only if the process died mid-release
+    (the sink may or may not have accepted the report). Call this when no release is
+    running -- e.g. at startup -- since an in-flight release's claim looks the same.
+    Pass the same ``claimed_store`` as to :func:`release_held`.
+    """
+    if claimed_store is None:
+        claim_keys = [k for k in list(holding_store) if k.startswith(CLAIM_PREFIX)]
+        id_of_claim_key = lambda k: k[len(CLAIM_PREFIX) :]  # noqa: E731
+        claims = holding_store
+    else:
+        claim_keys, id_of_claim_key, claims = list(claimed_store), str, claimed_store
+    recovered = []
+    for claim_key in claim_keys:
+        report_id = id_of_claim_key(claim_key)
+        _unclaim(report_id, claims[claim_key], holding_store, claims, claim_key)
+        recovered.append(report_id)
+    return recovered
+
+
+def _claim_location(report_id, holding_store, claimed_store):
+    """The ``(store, key)`` a report is claimed under while it is being released."""
+    if claimed_store is None:
+        return holding_store, CLAIM_PREFIX + report_id
+    return claimed_store, report_id
+
+
+def _unclaim(report_id, raw, holding_store, claims, claim_key):
+    """Put a claimed report back in holding, then drop its claim (in that order, so a
+    crash in between leaves it in both, never in neither)."""
+    holding_store[report_id] = raw
+    _drop_claim(claims, claim_key)
+
+
+def _drop_claim(claims, claim_key):
+    try:
+        del claims[claim_key]
+    except KeyError:
+        pass

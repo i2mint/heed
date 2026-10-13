@@ -19,7 +19,8 @@ Public API (Phase 1):
               make_image_sanitizer, strip_image, reencode_image, attachment_headers
               (see misc/docs/embedding-security.md)
     Routing   sinks_by_origin, Verdict, accept_all, hold_all,
-              make_heuristic_moderator, chain_moderators, release_held
+              make_heuristic_moderator, chain_moderators, release_held,
+              recover_claimed
     Storage   make_report_store, make_attachment_store
 
 Example:
@@ -53,6 +54,7 @@ from heed.routing import (
     chain_moderators,
     hold_all,
     make_heuristic_moderator,
+    recover_claimed,
     release_held,
     sinks_by_origin,
 )
@@ -123,6 +125,7 @@ __all__ = [
     "make_heuristic_moderator",
     "chain_moderators",
     "release_held",
+    "recover_claimed",
     # storage
     "make_report_store",
     "make_attachment_store",
