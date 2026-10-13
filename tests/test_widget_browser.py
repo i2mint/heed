@@ -493,8 +493,10 @@ def test_screenshot_of_the_visible_page_with_masking(browser):
         assert _pixel(png, 500, 20) == (0, 255, 0)
         # ...the masked block (page y 900-1000, so 50-150 on screen) is black...
         assert _pixel(png, 250, 100) == (0, 0, 0)
-        # ...and the page below it is white, not the top of the document.
+        # ...and the page below it is white, not the top of the document, including
+        # under the dialog (its own fields are not masked onto the page).
         assert _pixel(png, 800, 400) == (255, 255, 255)
+        assert _pixel(png, 512, 350) == (255, 255, 255)
 
 
 def test_untick_the_screenshot_and_none_is_sent(browser):
@@ -526,8 +528,14 @@ def test_a_csp_too_strict_for_screenshots_still_sends_the_report(browser):
 
 # Every way a secret has been seen to escape masking; each secret is red text, and the
 # stored screenshot must contain no red at all.
+_RED_IMG = (
+    "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' "
+    "height='40'%3E%3Crect width='120' height='40' fill='red'/%3E%3C/svg%3E"
+)
 _LEAKS = (
-    "<style>.red{color:#f00;font-size:30px}</style>"
+    "<style>.red{color:#f00;font-size:30px}"
+    '.ps::after{content:"SECRET-P";position:absolute;top:30px;color:#f00;'
+    "font-size:30px}</style>"
     '<div style="position:absolute;top:1000px;left:20px">'
     '<input id="odd" type="foo" class="red">'
     '<input id="spaced" type="text " class="red">'
@@ -545,6 +553,12 @@ _LEAKS = (
     '<div contenteditable class="red">editable</div>'
     '<iframe id="editor" srcdoc="<body style=color:#f00;font-size:30px>x</body>">'
     "</iframe>"
+    f'<img data-heed-mask src="{_RED_IMG}">'
+    '<div id="sc" style="height:60px;overflow:auto"><div style="height:200px"></div>'
+    '<canvas id="cv" data-heed-mask width="200" height="40"></canvas></div>'
+    '<div data-heed-mask class="ps" style="position:relative;height:20px;width:100px">'
+    "</div>"
+    '<div id="cs"><span class="red">SECRET-CS</span></div>'
     "</div>"
     f'<script nonce="{NONCE}">'
     "document.getElementById('odd').value = 'SECRET-A';"
@@ -552,6 +566,11 @@ _LEAKS = (
     "const f = document.getElementById('editor');"
     "f.addEventListener('load', () => { f.contentDocument.designMode = 'on';"
     " f.contentDocument.body.textContent = 'rich text secret'; });"
+    "const c = document.getElementById('cv').getContext('2d');"
+    "c.fillStyle = '#f00'; c.fillRect(0, 0, 200, 40);"
+    "document.getElementById('sc').scrollTop = 200;"
+    "document.getElementById('cs').attachShadow({mode: 'closed'})"
+    ".textContent = 'shadow';"
     "</script>"
 )
 
@@ -609,6 +628,21 @@ def test_password_like_fields_are_masked_even_with_mask_inputs_off(browser):
         return _shot_page(
             backend, extra=fields, loader_attrs='data-mask-inputs="false"'
         )
+
+    png, _problems = _shot_report(browser, page)
+    assert _red_pixels(png) == 0
+
+
+def test_masked_images_inside_an_iframe_with_mask_inputs_off(browser):
+    pytest.importorskip("PIL")
+    inner = f"<img data-heed-mask src=&quot;{_RED_IMG}&quot;>"
+    frame = (
+        '<div style="position:absolute;top:1000px;left:20px">'
+        f'<iframe srcdoc="{inner}" style="width:300px;height:100px"></iframe></div>'
+    )
+
+    def page(backend):
+        return _shot_page(backend, extra=frame, loader_attrs='data-mask-inputs="false"')
 
     png, _problems = _shot_report(browser, page)
     assert _red_pixels(png) == 0

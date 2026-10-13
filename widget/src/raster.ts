@@ -84,13 +84,36 @@ function matches(el: Element, selector: string): boolean {
   }
 }
 
-/** Every element of the document, through open shadow roots. */
-function* allElements(root: Document | ShadowRoot): Generator<Element> {
-  const walker = (root instanceof Document ? root : root.ownerDocument).createTreeWalker(root, NodeFilter.SHOW_ELEMENT);
+/** Left out of the screenshot entirely: the widget itself and `[data-heed-ignore]`. */
+const excluded = (el: Element) => el.localName === "heed-feedback" || el.hasAttribute("data-heed-ignore");
+
+type Located = { el: Element; dx: number; dy: number };
+
+/**
+ * Every element that will be drawn, through open shadow roots and same-origin
+ * iframes, with the offset that maps its client rects to the top viewport.
+ */
+function* allElements(root: Document | ShadowRoot, dx = 0, dy = 0): Generator<Located> {
+  const doc = root.nodeType === 9 ? (root as Document) : (root.ownerDocument as Document);
+  const walker = doc.createTreeWalker(root, NodeFilter.SHOW_ELEMENT, {
+    acceptNode: (n) => (excluded(n as Element) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT),
+  });
   for (let node = walker.nextNode(); node; node = walker.nextNode()) {
     const el = node as Element;
-    yield el;
-    if (el.shadowRoot) yield* allElements(el.shadowRoot);
+    yield { el, dx, dy };
+    if (el.shadowRoot) yield* allElements(el.shadowRoot, dx, dy);
+    if (el.localName === "iframe" || el.localName === "frame") {
+      let inner: Document | null = null;
+      try {
+        inner = (el as HTMLIFrameElement).contentDocument;
+      } catch {
+        inner = null; // cross-origin: drawn blank anyway
+      }
+      if (inner) {
+        const box = el.getBoundingClientRect();
+        yield* allElements(inner, dx + box.left + el.clientLeft, dy + box.top + el.clientTop);
+      }
+    }
   }
 }
 
@@ -104,19 +127,19 @@ function shouldMask(el: Element, o: CaptureOptions): boolean {
 /** Viewport rectangles to black out, measured on the live page. */
 function maskRects(doc: Document, o: CaptureOptions, width: number, height: number): Rect[] {
   const rects: Rect[] = [];
-  const add = (r: DOMRect) => {
-    if (r.width <= 0 && r.height <= 0) return;
-    if (r.right < 0 || r.bottom < 0 || r.left > width || r.top > height) return;
-    rects.push({ x: r.left - PAD, y: r.top - PAD, w: r.width + 2 * PAD, h: r.height + 2 * PAD });
-  };
-  for (const el of allElements(doc)) {
+  for (const { el, dx, dy } of allElements(doc)) {
     if (!shouldMask(el, o)) continue;
-    // (Same-origin iframes are covered as a whole when masked; their insides are
-    // reached by layer 1.)
+    const add = (r: DOMRect) => {
+      const x = r.left + dx;
+      const y = r.top + dy;
+      if (r.width <= 0 && r.height <= 0) return;
+      if (x + r.width < 0 || y + r.height < 0 || x > width || y > height) return;
+      rects.push({ x: x - PAD, y: y - PAD, w: r.width + 2 * PAD, h: r.height + 2 * PAD });
+    };
     for (const r of Array.from(el.getClientRects())) add(r);
     // Every box of its contents too: children positioned or overflowing outside it,
     // and elements with no box of their own (display: contents).
-    const range = doc.createRange();
+    const range = (el.ownerDocument as Document).createRange();
     range.selectNodeContents(el);
     for (const r of Array.from(range.getClientRects())) add(r);
     range.detach();
@@ -124,15 +147,51 @@ function maskRects(doc: Document, o: CaptureOptions, width: number, height: numb
   return rects;
 }
 
+/** A 1×1 black PNG: what a masked image, canvas or video becomes. */
+const BLACK_PIXEL =
+  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
+
+/**
+ * Whether the browser draws this node at all. Light-DOM children of a closed shadow
+ * host, unslotted content and display:none subtrees are invisible on the page but
+ * would be drawn by a clone that cannot see the shadow root.
+ */
+function rendered(node: Node): boolean {
+  if (isEl(node)) {
+    const el = node as Element & { checkVisibility?: () => boolean };
+    if (!el.checkVisibility || el.checkVisibility()) return true;
+    const view = el.ownerDocument.defaultView;
+    return !!view && view.getComputedStyle(el).display === "contents";
+  }
+  if (node.nodeType !== 3 || !(node as Text).data.trim()) return true;
+  const range = (node.ownerDocument as Document).createRange();
+  range.selectNodeContents(node);
+  const drawn = range.getClientRects().length > 0;
+  range.detach();
+  return drawn;
+}
+
 /** Remove a masked element's content from its clone (layer 1). */
-function blank(clone: Element): void {
-  if (clone.localName === "input") {
+function blank(clone: Element, original: Element): void {
+  const tag = clone.localName;
+  if (tag === "input") {
     clone.removeAttribute("value");
     (clone as HTMLInputElement).value = "";
     clone.removeAttribute("placeholder");
+  } else if (tag === "img") {
+    // An image, or a canvas/video cloned as one: a black picture of the same size.
+    const box = original.getBoundingClientRect();
+    for (const a of ["srcset", "sizes", "alt"]) clone.removeAttribute(a);
+    clone.setAttribute("src", BLACK_PIXEL);
+    (clone as HTMLElement).style?.setProperty("width", `${box.width}px`, "important");
+    (clone as HTMLElement).style?.setProperty("height", `${box.height}px`, "important");
+    (clone as HTMLElement).style?.setProperty("object-fit", "fill", "important");
   } else {
     clone.replaceChildren();
+    for (const a of ["href", "xlink:href", "src", "srcdoc", "data", "poster"]) clone.removeAttribute(a);
   }
+  // Pseudo-elements are attached through generated classes: drop them all.
+  clone.removeAttribute("class");
   const style = (clone as HTMLElement).style;
   style?.setProperty("background", "#000", "important");
   style?.setProperty("overflow", "hidden", "important");
@@ -149,12 +208,13 @@ function pairs(original: Element, clone: Element): boolean {
  * Pairs clones with their originals as modern-screenshot clones (see layer 1 above),
  * and blanks the clones of masked originals.
  */
-function pairingScrubber(o: CaptureOptions, excluded: (el: Element) => boolean) {
+function pairingScrubber(o: CaptureOptions) {
   const pending: Element[] = [];
   let last: Node | null = null;
   let broken = false;
   return {
     filter(node: Node): boolean {
+      if (!rendered(node)) return false;
       if (!isEl(node)) return true;
       if (excluded(node)) return false;
       pending.push(node);
@@ -167,7 +227,7 @@ function pairingScrubber(o: CaptureOptions, excluded: (el: Element) => boolean) 
       const original = pending.pop();
       if (!original) return; // the root
       if (!pairs(original, clone)) broken = true;
-      else if (shouldMask(original, o)) blank(clone);
+      else if (shouldMask(original, o)) blank(clone, original);
     },
     get broken() {
       return broken || pending.length > 0;
@@ -175,7 +235,7 @@ function pairingScrubber(o: CaptureOptions, excluded: (el: Element) => boolean) 
   };
 }
 
-/** Keep `position: fixed` elements in place: the clone's root is shifted by the scroll. */
+/** Keep `position: fixed` elements in place: the scrolled content around them is shifted. */
 function pinFixed(root: Element, scroll: { x: number; y: number }): void {
   for (const el of Array.from(root.querySelectorAll<HTMLElement>("*"))) {
     if (el.style?.position === "fixed" && !el.parentElement?.closest('[style*="position: fixed"]')) {
@@ -202,22 +262,23 @@ function isBlank(canvas: HTMLCanvasElement): boolean {
 
 async function capture(win: Window, o: CaptureOptions): Promise<Blob | null> {
   const doc = win.document;
-  const count = doc.getElementsByTagName("*").length;
-  if (count > o.maxNodes) {
-    console.warn(`heed: no screenshot: the page has ${count} elements (screenshotMaxNodes is ${o.maxNodes})`);
-    return null;
+  let count = 0;
+  for (const _ of allElements(doc)) {
+    if (++count > o.maxNodes) {
+      console.warn(`heed: no screenshot: the page has over ${o.maxNodes} elements (screenshotMaxNodes)`);
+      return null;
+    }
   }
   const width = win.innerWidth;
   const height = win.innerHeight;
   const scroll = { x: win.scrollX, y: win.scrollY };
   const scale = Math.min(win.devicePixelRatio || 1, 2, Math.sqrt(Math.min(o.maxPixels, 8_000_000) / (width * height)));
   const rects = maskRects(doc, o, width, height);
-  const scrubber = pairingScrubber(o, (el) => el.localName === "heed-feedback" || el.hasAttribute("data-heed-ignore"));
+  const scrubber = pairingScrubber(o);
   const canvas = await domToCanvas(doc.documentElement, {
     width,
     height,
     scale,
-    style: { transform: `translate(${-scroll.x}px, ${-scroll.y}px)` },
     filter: (node) => scrubber.filter(node),
     onCloneEachNode: (clone) => scrubber.onCloneEachNode(clone),
     onCloneNode: (root) => {
@@ -225,14 +286,16 @@ async function capture(win: Window, o: CaptureOptions): Promise<Blob | null> {
       if (isEl(root)) pinFixed(root, scroll);
     },
     timeout: 5000,
+    // Draw scrolled containers (the document included) as scrolled, so the visible
+    // part is drawn and layer 2's boxes land where they should.
+    features: { restoreScrollPosition: true },
   });
   const ctx = canvas.getContext("2d");
-  if (!ctx) return null;
+  if (!ctx || isBlank(canvas)) return null; // nothing drawn (e.g. a CSP without img-src data:)
   // Layer 2: black boxes where the live page has masked content.
   const k = canvas.width / width;
   ctx.fillStyle = "#000";
   for (const r of rects) ctx.fillRect(r.x * k, r.y * k, r.w * k, r.h * k);
-  if (isBlank(canvas)) return null;
   // PNG first; JPEG when that is over the cap; then a half-size JPEG.
   for (const [type, quality] of [["image/png"], ["image/jpeg", 0.9], ["image/jpeg", 0.75]] as const) {
     const blob = await toBlob(canvas, type, quality);
