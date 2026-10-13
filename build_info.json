@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "built_at": "2026-10-13T12:49:03Z",
+  "built_at": "2026-10-13T15:24:34Z",
   "package": {
     "name": "heed",
     "version": "0.0.1",
@@ -9,28 +9,28 @@
   },
   "git": {
     "available": true,
-    "commit": "8ce885a00e914b13b948831593e8145a18f38b1e",
-    "short_commit": "8ce885a",
+    "commit": "9bdd852ef39f2e3fea48b28963603ec079749501",
+    "short_commit": "9bdd852",
     "branch": "main",
     "tags": [],
     "dirty": false,
     "remote_url": "https://github.com/i2mint/heed",
-    "commit_url": "https://github.com/i2mint/heed/commit/8ce885a00e914b13b948831593e8145a18f38b1e",
+    "commit_url": "https://github.com/i2mint/heed/commit/9bdd852ef39f2e3fea48b28963603ec079749501",
     "error": null
   },
   "ci": {
     "provider": "github",
     "repository": "i2mint/heed",
-    "sha": "8ce885a00e914b13b948831593e8145a18f38b1e",
+    "sha": "9bdd852ef39f2e3fea48b28963603ec079749501",
     "sha_in_history": true,
     "ref": "refs/heads/main",
     "ref_name": "main",
-    "run_id": "38399917016",
-    "run_url": "https://github.com/i2mint/heed/actions/runs/38399917016",
+    "run_id": "38421487672",
+    "run_url": "https://github.com/i2mint/heed/actions/runs/38421487672",
     "server_url": "https://github.com"
   },
   "tools": {
-    "epythet": "0.2.15",
+    "epythet": "0.2.16",
     "sphinx": "9.1.0",
     "docutils": "0.22.4",
     "python": "3.12.15"
@@ -55,8 +55,8 @@
     "docs_dir": "docsrc"
   },
   "site": {
-    "modules_documented": 13,
-    "objects_documented": 167
+    "modules_documented": 14,
+    "objects_documented": 175
   },
   "pypi": {
     "checked": true,
@@ -64,7 +64,7 @@
     "relation": "behind",
     "error": null
   },
-  "reproduce": "git clone https://github.com/i2mint/heed && cd heed\ngit checkout 8ce885a00e914b13b948831593e8145a18f38b1e\npip install \"epythet==0.2.15\"\nepythet quickstart . --ignore tests/ scrap/ examples/",
+  "reproduce": "git clone https://github.com/i2mint/heed && cd heed\ngit checkout 9bdd852ef39f2e3fea48b28963603ec079749501\npip install \"epythet==0.2.16\"\nepythet quickstart . --ignore tests/ scrap/ examples/",
   "warnings": [],
   "alignment": {
     "aligned": false,

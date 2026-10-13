@@ -729,7 +729,13 @@ window.runMermaid = runMermaid;</script>
 <span class="kn">from</span><span class="w"> </span><span class="nn">urllib.parse</span><span class="w"> </span><span class="kn">import</span> <span class="n">urlsplit</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">uuid</span><span class="w"> </span><span class="kn">import</span> <span class="n">uuid4</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">pydantic</span><span class="w"> </span><span class="kn">import</span> <span class="n">AfterValidator</span><span class="p">,</span> <span class="n">BaseModel</span><span class="p">,</span> <span class="n">Field</span><span class="p">,</span> <span class="n">StringConstraints</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pydantic</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">AfterValidator</span><span class="p">,</span>
+    <span class="n">BaseModel</span><span class="p">,</span>
+    <span class="n">BeforeValidator</span><span class="p">,</span>
+    <span class="n">Field</span><span class="p">,</span>
+    <span class="n">StringConstraints</span><span class="p">,</span>
+<span class="p">)</span>
 
 <span class="c1"># --- Field limits (SSOT). The ingest endpoint is public, so every string and list a</span>
 <span class="c1"># client can send is bounded here; the router adds byte-level caps on top (config.py).</span>
@@ -740,6 +746,7 @@ window.runMermaid = runMermaid;</script>
 <span class="n">MAX_EXTRA_ITEMS</span> <span class="o">=</span> <span class="mi">32</span>
 <span class="n">MAX_EXTRA_KEY_CHARS</span> <span class="o">=</span> <span class="mi">64</span>
 <span class="n">MAX_ANON_ID_CHARS</span> <span class="o">=</span> <span class="mi">128</span>
+<span class="n">ANON_ID_PATTERN</span> <span class="o">=</span> <span class="sa">r</span><span class="s2">"^[A-Za-z0-9_.:-]+$"</span>
 <span class="n">MAX_LOG_ENTRIES</span> <span class="o">=</span> <span class="mi">200</span>
 <span class="n">MAX_LOG_MESSAGE_CHARS</span> <span class="o">=</span> <span class="mi">2_000</span>
 
@@ -760,6 +767,23 @@ window.runMermaid = runMermaid;</script>
 <span class="sd">    'ab\tcd'</span>
 <span class="sd">    """</span>
     <span class="k">return</span> <span class="n">_CONTROL_CHARS</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="s2">""</span><span class="p">,</span> <span class="n">text</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="normalize_newlines">
+<a class="viewcode-back" href="../../_autosummary/heed.base.html#heed.normalize_newlines">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">normalize_newlines</span><span class="p">(</span><span class="n">text</span><span class="p">):</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">"""Turn CRLF and lone CR into LF, so a line break counts as one character.</span>
+
+<span class="sd">    Browsers send every line break of a form field as CRLF; without this, a body at</span>
+<span class="sd">    the length limit would be refused for its line breaks.</span>
+
+<span class="sd">    &gt;&gt;&gt; normalize_newlines("a\r\nb\rc")</span>
+<span class="sd">    'a\nb\nc'</span>
+<span class="sd">    """</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">text</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">text</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">"</span><span class="se">\r\n</span><span class="s2">"</span><span class="p">,</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">"</span><span class="se">\r</span><span class="s2">"</span><span class="p">,</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">text</span></div>
 
 
 
@@ -794,6 +818,7 @@ window.runMermaid = runMermaid;</script>
 <span class="p">]</span>
 <span class="n">BodyText</span> <span class="o">=</span> <span class="n">Annotated</span><span class="p">[</span>
     <span class="nb">str</span><span class="p">,</span>
+    <span class="n">BeforeValidator</span><span class="p">(</span><span class="n">normalize_newlines</span><span class="p">),</span>
     <span class="n">AfterValidator</span><span class="p">(</span><span class="n">strip_control_chars</span><span class="p">),</span>
     <span class="n">StringConstraints</span><span class="p">(</span><span class="n">max_length</span><span class="o">=</span><span class="n">MAX_BODY_CHARS</span><span class="p">),</span>
 <span class="p">]</span>
@@ -808,13 +833,14 @@ window.runMermaid = runMermaid;</script>
 <span class="p">]</span>
 <span class="n">LogMessage</span> <span class="o">=</span> <span class="n">Annotated</span><span class="p">[</span>
     <span class="nb">str</span><span class="p">,</span>
+    <span class="n">BeforeValidator</span><span class="p">(</span><span class="n">normalize_newlines</span><span class="p">),</span>
     <span class="n">AfterValidator</span><span class="p">(</span><span class="n">strip_control_chars</span><span class="p">),</span>
     <span class="n">StringConstraints</span><span class="p">(</span><span class="n">max_length</span><span class="o">=</span><span class="n">MAX_LOG_MESSAGE_CHARS</span><span class="p">),</span>
 <span class="p">]</span>
 <span class="n">AnonId</span> <span class="o">=</span> <span class="n">Annotated</span><span class="p">[</span>
     <span class="nb">str</span><span class="p">,</span>
     <span class="n">StringConstraints</span><span class="p">(</span>
-        <span class="n">min_length</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">max_length</span><span class="o">=</span><span class="n">MAX_ANON_ID_CHARS</span><span class="p">,</span> <span class="n">pattern</span><span class="o">=</span><span class="sa">r</span><span class="s2">"^[A-Za-z0-9_.:-]+$"</span>
+        <span class="n">min_length</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">max_length</span><span class="o">=</span><span class="n">MAX_ANON_ID_CHARS</span><span class="p">,</span> <span class="n">pattern</span><span class="o">=</span><span class="n">ANON_ID_PATTERN</span>
     <span class="p">),</span>
 <span class="p">]</span>
 

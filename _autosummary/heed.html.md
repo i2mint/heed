@@ -7,7 +7,8 @@ useful context gathered automatically, routed to a pluggable backend (GitHub Iss
 first). It works standalone and integrates with `enlace` as an optional add-on,
 without depending on it.
 
-Phase 1 ships the backend core (the widget is tracked in issue #6). The competitive
+Phase 1 ships the backend core and the embeddable widget (`widget/`, served by
+[`make_widget_router()`](#heed.make_widget_router)). The competitive
 landscape and design rationale live in `misc/docs/`.
 
 Public API (Phase 1):
@@ -32,6 +33,9 @@ Public API (Phase 1):
   Serving   make_attachment_router, make_attachment_app, AttachmentSigner,
   <br/>
   > screenshot_url_resolver (a separate origin for screenshots, #19)
+  <br/>
+  Widget    make_widget_router (serves the built embeddable widget),
+  : widget_contract (what the widget sends; SSOT for widget/)
 
 ### Example
 
@@ -50,6 +54,8 @@ True
 | [`make_attachment_app`](#heed.make_attachment_app)(attachment_store, ...)         | A standalone app serving only the attachment route (no docs, no OpenAPI): run it on the dedicated attachment origin.                |
 |-----------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------|
 | [`make_attachment_router`](#heed.make_attachment_router)(attachment_store, \*)       | A router serving `GET {path}/{ref}` from `attachment_store`, read-only.                                                             |
+| [`make_widget_router`](#heed.make_widget_router)(\*[, asset_dir])                | A router serving the built widget at `GET /widget/{name}`.                                                                          |
+| [`widget_contract`](#heed.widget_contract)([config])                          | What the widget sends and the limits it must respect (from heed's SSOT).                                                            |
 | [`screenshot_url_resolver`](#heed.screenshot_url_resolver)(base_url, signer, \*)      | A `GitHubIssuesSink(screenshot_url=...)` callable: the report's first image attachment as a (signed) URL under `base_url`, or None. |
 | [`new_report_id`](#heed.new_report_id)()                                    | Return a fresh opaque report id (uuid4 hex).                                                                                        |
 | [`github_sink_from_token`](#heed.github_sink_from_token)(repo, token, \*\*kwargs)    | Build a GitHubIssuesSink that creates issues in `repo` ('owner/name').                                                              |
@@ -449,9 +455,13 @@ Full pre-moderation: every report waits for a human.
 * **Return type:**
   [`Verdict`](heed.routing.html.md#heed.routing.Verdict)
 
-### heed.make_app(sink, , config=None, attachment_store=None, prefix='/heed', \*\*router_kwargs)
+### heed.make_app(sink, , config=None, attachment_store=None, prefix='/heed', serve_widget=True, \*\*router_kwargs)
 
 A standalone FastAPI app serving the heed router under `prefix`.
+
+With `serve_widget` (the default) it also serves the built widget at
+`{prefix}/widget/{file}` (see [`heed.widget`](heed.widget.html.md#module-heed.widget)), so one host both hands out the
+script and receives its reports.
 
 * **Return type:**
   `FastAPI`
@@ -616,6 +626,17 @@ None; an origin resolving to no sink gets 403). `moderator` may hold reports in
 * **Return type:**
   `APIRouter`
 
+### heed.make_widget_router(, asset_dir=None)
+
+A router serving the built widget at `GET /widget/{name}`.
+
+Include it beside [`heed.make_router()`](#heed.make_router) (`make_app` does) so the widget is
+served from the same host that receives its reports. `asset_dir` defaults to the
+files shipped in the package; point it elsewhere to serve another build.
+
+* **Return type:**
+  `APIRouter`
+
 ### heed.new_report_id()
 
 Return a fresh opaque report id (uuid4 hex).
@@ -744,6 +765,22 @@ one too costly to decode (over `MAX_JPEG_SCANS` scans, `_MAX_PARTS` parts).
 * **Return type:**
   [`bytes`](https://docs.python.org/3/builtins/stdtypes.html#bytes)
 
+### heed.widget_contract(config=None)
+
+What the widget sends and the limits it must respect (from heed’s SSOT).
+
+`config` supplies the server-configurable names (honeypot, bot token field) and
+the screenshot cap; their defaults are what the widget assumes unless an embedder
+overrides them.
+
+* **Return type:**
+  [`dict`](https://docs.python.org/3/builtins/stdtypes.html#dict)[[`str`](https://docs.python.org/3/builtins/stdtypes.html#str), [`Any`](https://docs.python.org/3/library/typing.html#typing.Any)]
+
+```pycon
+>>> widget_contract()["categories"]
+['bug', 'feature', 'question', 'other']
+```
+
 ### Modules
 
 | [`base`](heed.base.html.md#module-heed.base)         | Domain model for heed — the single source of truth shared by widget and backend.   |
@@ -756,3 +793,4 @@ one too costly to decode (over `MAX_JPEG_SCANS` scans, `_MAX_PARTS` parts).
 | [`serving`](heed.serving.html.md#module-heed.serving)   | Serve stored screenshots: a read-only route meant for its own origin (issue #19).  |
 | [`sinks`](heed.sinks.html.md#module-heed.sinks)       | Sinks: pluggable report destinations (strategy pattern).                           |
 | [`storage`](heed.storage.html.md#module-heed.storage)   | Storage helpers — dol-backed stores for reports and binary attachments.            |
+| [`widget`](heed.widget.html.md#module-heed.widget)     | Serve the embeddable widget, and state the contract it is built against.           |

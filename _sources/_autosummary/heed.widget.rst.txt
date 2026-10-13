@@ -1,0 +1,16 @@
+heed.widget
+===========
+
+.. automodule:: heed.widget
+
+   
+   .. rubric:: Functions
+
+   .. autosummary::
+   
+      load_widget_manifest
+      main
+      make_widget_router
+      render_contract_ts
+      widget_contract
+   

@@ -333,6 +333,7 @@
 </ul>
 </details></li>
 <li class="toctree-l2"><a class="reference internal" href="heed.storage.html">heed.storage</a></li>
+<li class="toctree-l2"><a class="reference internal" href="heed.widget.html">heed.widget</a></li>
 </ul>
 </details></li>
 </ul>
@@ -412,10 +413,13 @@ origin, status) before handing it to a sink.</p>
 <tr class="row-odd"><td><p><a class="reference internal" href="#heed.base.new_report_id" title="heed.base.new_report_id"><code class="xref py py-obj docutils literal notranslate"><span class="pre">new_report_id</span></code></a>()</p></td>
 <td><p>Return a fresh opaque report id (uuid4 hex).</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#heed.base.strip_control_chars" title="heed.base.strip_control_chars"><code class="xref py py-obj docutils literal notranslate"><span class="pre">strip_control_chars</span></code></a>(text)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#heed.base.normalize_newlines" title="heed.base.normalize_newlines"><code class="xref py py-obj docutils literal notranslate"><span class="pre">normalize_newlines</span></code></a>(text)</p></td>
+<td><p>Turn CRLF and lone CR into LF, so a line break counts as one character.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#heed.base.strip_control_chars" title="heed.base.strip_control_chars"><code class="xref py py-obj docutils literal notranslate"><span class="pre">strip_control_chars</span></code></a>(text)</p></td>
 <td><p>Remove control characters (keeping tab/newline/CR) from untrusted text.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#heed.base.utcnow" title="heed.base.utcnow"><code class="xref py py-obj docutils literal notranslate"><span class="pre">utcnow</span></code></a>()</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#heed.base.utcnow" title="heed.base.utcnow"><code class="xref py py-obj docutils literal notranslate"><span class="pre">utcnow</span></code></a>()</p></td>
 <td><p>Return the current UTC time (an injectable clock seam for tests).</p></td>
 </tr>
 </tbody>
@@ -588,6 +592,18 @@ stored here — it is used transiently for rate limiting only.</p>
 </dd></dl>
 
 <dl class="py function">
+<dt class="sig sig-object py" id="heed.base.normalize_newlines">
+<span class="sig-prename descclassname"><span class="pre">heed.base.</span></span><span class="sig-name descname"><span class="pre">normalize_newlines</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">text</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/base.html#normalize_newlines"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.base.normalize_newlines" title="Link to this definition">#</a></dt>
+<dd><p>Turn CRLF and lone CR into LF, so a line break counts as one character.</p>
+<p>Browsers send every line break of a form field as CRLF; without this, a body at
+the length limit would be refused for its line breaks.</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">normalize_newlines</span><span class="p">(</span><span class="s2">"a</span><span class="se">\r\n</span><span class="s2">b</span><span class="se">\r</span><span class="s2">c"</span><span class="p">)</span>
+<span class="go">'a\nb\nc'</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py function">
 <dt class="sig sig-object py" id="heed.base.strip_control_chars">
 <span class="sig-prename descclassname"><span class="pre">heed.base.</span></span><span class="sig-name descname"><span class="pre">strip_control_chars</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">text</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/base.html#strip_control_chars"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.base.strip_control_chars" title="Link to this definition">#</a></dt>
 <dd><p>Remove control characters (keeping tab/newline/CR) from untrusted text.</p>
@@ -693,6 +709,7 @@ stored here — it is used transiently for rate limiting only.</p>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.base.Status"><code class="docutils literal notranslate"><span class="pre">Status</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.base.new_report_id"><code class="docutils literal notranslate"><span class="pre">new_report_id()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.base.normalize_newlines"><code class="docutils literal notranslate"><span class="pre">normalize_newlines()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.base.strip_control_chars"><code class="docutils literal notranslate"><span class="pre">strip_control_chars()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.base.utcnow"><code class="docutils literal notranslate"><span class="pre">utcnow()</span></code></a></li>
 </ul>

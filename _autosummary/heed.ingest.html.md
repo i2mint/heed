@@ -28,9 +28,13 @@ imported at module level.
 | [`process_submission`](#heed.ingest.process_submission)(submission, sink, \*[, ...]) | Enrich `submission` into a Report, store any screenshot, and route to `sink`. |
 | [`read_capped_body`](#heed.ingest.read_capped_body)(request, \*, max_bytes)        | Read the request body, or return None as soon as it exceeds `max_bytes`.      |
 
-### heed.ingest.make_app(sink, , config=None, attachment_store=None, prefix='/heed', \*\*router_kwargs)
+### heed.ingest.make_app(sink, , config=None, attachment_store=None, prefix='/heed', serve_widget=True, \*\*router_kwargs)
 
 A standalone FastAPI app serving the heed router under `prefix`.
+
+With `serve_widget` (the default) it also serves the built widget at
+`{prefix}/widget/{file}` (see [`heed.widget`](heed.widget.html.md#module-heed.widget)), so one host both hands out the
+script and receives its reports.
 
 * **Return type:**
   `FastAPI`

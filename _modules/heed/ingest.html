@@ -778,6 +778,7 @@ window.runMermaid = runMermaid;</script>
     <span class="n">sniff_image_type</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">heed.sinks.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">Sink</span><span class="p">,</span> <span class="n">SinkResult</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">heed.widget</span><span class="w"> </span><span class="kn">import</span> <span class="n">make_widget_router</span>
 
 <span class="n">_FORM_MEDIA_TYPES</span> <span class="o">=</span> <span class="p">(</span><span class="s2">"multipart/form-data"</span><span class="p">,</span> <span class="s2">"application/x-www-form-urlencoded"</span><span class="p">)</span>
 <span class="n">_TEXT_FIELDS</span> <span class="o">=</span> <span class="p">(</span><span class="s2">"title"</span><span class="p">,</span> <span class="s2">"body"</span><span class="p">,</span> <span class="s2">"category"</span><span class="p">,</span> <span class="s2">"page_url"</span><span class="p">,</span> <span class="s2">"env"</span><span class="p">,</span> <span class="s2">"anon_id"</span><span class="p">)</span>
@@ -1328,9 +1329,15 @@ window.runMermaid = runMermaid;</script>
     <span class="n">config</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">HeedConfig</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">attachment_store</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">MutableMapping</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">prefix</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"/heed"</span><span class="p">,</span>
+    <span class="n">serve_widget</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
     <span class="o">**</span><span class="n">router_kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">FastAPI</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">"""A standalone FastAPI app serving the heed router under ``prefix``."""</span>
+<span class="w">    </span><span class="sd">"""A standalone FastAPI app serving the heed router under ``prefix``.</span>
+
+<span class="sd">    With ``serve_widget`` (the default) it also serves the built widget at</span>
+<span class="sd">    ``{prefix}/widget/{file}`` (see :mod:`heed.widget`), so one host both hands out the</span>
+<span class="sd">    script and receives its reports.</span>
+<span class="sd">    """</span>
     <span class="n">app</span> <span class="o">=</span> <span class="n">FastAPI</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="s2">"heed"</span><span class="p">)</span>
     <span class="n">app</span><span class="o">.</span><span class="n">include_router</span><span class="p">(</span>
         <span class="n">make_router</span><span class="p">(</span>
@@ -1338,6 +1345,8 @@ window.runMermaid = runMermaid;</script>
         <span class="p">),</span>
         <span class="n">prefix</span><span class="o">=</span><span class="n">prefix</span><span class="p">,</span>
     <span class="p">)</span>
+    <span class="k">if</span> <span class="n">serve_widget</span><span class="p">:</span>
+        <span class="n">app</span><span class="o">.</span><span class="n">include_router</span><span class="p">(</span><span class="n">make_widget_router</span><span class="p">(),</span> <span class="n">prefix</span><span class="o">=</span><span class="n">prefix</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">app</span></div>
 
 </pre></div>

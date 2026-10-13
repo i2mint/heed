@@ -790,10 +790,16 @@ window.runMermaid = runMermaid;</script>
 
 <span class="sd">    The request's own origin is echoed (never ``*``) so the response is correct with</span>
 <span class="sd">    or without credentials; ``Vary: Origin`` keeps shared caches honest.</span>
+<span class="sd">    ``Retry-After`` is exposed so the widget can tell a visitor when to retry.</span>
 <span class="sd">    """</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">origin</span> <span class="ow">or</span> <span class="n">origin</span> <span class="o">==</span> <span class="s2">"null"</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">origin_allowed</span><span class="p">(</span><span class="n">origin</span><span class="p">,</span> <span class="n">allowed</span><span class="p">):</span>
         <span class="k">return</span> <span class="p">{}</span>
-    <span class="n">headers</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"Access-Control-Allow-Origin"</span><span class="p">:</span> <span class="n">origin</span><span class="p">,</span> <span class="s2">"Vary"</span><span class="p">:</span> <span class="s2">"Origin"</span><span class="p">}</span>
+    <span class="n">headers</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">"Access-Control-Allow-Origin"</span><span class="p">:</span> <span class="n">origin</span><span class="p">,</span>
+        <span class="s2">"Vary"</span><span class="p">:</span> <span class="s2">"Origin"</span><span class="p">,</span>
+        <span class="c1"># Not CORS-safelisted, so a cross-origin widget could not read it otherwise.</span>
+        <span class="s2">"Access-Control-Expose-Headers"</span><span class="p">:</span> <span class="s2">"Retry-After"</span><span class="p">,</span>
+    <span class="p">}</span>
     <span class="k">if</span> <span class="n">allow_credentials</span><span class="p">:</span>
         <span class="n">headers</span><span class="p">[</span><span class="s2">"Access-Control-Allow-Credentials"</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"true"</span>
     <span class="k">return</span> <span class="n">headers</span></div>

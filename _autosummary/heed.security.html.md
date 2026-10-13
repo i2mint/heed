@@ -152,6 +152,7 @@ CORS response headers for `origin`, or `{}` when it is not allowed.
 
 The request’s own origin is echoed (never `*`) so the response is correct with
 or without credentials; `Vary: Origin` keeps shared caches honest.
+`Retry-After` is exposed so the widget can tell a visitor when to retry.
 
 * **Return type:**
   [`dict`](https://docs.python.org/3/builtins/stdtypes.html#dict)[[`str`](https://docs.python.org/3/builtins/stdtypes.html#str), [`str`](https://docs.python.org/3/builtins/stdtypes.html#str)]

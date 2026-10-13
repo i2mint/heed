@@ -1,4 +1,4 @@
-> built 2026-10-13 12:49 UTC from 8ce885a (main) · heed 0.0.1. Details: build_info.json
+> built 2026-10-13 15:24 UTC from 9bdd852 (main) · heed 0.0.1. Details: build_info.json
 
 # index.html.md
 
@@ -72,6 +72,17 @@ app = make_app(StoreSink({}), config=config)
 
 For production, set `allowed_origins`, `trusted_proxies` (behind a reverse proxy), `rate_limit_backend="redis"` with `redis_url` (several workers), and `bot_secret` to turn the bot gate on. Embedders also need a Content-Security-Policy that allows the widget: see [`misc/docs/embedding-security.md`]().
 
+## Embedding the widget
+
+The backend serves the widget too, so a site adds two tags:
+
+```html
+<script src="https://feedback.example/heed/widget/heed-widget.js" defer></script>
+<heed-feedback endpoint="https://feedback.example/heed/report"></heed-feedback>
+```
+
+Pinning a build with SRI, options, events, theming and CSP notes: [`widget/README.md`]().
+
 ## Documents
 
 - [`misc/docs/research-report.md`]() — the competitive
@@ -104,6 +115,7 @@ origin, status) before handing it to a sink.
 
 | [`new_report_id`](_autosummary/heed.base.html.md#heed.base.new_report_id)()           | Return a fresh opaque report id (uuid4 hex).                            |
 |----------------------------------------------------------------------------|-------------------------------------------------------------------------|
+| [`normalize_newlines`](_autosummary/heed.base.html.md#heed.base.normalize_newlines)(text)  | Turn CRLF and lone CR into LF, so a line break counts as one character. |
 | [`strip_control_chars`](_autosummary/heed.base.html.md#heed.base.strip_control_chars)(text) | Remove control characters (keeping tab/newline/CR) from untrusted text. |
 | [`utcnow`](_autosummary/heed.base.html.md#heed.base.utcnow)()                  | Return the current UTC time (an injectable clock seam for tests).       |
 
@@ -213,6 +225,18 @@ Return a fresh opaque report id (uuid4 hex).
 * **Return type:**
   [`str`](https://docs.python.org/3/builtins/stdtypes.html#str)
 
+### heed.base.normalize_newlines(text)
+
+Turn CRLF and lone CR into LF, so a line break counts as one character.
+
+Browsers send every line break of a form field as CRLF; without this, a body at
+the length limit would be refused for its line breaks.
+
+```pycon
+>>> normalize_newlines("a\r\nb\rc")
+'a\nb\nc'
+```
+
 ### heed.base.strip_control_chars(text)
 
 Remove control characters (keeping tab/newline/CR) from untrusted text.
@@ -290,7 +314,8 @@ useful context gathered automatically, routed to a pluggable backend (GitHub Iss
 first). It works standalone and integrates with `enlace` as an optional add-on,
 without depending on it.
 
-Phase 1 ships the backend core (the widget is tracked in issue #6). The competitive
+Phase 1 ships the backend core and the embeddable widget (`widget/`, served by
+[`make_widget_router()`](_autosummary/heed.html.md#heed.make_widget_router)). The competitive
 landscape and design rationale live in `misc/docs/`.
 
 Public API (Phase 1):
@@ -315,6 +340,9 @@ Public API (Phase 1):
   Serving   make_attachment_router, make_attachment_app, AttachmentSigner,
   <br/>
   > screenshot_url_resolver (a separate origin for screenshots, #19)
+  <br/>
+  Widget    make_widget_router (serves the built embeddable widget),
+  : widget_contract (what the widget sends; SSOT for widget/)
 
 ### Example
 
@@ -333,6 +361,8 @@ True
 | [`make_attachment_app`](_autosummary/heed.html.md#heed.make_attachment_app)(attachment_store, ...)         | A standalone app serving only the attachment route (no docs, no OpenAPI): run it on the dedicated attachment origin.                |
 |-----------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------|
 | [`make_attachment_router`](_autosummary/heed.html.md#heed.make_attachment_router)(attachment_store, \*)       | A router serving `GET {path}/{ref}` from `attachment_store`, read-only.                                                             |
+| [`make_widget_router`](_autosummary/heed.html.md#heed.make_widget_router)(\*[, asset_dir])                | A router serving the built widget at `GET /widget/{name}`.                                                                          |
+| [`widget_contract`](_autosummary/heed.html.md#heed.widget_contract)([config])                          | What the widget sends and the limits it must respect (from heed's SSOT).                                                            |
 | [`screenshot_url_resolver`](_autosummary/heed.html.md#heed.screenshot_url_resolver)(base_url, signer, \*)      | A `GitHubIssuesSink(screenshot_url=...)` callable: the report's first image attachment as a (signed) URL under `base_url`, or None. |
 | [`new_report_id`](_autosummary/heed.html.md#heed.new_report_id)()                                    | Return a fresh opaque report id (uuid4 hex).                                                                                        |
 | [`github_sink_from_token`](_autosummary/heed.html.md#heed.github_sink_from_token)(repo, token, \*\*kwargs)    | Build a GitHubIssuesSink that creates issues in `repo` ('owner/name').                                                              |
@@ -732,9 +762,13 @@ Full pre-moderation: every report waits for a human.
 * **Return type:**
   [`Verdict`](_autosummary/heed.routing.html.md#heed.routing.Verdict)
 
-### heed.make_app(sink, , config=None, attachment_store=None, prefix='/heed', \*\*router_kwargs)
+### heed.make_app(sink, , config=None, attachment_store=None, prefix='/heed', serve_widget=True, \*\*router_kwargs)
 
 A standalone FastAPI app serving the heed router under `prefix`.
+
+With `serve_widget` (the default) it also serves the built widget at
+`{prefix}/widget/{file}` (see [`heed.widget`](_autosummary/heed.widget.html.md#module-heed.widget)), so one host both hands out the
+script and receives its reports.
 
 * **Return type:**
   `FastAPI`
@@ -899,6 +933,17 @@ None; an origin resolving to no sink gets 403). `moderator` may hold reports in
 * **Return type:**
   `APIRouter`
 
+### heed.make_widget_router(, asset_dir=None)
+
+A router serving the built widget at `GET /widget/{name}`.
+
+Include it beside [`heed.make_router()`](_autosummary/heed.html.md#heed.make_router) (`make_app` does) so the widget is
+served from the same host that receives its reports. `asset_dir` defaults to the
+files shipped in the package; point it elsewhere to serve another build.
+
+* **Return type:**
+  `APIRouter`
+
 ### heed.new_report_id()
 
 Return a fresh opaque report id (uuid4 hex).
@@ -1027,6 +1072,22 @@ one too costly to decode (over `MAX_JPEG_SCANS` scans, `_MAX_PARTS` parts).
 * **Return type:**
   [`bytes`](https://docs.python.org/3/builtins/stdtypes.html#bytes)
 
+### heed.widget_contract(config=None)
+
+What the widget sends and the limits it must respect (from heed’s SSOT).
+
+`config` supplies the server-configurable names (honeypot, bot token field) and
+the screenshot cap; their defaults are what the widget assumes unless an embedder
+overrides them.
+
+* **Return type:**
+  [`dict`](https://docs.python.org/3/builtins/stdtypes.html#dict)[[`str`](https://docs.python.org/3/builtins/stdtypes.html#str), [`Any`](https://docs.python.org/3/library/typing.html#typing.Any)]
+
+```pycon
+>>> widget_contract()["categories"]
+['bug', 'feature', 'question', 'other']
+```
+
 ### Modules
 
 | [`base`](_autosummary/heed.base.html.md#module-heed.base)         | Domain model for heed — the single source of truth shared by widget and backend.   |
@@ -1039,6 +1100,7 @@ one too costly to decode (over `MAX_JPEG_SCANS` scans, `_MAX_PARTS` parts).
 | [`serving`](_autosummary/heed.serving.html.md#module-heed.serving)   | Serve stored screenshots: a read-only route meant for its own origin (issue #19).  |
 | [`sinks`](_autosummary/heed.sinks.html.md#module-heed.sinks)       | Sinks: pluggable report destinations (strategy pattern).                           |
 | [`storage`](_autosummary/heed.storage.html.md#module-heed.storage)   | Storage helpers — dol-backed stores for reports and binary attachments.            |
+| [`widget`](_autosummary/heed.widget.html.md#module-heed.widget)     | Serve the embeddable widget, and state the contract it is built against.           |
 
 
 # _autosummary/heed.images.html.md
@@ -1180,9 +1242,13 @@ imported at module level.
 | [`process_submission`](_autosummary/heed.ingest.html.md#heed.ingest.process_submission)(submission, sink, \*[, ...]) | Enrich `submission` into a Report, store any screenshot, and route to `sink`. |
 | [`read_capped_body`](_autosummary/heed.ingest.html.md#heed.ingest.read_capped_body)(request, \*, max_bytes)        | Read the request body, or return None as soon as it exceeds `max_bytes`.      |
 
-### heed.ingest.make_app(sink, , config=None, attachment_store=None, prefix='/heed', \*\*router_kwargs)
+### heed.ingest.make_app(sink, , config=None, attachment_store=None, prefix='/heed', serve_widget=True, \*\*router_kwargs)
 
 A standalone FastAPI app serving the heed router under `prefix`.
+
+With `serve_widget` (the default) it also serves the built widget at
+`{prefix}/widget/{file}` (see [`heed.widget`](_autosummary/heed.widget.html.md#module-heed.widget)), so one host both hands out the
+script and receives its reports.
 
 * **Return type:**
   `FastAPI`
@@ -1586,6 +1652,7 @@ CORS response headers for `origin`, or `{}` when it is not allowed.
 
 The request’s own origin is echoed (never `*`) so the response is correct with
 or without credentials; `Vary: Origin` keeps shared caches honest.
+`Retry-After` is exposed so the widget can tell a visitor when to retry.
 
 * **Return type:**
   [`dict`](https://docs.python.org/3/builtins/stdtypes.html#dict)[[`str`](https://docs.python.org/3/builtins/stdtypes.html#str), [`str`](https://docs.python.org/3/builtins/stdtypes.html#str)]
@@ -2214,13 +2281,108 @@ report – and reports can carry personal data. Pass `delete_func` to opt back i
   [`MutableMapping`](https://docs.python.org/3/library/collections.abc.html#collections.abc.MutableMapping)
 
 
+# _autosummary/heed.widget.html.md
+
+# heed.widget
+
+Serve the embeddable widget, and state the contract it is built against.
+
+The widget (TypeScript sources under `widget/` at the repository root) is built into
+`heed/static/widget/` and shipped inside the Python package, so the backend that
+receives reports can also serve the script that sends them: one host, no CDN, no npm
+install for the embedding site.
+
+Two things live here:
+
+* [`make_widget_router()`](_autosummary/heed.widget.html.md#heed.widget.make_widget_router) serves the built files. Only the names listed in the
+  build’s `manifest.json` are served (no path ever reaches the filesystem), with
+  headers that let any site load them (`Access-Control-Allow-Origin: *` and
+  `Cross-Origin-Resource-Policy: cross-origin`, needed for Subresource Integrity and
+  for pages with COEP) and long-lived caching for content-hashed names.
+* [`widget_contract()`](_autosummary/heed.widget.html.md#heed.widget.widget_contract) is the single source of truth for what the widget sends:
+  the form field names the ingest route reads and the limits `base.py` enforces.
+  `widget/src/contract.gen.ts` is generated from it (`python -m heed.widget
+  contract`) and a test fails when the two drift.
+
+```pycon
+>>> c = widget_contract()
+>>> c["fields"]["title"], c["limits"]["title_chars"]
+('title', 300)
+```
+
+### Functions
+
+| [`load_widget_manifest`](_autosummary/heed.widget.html.md#heed.widget.load_widget_manifest)([asset_dir])   | The build's manifest: `{"version", "entries", "files": {name: {...}}}`.     |
+|--------------------------------------------------------------------------------------|-----------------------------------------------------------------------------|
+| [`main`](_autosummary/heed.widget.html.md#heed.widget.main)([argv])                        | `python -m heed.widget contract`: print the generated TypeScript contract.  |
+| [`make_widget_router`](_autosummary/heed.widget.html.md#heed.widget.make_widget_router)(\*[, asset_dir]) | A router serving the built widget at `GET /widget/{name}`.                  |
+| [`render_contract_ts`](_autosummary/heed.widget.html.md#heed.widget.render_contract_ts)([contract])      | The TypeScript module `widget/src/contract.gen.ts` (generated, not edited). |
+| [`widget_contract`](_autosummary/heed.widget.html.md#heed.widget.widget_contract)([config])           | What the widget sends and the limits it must respect (from heed's SSOT).    |
+
+### heed.widget.load_widget_manifest(asset_dir=None)
+
+The build’s manifest: `{"version", "entries", "files": {name: {...}}}`.
+
+Returns an empty file list when the widget has not been built (a source checkout
+that never ran `npm run build`), so the backend still starts.
+
+* **Return type:**
+  [`dict`](https://docs.python.org/3/builtins/stdtypes.html#dict)[[`str`](https://docs.python.org/3/builtins/stdtypes.html#str), [`Any`](https://docs.python.org/3/library/typing.html#typing.Any)]
+
+### heed.widget.main(argv=None)
+
+`python -m heed.widget contract`: print the generated TypeScript contract.
+
+* **Return type:**
+  [`None`](https://docs.python.org/3/builtins/constants.html#None)
+
+### heed.widget.make_widget_router(, asset_dir=None)
+
+A router serving the built widget at `GET /widget/{name}`.
+
+Include it beside [`heed.make_router()`](_autosummary/heed.html.md#heed.make_router) (`make_app` does) so the widget is
+served from the same host that receives its reports. `asset_dir` defaults to the
+files shipped in the package; point it elsewhere to serve another build.
+
+* **Return type:**
+  `APIRouter`
+
+### heed.widget.render_contract_ts(contract=None)
+
+The TypeScript module `widget/src/contract.gen.ts` (generated, not edited).
+
+* **Return type:**
+  [`str`](https://docs.python.org/3/builtins/stdtypes.html#str)
+
+```pycon
+>>> render_contract_ts().splitlines()[0].startswith("// Generated")
+True
+```
+
+### heed.widget.widget_contract(config=None)
+
+What the widget sends and the limits it must respect (from heed’s SSOT).
+
+`config` supplies the server-configurable names (honeypot, bot token field) and
+the screenshot cap; their defaults are what the widget assumes unless an embedder
+overrides them.
+
+* **Return type:**
+  [`dict`](https://docs.python.org/3/builtins/stdtypes.html#dict)[[`str`](https://docs.python.org/3/builtins/stdtypes.html#str), [`Any`](https://docs.python.org/3/library/typing.html#typing.Any)]
+
+```pycon
+>>> widget_contract()["categories"]
+['bug', 'feature', 'question', 'other']
+```
+
+
 # about-this-build.html.md
 
 <!-- generated by epythet -->
 
 # About this build
 
-This documentation was built on **2026-10-13 12:49 UTC** from commit <a href="https://github.com/i2mint/heed/commit/8ce885a00e914b13b948831593e8145a18f38b1e"><code>8ce885a</code></a> on branch <code>main</code>, for **heed 0.0.1** (from <code>pyproject.toml</code>).
+This documentation was built on **2026-10-13 15:24 UTC** from commit <a href="https://github.com/i2mint/heed/commit/9bdd852ef39f2e3fea48b28963603ec079749501"><code>9bdd852</code></a> on branch <code>main</code>, for **heed 0.0.1** (from <code>pyproject.toml</code>).
 
 #### WARNING
 The documentation and the package may be misaligned:
@@ -2231,7 +2393,7 @@ The documentation and the package may be misaligned:
 
 |                     |                                                                                                                                                    |
 |---------------------|----------------------------------------------------------------------------------------------------------------------------------------------------|
-| Commit              | <a href="https://github.com/i2mint/heed/commit/8ce885a00e914b13b948831593e8145a18f38b1e"><code>8ce885a00e914b13b948831593e8145a18f38b1e</code></a> |
+| Commit              | <a href="https://github.com/i2mint/heed/commit/9bdd852ef39f2e3fea48b28963603ec079749501"><code>9bdd852ef39f2e3fea48b28963603ec079749501</code></a> |
 | Branch              | <code>main</code>                                                                                                                                  |
 | Tags at this commit | none                                                                                                                                               |
 | Working tree        | clean                                                                                                                                              |
@@ -2242,15 +2404,15 @@ The documentation and the package may be misaligned:
 |              |                                                                                            |
 |--------------|--------------------------------------------------------------------------------------------|
 | Repository   | <code>i2mint/heed</code>                                                                   |
-| Run          | <a href="https://github.com/i2mint/heed/actions/runs/38399917016">38399917016</a>          |
+| Run          | <a href="https://github.com/i2mint/heed/actions/runs/38421487672">38421487672</a>          |
 | Ref          | <code>refs/heads/main</code>                                                               |
-| Event commit | <code>8ce885a00e914b13b948831593e8145a18f38b1e</code> (in the history of the built commit) |
+| Event commit | <code>9bdd852ef39f2e3fea48b28963603ec079749501</code> (in the history of the built commit) |
 
 ## Tools
 
 |          |         |
 |----------|---------|
-| epythet  | 0.2.15  |
+| epythet  | 0.2.16  |
 | Sphinx   | 9.1.0   |
 | docutils | 0.22.4  |
 | Python   | 3.12.15 |
@@ -2275,8 +2437,8 @@ Latest release: <a href="https://pypi.org/project/heed/0.1.0/">0.1.0</a>, newer 
 
 ```bash
 git clone https://github.com/i2mint/heed && cd heed
-git checkout 8ce885a00e914b13b948831593e8145a18f38b1e
-pip install "epythet==0.2.15"
+git checkout 9bdd852ef39f2e3fea48b28963603ec079749501
+pip install "epythet==0.2.16"
 epythet quickstart . --ignore tests/ scrap/ examples/
 ```
 

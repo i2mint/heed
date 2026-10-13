@@ -333,6 +333,7 @@
 </ul>
 </details></li>
 <li class="toctree-l2"><a class="reference internal" href="heed.storage.html">heed.storage</a></li>
+<li class="toctree-l2"><a class="reference internal" href="heed.widget.html">heed.widget</a></li>
 </ul>
 </details></li>
 </ul>
@@ -607,7 +608,8 @@ hops, so a client cannot prepend a fake address.</p>
 <span class="sig-prename descclassname"><span class="pre">heed.security.</span></span><span class="sig-name descname"><span class="pre">cors_headers</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">origin</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">allowed</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">allow_credentials</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/security.html#cors_headers"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.security.cors_headers" title="Link to this definition">#</a></dt>
 <dd><p>CORS response headers for <code class="docutils literal notranslate"><span class="pre">origin</span></code>, or <code class="docutils literal notranslate"><span class="pre">{}</span></code> when it is not allowed.</p>
 <p>The request’s own origin is echoed (never <code class="docutils literal notranslate"><span class="pre">*</span></code>) so the response is correct with
-or without credentials; <code class="docutils literal notranslate"><span class="pre">Vary:</span> <span class="pre">Origin</span></code> keeps shared caches honest.</p>
+or without credentials; <code class="docutils literal notranslate"><span class="pre">Vary:</span> <span class="pre">Origin</span></code> keeps shared caches honest.
+<code class="docutils literal notranslate"><span class="pre">Retry-After</span></code> is exposed so the widget can tell a visitor when to retry.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#dict" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">dict</span></code></a>[<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>]</span></p>

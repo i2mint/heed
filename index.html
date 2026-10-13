@@ -404,6 +404,15 @@ pip<span class="w"> </span>install<span class="w"> </span><span class="s2">"heed
 </div>
 <p>For production, set <code class="docutils literal notranslate"><span class="pre">allowed_origins</span></code>, <code class="docutils literal notranslate"><span class="pre">trusted_proxies</span></code> (behind a reverse proxy), <code class="docutils literal notranslate"><span class="pre">rate_limit_backend=&quot;redis&quot;</span></code> with <code class="docutils literal notranslate"><span class="pre">redis_url</span></code> (several workers), and <code class="docutils literal notranslate"><span class="pre">bot_secret</span></code> to turn the bot gate on. Embedders also need a Content-Security-Policy that allows the widget: see <a class="reference internal" href="#misc/docs/embedding-security.md"><span class="xref myst"><code class="docutils literal notranslate"><span class="pre">misc/docs/embedding-security.md</span></code></span></a>.</p>
 </section>
+<section id="embedding-the-widget">
+<h2>Embedding the widget<a class="headerlink" href="#embedding-the-widget" title="Link to this heading">#</a></h2>
+<p>The backend serves the widget too, so a site adds two tags:</p>
+<div class="highlight-html notranslate"><div class="highlight"><pre><span></span><span class="p">&lt;</span><span class="nt">script</span> <span class="na">src</span><span class="o">=</span><span class="s">"https://feedback.example/heed/widget/heed-widget.js"</span> <span class="na">defer</span><span class="p">&gt;&lt;/</span><span class="nt">script</span><span class="p">&gt;</span>
+<span class="p">&lt;</span><span class="nt">heed-feedback</span> <span class="na">endpoint</span><span class="o">=</span><span class="s">"https://feedback.example/heed/report"</span><span class="p">&gt;&lt;/</span><span class="nt">heed-feedback</span><span class="p">&gt;</span>
+</pre></div>
+</div>
+<p>Pinning a build with SRI, options, events, theming and CSP notes: <a class="reference internal" href="#widget/README.md"><span class="xref myst"><code class="docutils literal notranslate"><span class="pre">widget/README.md</span></code></span></a>.</p>
+</section>
 <section id="documents">
 <h2>Documents<a class="headerlink" href="#documents" title="Link to this heading">#</a></h2>
 <ul class="simple">
@@ -422,7 +431,7 @@ sink interface, and the spectrum of approaches with pros/cons.</p></li>
 </section>
 </section>
 
-<p class="epythet-provenance" style="font-size:.8em;opacity:.65;margin-top:2.5em;text-align:right">built 2026-10-13 12:49 UTC from <a href="https://github.com/i2mint/heed/commit/8ce885a00e914b13b948831593e8145a18f38b1e">8ce885a</a> (main) · heed 0.0.1 · <a href="about-this-build.html">about this build</a></p>
+<p class="epythet-provenance" style="font-size:.8em;opacity:.65;margin-top:2.5em;text-align:right">built 2026-10-13 15:24 UTC from <a href="https://github.com/i2mint/heed/commit/9bdd852ef39f2e3fea48b28963603ec079749501">9bdd852</a> (main) · heed 0.0.1 · <a href="about-this-build.html">about this build</a></p>
 
                 </article>
               
@@ -466,6 +475,7 @@ sink interface, and the spectrum of approaches with pros/cons.</p></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#design-principles">Design principles</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#install">Install</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#running-the-ingest-endpoint-safely">Running the ingest endpoint safely</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#embedding-the-widget">Embedding the widget</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#documents">Documents</a></li>
 </ul>
   </nav></div>

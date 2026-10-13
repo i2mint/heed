@@ -9,6 +9,7 @@ heed.base
    .. autosummary::
    
       new_report_id
+      normalize_newlines
       strip_control_chars
       utcnow
    

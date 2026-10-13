@@ -12,6 +12,7 @@ origin, status) before handing it to a sink.
 
 | [`new_report_id`](#heed.base.new_report_id)()           | Return a fresh opaque report id (uuid4 hex).                            |
 |----------------------------------------------------------------------------|-------------------------------------------------------------------------|
+| [`normalize_newlines`](#heed.base.normalize_newlines)(text)  | Turn CRLF and lone CR into LF, so a line break counts as one character. |
 | [`strip_control_chars`](#heed.base.strip_control_chars)(text) | Remove control characters (keeping tab/newline/CR) from untrusted text. |
 | [`utcnow`](#heed.base.utcnow)()                  | Return the current UTC time (an injectable clock seam for tests).       |
 
@@ -120,6 +121,18 @@ Return a fresh opaque report id (uuid4 hex).
 
 * **Return type:**
   [`str`](https://docs.python.org/3/builtins/stdtypes.html#str)
+
+### heed.base.normalize_newlines(text)
+
+Turn CRLF and lone CR into LF, so a line break counts as one character.
+
+Browsers send every line break of a form field as CRLF; without this, a body at
+the length limit would be refused for its line breaks.
+
+```pycon
+>>> normalize_newlines("a\r\nb\rc")
+'a\nb\nc'
+```
 
 ### heed.base.strip_control_chars(text)
 

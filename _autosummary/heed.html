@@ -333,6 +333,7 @@
 </ul>
 </details></li>
 <li class="toctree-l2"><a class="reference internal" href="heed.storage.html">heed.storage</a></li>
+<li class="toctree-l2"><a class="reference internal" href="heed.widget.html">heed.widget</a></li>
 </ul>
 </details></li>
 </ul>
@@ -402,7 +403,8 @@
 useful context gathered automatically, routed to a pluggable backend (GitHub Issues
 first). It works standalone and integrates with <code class="docutils literal notranslate"><span class="pre">enlace</span></code> as an optional add-on,
 without depending on it.</p>
-<p>Phase 1 ships the backend core (the widget is tracked in issue #6). The competitive
+<p>Phase 1 ships the backend core and the embeddable widget (<code class="docutils literal notranslate"><span class="pre">widget/</span></code>, served by
+<a class="reference internal" href="#heed.make_widget_router" title="heed.make_widget_router"><code class="xref py py-func docutils literal notranslate"><span class="pre">make_widget_router()</span></code></a>). The competitive
 landscape and design rationale live in <code class="docutils literal notranslate"><span class="pre">misc/docs/</span></code>.</p>
 <dl>
 <dt>Public API (Phase 1):</dt><dd><dl class="simple">
@@ -428,6 +430,10 @@ Serving   make_attachment_router, make_attachment_app, AttachmentSigner,</p>
 <blockquote>
 <div><p>screenshot_url_resolver (a separate origin for screenshots, #19)</p>
 </div></blockquote>
+<dl class="simple">
+<dt>Widget    make_widget_router (serves the built embeddable widget),</dt><dd><p>widget_contract (what the widget sends; SSOT for widget/)</p>
+</dd>
+</dl>
 </dd>
 </dl>
 <p class="rubric">Example</p>
@@ -448,6 +454,12 @@ Serving   make_attachment_router, make_attachment_app, AttachmentSigner,</p>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="#heed.make_attachment_router" title="heed.make_attachment_router"><code class="xref py py-obj docutils literal notranslate"><span class="pre">make_attachment_router</span></code></a>(attachment_store, *)</p></td>
 <td><p>A router serving <code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">{path}/{ref}</span></code> from <code class="docutils literal notranslate"><span class="pre">attachment_store</span></code>, read-only.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#heed.make_widget_router" title="heed.make_widget_router"><code class="xref py py-obj docutils literal notranslate"><span class="pre">make_widget_router</span></code></a>(*[, asset_dir])</p></td>
+<td><p>A router serving the built widget at <code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/widget/{name}</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#heed.widget_contract" title="heed.widget_contract"><code class="xref py py-obj docutils literal notranslate"><span class="pre">widget_contract</span></code></a>([config])</p></td>
+<td><p>What the widget sends and the limits it must respect (from heed's SSOT).</p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="#heed.screenshot_url_resolver" title="heed.screenshot_url_resolver"><code class="xref py py-obj docutils literal notranslate"><span class="pre">screenshot_url_resolver</span></code></a>(base_url, signer, *)</p></td>
 <td><p>A <code class="docutils literal notranslate"><span class="pre">GitHubIssuesSink(screenshot_url=...)</span></code> callable: the report's first image attachment as a (signed) URL under <code class="docutils literal notranslate"><span class="pre">base_url</span></code>, or None.</p></td>
@@ -1060,8 +1072,11 @@ App installation token or a PAT) — never shipped to the browser.</p>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="heed.make_app">
-<span class="sig-prename descclassname"><span class="pre">heed.</span></span><span class="sig-name descname"><span class="pre">make_app</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sink</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">config</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">attachment_store</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prefix</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'/heed'</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">router_kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/ingest.html#make_app"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.make_app" title="Link to this definition">#</a></dt>
+<span class="sig-prename descclassname"><span class="pre">heed.</span></span><span class="sig-name descname"><span class="pre">make_app</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sink</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">config</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">attachment_store</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prefix</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'/heed'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">serve_widget</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">router_kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/ingest.html#make_app"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.make_app" title="Link to this definition">#</a></dt>
 <dd><p>A standalone FastAPI app serving the heed router under <code class="docutils literal notranslate"><span class="pre">prefix</span></code>.</p>
+<p>With <code class="docutils literal notranslate"><span class="pre">serve_widget</span></code> (the default) it also serves the built widget at
+<code class="docutils literal notranslate"><span class="pre">{prefix}/widget/{file}</span></code> (see <a class="reference internal" href="heed.widget.html#module-heed.widget" title="heed.widget"><code class="xref py py-mod docutils literal notranslate"><span class="pre">heed.widget</span></code></a>), so one host both hands out the
+script and receives its reports.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">FastAPI</span></code></span></p>
@@ -1260,6 +1275,20 @@ None; an origin resolving to no sink gets 403). <code class="docutils literal no
 </dd></dl>
 
 <dl class="py function">
+<dt class="sig sig-object py" id="heed.make_widget_router">
+<span class="sig-prename descclassname"><span class="pre">heed.</span></span><span class="sig-name descname"><span class="pre">make_widget_router</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">asset_dir</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/widget.html#make_widget_router"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.make_widget_router" title="Link to this definition">#</a></dt>
+<dd><p>A router serving the built widget at <code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/widget/{name}</span></code>.</p>
+<p>Include it beside <a class="reference internal" href="#heed.make_router" title="heed.make_router"><code class="xref py py-func docutils literal notranslate"><span class="pre">heed.make_router()</span></code></a> (<code class="docutils literal notranslate"><span class="pre">make_app</span></code> does) so the widget is
+served from the same host that receives its reports. <code class="docutils literal notranslate"><span class="pre">asset_dir</span></code> defaults to the
+files shipped in the package; point it elsewhere to serve another build.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">APIRouter</span></code></span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
 <dt class="sig sig-object py" id="heed.new_report_id">
 <span class="sig-prename descclassname"><span class="pre">heed.</span></span><span class="sig-name descname"><span class="pre">new_report_id</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/base.html#new_report_id"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.new_report_id" title="Link to this definition">#</a></dt>
 <dd><p>Return a fresh opaque report id (uuid4 hex).</p>
@@ -1407,6 +1436,24 @@ one too costly to decode (over <code class="docutils literal notranslate"><span 
 </dl>
 </dd></dl>
 
+<dl class="py function">
+<dt class="sig sig-object py" id="heed.widget_contract">
+<span class="sig-prename descclassname"><span class="pre">heed.</span></span><span class="sig-name descname"><span class="pre">widget_contract</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/widget.html#widget_contract"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.widget_contract" title="Link to this definition">#</a></dt>
+<dd><p>What the widget sends and the limits it must respect (from heed’s SSOT).</p>
+<p><code class="docutils literal notranslate"><span class="pre">config</span></code> supplies the server-configurable names (honeypot, bot token field) and
+the screenshot cap; their defaults are what the widget assumes unless an embedder
+overrides them.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#dict" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">dict</span></code></a>[<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.15)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Any</span></code></a>]</span></p>
+</dd>
+</dl>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">widget_contract</span><span class="p">()[</span><span class="s2">"categories"</span><span class="p">]</span>
+<span class="go">['bug', 'feature', 'question', 'other']</span>
+</pre></div>
+</div>
+</dd></dl>
+
 <p class="rubric">Modules</p>
 <div class="pst-scrollable-table-container"><table class="autosummary longtable table">
 <tbody>
@@ -1436,6 +1483,9 @@ one too costly to decode (over <code class="docutils literal notranslate"><span 
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="heed.storage.html#module-heed.storage" title="heed.storage"><code class="xref py py-obj docutils literal notranslate"><span class="pre">storage</span></code></a></p></td>
 <td><p>Storage helpers — dol-backed stores for reports and binary attachments.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="heed.widget.html#module-heed.widget" title="heed.widget"><code class="xref py py-obj docutils literal notranslate"><span class="pre">widget</span></code></a></p></td>
+<td><p>Serve the embeddable widget, and state the contract it is built against.</p></td>
 </tr>
 </tbody>
 </table>
@@ -1572,6 +1622,7 @@ one too costly to decode (over <code class="docutils literal notranslate"><span 
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.make_rate_limiter"><code class="docutils literal notranslate"><span class="pre">make_rate_limiter()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.make_report_store"><code class="docutils literal notranslate"><span class="pre">make_report_store()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.make_router"><code class="docutils literal notranslate"><span class="pre">make_router()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.make_widget_router"><code class="docutils literal notranslate"><span class="pre">make_widget_router()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.new_report_id"><code class="docutils literal notranslate"><span class="pre">new_report_id()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.process_submission"><code class="docutils literal notranslate"><span class="pre">process_submission()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.recover_claimed"><code class="docutils literal notranslate"><span class="pre">recover_claimed()</span></code></a></li>
@@ -1580,6 +1631,7 @@ one too costly to decode (over <code class="docutils literal notranslate"><span 
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.screenshot_url_resolver"><code class="docutils literal notranslate"><span class="pre">screenshot_url_resolver()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.sinks_by_origin"><code class="docutils literal notranslate"><span class="pre">sinks_by_origin()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.strip_image"><code class="docutils literal notranslate"><span class="pre">strip_image()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.widget_contract"><code class="docutils literal notranslate"><span class="pre">widget_contract()</span></code></a></li>
 </ul>
   </nav></div>
 

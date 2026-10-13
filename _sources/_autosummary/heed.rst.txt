@@ -10,6 +10,8 @@
    
       make_attachment_app
       make_attachment_router
+      make_widget_router
+      widget_contract
       screenshot_url_resolver
       new_report_id
       github_sink_from_token
@@ -76,3 +78,4 @@
    serving
    sinks
    storage
+   widget
