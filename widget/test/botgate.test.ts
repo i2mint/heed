@@ -81,6 +81,110 @@ describe("createBotGate", () => {
     await expect(t).rejects.toThrow("removed");
   });
 
+  it("cancel() rejects the token being waited for, and says whether there was one", async () => {
+    (window as unknown as Record<string, unknown>).turnstile = fakeTurnstile(() => {}).api;
+    const gate = createBotGate(window, document.createElement("div"), { provider: "turnstile", sitekey: "S", load: loadOk })!;
+    expect(gate.cancel()).toBe(false);
+    const t = gate.token();
+    await gate.warm();
+    expect(gate.cancel()).toBe(true);
+    await expect(t).rejects.toThrow("cancelled");
+    expect(gate.cancel()).toBe(false);
+  });
+
+  it("shows its box only while the challenge needs the visitor", async () => {
+    const fake = fakeTurnstile(() => {});
+    (window as unknown as Record<string, unknown>).turnstile = fake.api;
+    const box = document.createElement("div");
+    const gate = createBotGate(window, box, { provider: "turnstile", sitekey: "S", load: loadOk })!;
+    expect(box.hidden).toBe(true); // a hidden input inside would otherwise leave a gap in the form
+    gate.token().catch(() => {}); // a challenge being waited on
+    await gate.warm();
+    const params = fake.params() as Record<string, () => void>;
+    params["before-interactive-callback"]();
+    expect(box.hidden).toBe(false);
+    params["after-interactive-callback"]();
+    expect(box.hidden).toBe(true);
+  });
+
+  it("does not show its box for a challenge nobody is waiting on any more", async () => {
+    const fake = fakeTurnstile(() => {});
+    (window as unknown as Record<string, unknown>).turnstile = fake.api;
+    const box = document.createElement("div");
+    const gate = createBotGate(window, box, { provider: "turnstile", sitekey: "S", load: loadOk })!;
+    const t = gate.token();
+    t.catch(() => {});
+    await vi.waitFor(() => expect(fake.api.execute).toHaveBeenCalled());
+    gate.cancel();
+    (fake.params() as Record<string, () => void>)["before-interactive-callback"]();
+    expect(box.hidden).toBe(true);
+  });
+
+  it("drives hCaptcha: invisible, executed with async, reset between runs", async () => {
+    const calls: string[] = [];
+    let answers = 0;
+    const api = {
+      render: vi.fn((_el: HTMLElement, p: Record<string, unknown>) => (calls.push(`render:${p.size}`), "h1")),
+      execute: vi.fn(async (_id: string, o: { async: boolean }) => (calls.push(`execute:${o.async}`), { response: `h${++answers}` })),
+      reset: vi.fn(() => calls.push("reset")),
+      remove: vi.fn(() => calls.push("remove")),
+    };
+    (window as unknown as Record<string, unknown>).hcaptcha = api;
+    const gate = createBotGate(window, document.createElement("div"), { provider: "hcaptcha", sitekey: "S", load: loadOk })!;
+    expect(await gate.token()).toBe("h1");
+    expect(await gate.token()).toBe("h2");
+    expect(calls).toEqual(["render:invisible", "execute:true", "reset", "execute:true"]);
+    expect(loadOk).toHaveBeenCalledWith(window, GATES.hcaptcha.script);
+    gate.destroy();
+    delete (window as unknown as Record<string, unknown>).hcaptcha;
+  });
+
+  it("puts hCaptcha's challenge inside the dialog's box and shows the box while it is open", async () => {
+    const seen: Record<string, unknown>[] = [];
+    (window as unknown as Record<string, unknown>).hcaptcha = {
+      render: (_el: HTMLElement, p: Record<string, unknown>) => (seen.push(p), "h1"),
+      execute: () => new Promise(() => {}),
+      reset() {},
+      remove() {},
+    };
+    const box = document.createElement("div");
+    const gate = createBotGate(window, box, { provider: "hcaptcha", sitekey: "S", load: loadOk })!;
+    gate.token().catch(() => {});
+    await gate.warm();
+    expect(seen[0]["challenge-container"]).toBe(box);
+    (seen[0]["open-callback"] as () => void)();
+    expect(box.hidden).toBe(false);
+    (seen[0]["close-callback"] as () => void)();
+    expect(box.hidden).toBe(true);
+    delete (window as unknown as Record<string, unknown>).hcaptcha;
+  });
+
+  it("rejects when hCaptcha's execute fails", async () => {
+    (window as unknown as Record<string, unknown>).hcaptcha = {
+      render: () => "h1",
+      execute: () => Promise.reject("challenge-closed"),
+      reset() {},
+      remove() {},
+    };
+    const gate = createBotGate(window, document.createElement("div"), { provider: "hcaptcha", sitekey: "S", load: loadOk })!;
+    await expect(gate.token()).rejects.toThrow("challenge-closed");
+    delete (window as unknown as Record<string, unknown>).hcaptcha;
+  });
+
+  it("loads the provider's script once per window, not once per page (an element in an iframe)", async () => {
+    const frame = document.createElement("iframe");
+    document.body.append(frame);
+    const other = frame.contentWindow!;
+    const appended = (w: Window) => vi.spyOn(w.document.head, "append").mockImplementation(((s: HTMLScriptElement) => void queueMicrotask(() => s.onload?.(new Event("load")))) as never);
+    const here = appended(window);
+    const there = appended(other);
+    const gates = [window, other].map((w) => createBotGate(w, w.document.createElement("div"), { provider: "turnstile", sitekey: "S", script: "https://gate.test/own-url.js" })!);
+    await Promise.all(gates.map((g) => g.warm().catch(() => {}))); // no turnstile on either window: render fails, loading is what is asserted
+    await Promise.all(gates.map((g) => g.warm().catch(() => {})));
+    expect(here).toHaveBeenCalledTimes(1);
+    expect(there).toHaveBeenCalledTimes(1);
+  });
+
   it("warns and gives nothing for an unknown provider or an empty sitekey", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const box = document.createElement("div");
@@ -168,6 +272,157 @@ describe("<heed-feedback> with a bot gate", () => {
     (el.shadowRoot!.querySelector("input[name=title]") as HTMLInputElement).value = "t";
     (el.shadowRoot!.querySelector("form") as HTMLFormElement).requestSubmit();
     await vi.waitFor(() => expect(el.shadowRoot!.querySelector(".status")!.textContent).toContain("complete the check"));
+  });
+
+  it("closing the dialog mid-challenge cancels the send quietly and frees Send at once", async () => {
+    (window as unknown as Record<string, unknown>).turnstile = fakeTurnstile(() => {}).api; // waits on the visitor
+    scriptsLoad();
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const fetchMock = okFetch();
+    vi.stubGlobal("fetch", fetchMock);
+    const el = mount({ "bot-gate": "turnstile", "bot-sitekey": "SITE" });
+    const errors: string[] = [];
+    el.addEventListener("heed:error", () => errors.push("error"));
+    el.open();
+    const root = el.shadowRoot!;
+    (root.querySelector("input[name=title]") as HTMLInputElement).value = "t";
+    (root.querySelector("form") as HTMLFormElement).requestSubmit();
+    const button = root.querySelector("button[type=submit]") as HTMLButtonElement;
+    await vi.waitFor(() => expect(root.querySelector(".status")!.textContent).toContain("complete the check"));
+    expect(button.disabled).toBe(true);
+    el.close();
+    await vi.waitFor(() => expect(button.disabled).toBe(false));
+    expect(root.querySelector(".status")!.textContent).toBe("");
+    expect(root.querySelector(".status.error")!.textContent).toBe("");
+    expect(errors).toEqual([]);
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect((root.querySelector("input[name=title]") as HTMLInputElement).value).toBe("t"); // the draft stays
+  });
+
+  it("closing the dialog while the report uploads (the token is already spent) still reports the result", async () => {
+    (window as unknown as Record<string, unknown>).turnstile = fakeTurnstile().api;
+    scriptsLoad();
+    let answer!: (r: Response) => void;
+    const fetchMock = vi.fn(() => new Promise<Response>((r) => (answer = r)));
+    vi.stubGlobal("fetch", fetchMock);
+    const el = mount({ "bot-gate": "turnstile", "bot-sitekey": "SITE" });
+    const submitted = vi.fn();
+    el.addEventListener("heed:submitted", submitted);
+    el.open();
+    const root = el.shadowRoot!;
+    (root.querySelector("input[name=title]") as HTMLInputElement).value = "t";
+    (root.querySelector("form") as HTMLFormElement).requestSubmit();
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    el.close();
+    answer(new Response(JSON.stringify({ ok: true, id: "r1", status: "received" }), { status: 200 }));
+    await vi.waitFor(() => expect(submitted).toHaveBeenCalledTimes(1));
+    expect((root.querySelector(".done") as HTMLElement).hidden).toBe(false);
+    expect((root.querySelector("input[name=title]") as HTMLInputElement).value).toBe(""); // the draft was sent
+  });
+
+  /** An open dialog whose screenshot has been taken and shown (jsdom loads no images: play the browser's part). */
+  const withShot = async (el: HeedFeedbackElement) => {
+    el.configure({ takeScreenshot: async () => new Blob([new Uint8Array([137, 80, 78, 71])], { type: "image/png" }) });
+    el.open();
+    const root = el.shadowRoot!;
+    await vi.waitFor(() => expect(root.querySelector(".preview")!.getAttribute("src")).toBeTruthy());
+    root.querySelector(".preview")!.dispatchEvent(new Event("load"));
+    (root.querySelector("input[name=title]") as HTMLInputElement).value = "t";
+    return root;
+  };
+  const tooLarge = () => new Response(JSON.stringify({ detail: "screenshot too large" }), { status: 413 });
+
+  it("resends without the screenshot behind a second challenge, and says why while it runs", async () => {
+    const fake = fakeTurnstile();
+    (window as unknown as Record<string, unknown>).turnstile = fake.api;
+    scriptsLoad();
+    const fetchMock = vi.fn(async (_u: unknown, init?: unknown) => ((init as { body: FormData }).body.has("screenshot") ? tooLarge() : new Response(JSON.stringify({ ok: true, id: "r1", status: "received" }), { status: 200 })));
+    vi.stubGlobal("fetch", fetchMock);
+    const el = mount({ "bot-gate": "turnstile", "bot-sitekey": "SITE", screenshot: "true" });
+    const root = await withShot(el);
+    const lines: string[] = [];
+    new MutationObserver(() => lines.push(root.querySelector(".status")!.textContent ?? "")).observe(root.querySelector(".status")!, { childList: true, subtree: true, characterData: true });
+    (root.querySelector("form") as HTMLFormElement).requestSubmit();
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    expect(fake.api.execute).toHaveBeenCalledTimes(2);
+    expect(tokenSent(fetchMock as ReturnType<typeof okFetch>, 1)).toBe("tok2");
+    expect(lines.filter((l) => l.includes("too large") && l.includes("complete the check"))).not.toHaveLength(0);
+    expect(lines.filter((l) => l.includes("too large") && l.includes("Sending"))).not.toHaveLength(0);
+  });
+
+  it("does not start a second challenge for the screenshot-less resend once the dialog is closed", async () => {
+    const fake = fakeTurnstile();
+    (window as unknown as Record<string, unknown>).turnstile = fake.api;
+    scriptsLoad();
+    let answer!: (r: Response) => void;
+    const fetchMock = vi.fn(() => new Promise<Response>((r) => (answer = r)));
+    vi.stubGlobal("fetch", fetchMock);
+    const el = mount({ "bot-gate": "turnstile", "bot-sitekey": "SITE", screenshot: "true" });
+    const root = await withShot(el);
+    (root.querySelector("form") as HTMLFormElement).requestSubmit();
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    el.close();
+    answer(tooLarge());
+    const button = root.querySelector("button[type=submit]") as HTMLButtonElement;
+    await vi.waitFor(() => expect(button.disabled).toBe(false));
+    expect(fake.api.execute).toHaveBeenCalledTimes(1); // only the first send's challenge
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(root.querySelector(".status.error")!.textContent).toContain("too large"); // not silent
+  });
+
+  it("still resends without the screenshot after the dialog closed when no challenge is involved", async () => {
+    scriptsLoad();
+    let answer!: (r: Response) => void;
+    const fetchMock = vi.fn(() => new Promise<Response>((r) => (answer = r)));
+    vi.stubGlobal("fetch", fetchMock);
+    const el = mount({ screenshot: "true" });
+    const root = await withShot(el);
+    (root.querySelector("form") as HTMLFormElement).requestSubmit();
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    el.close();
+    answer(tooLarge());
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+  });
+
+  it("a challenge that times out leaves the bot error on screen, not \"Sending…\"", async () => {
+    (window as unknown as Record<string, unknown>).turnstile = fakeTurnstile(() => {}).api; // never answered
+    scriptsLoad();
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.stubGlobal("fetch", okFetch());
+    const el = mount({ "bot-gate": "turnstile", "bot-sitekey": "SITE", "timeout-ms": "50" });
+    el.open();
+    const root = el.shadowRoot!;
+    (root.querySelector("input[name=title]") as HTMLInputElement).value = "t";
+    (root.querySelector("form") as HTMLFormElement).requestSubmit();
+    await vi.waitFor(() => expect(root.querySelector(".status.error")!.textContent).toContain("confirm you are human"));
+    await new Promise((r) => setTimeout(r, 20));
+    expect(root.querySelector(".status.error")!.textContent).toContain("confirm you are human");
+    expect(root.querySelector(".status")!.textContent).toBe("");
+    expect((root.querySelector("button[type=submit]") as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it("closing while the provider's script still loads cancels the send: no challenge runs", async () => {
+    const fake = fakeTurnstile();
+    (window as unknown as Record<string, unknown>).turnstile = fake.api;
+    let loaded!: () => void;
+    vi.spyOn(document.head, "append").mockImplementation(((s: HTMLScriptElement) => void (loaded = () => s.onload?.(new Event("load")))) as never);
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const fetchMock = okFetch();
+    vi.stubGlobal("fetch", fetchMock);
+    const el = mount({ "bot-gate": "turnstile", "bot-sitekey": "SITE", "timeout-ms": "5000" });
+    el.configure({ botGateScript: "https://gate.test/slow-script.js" }); // not cached by an earlier test
+    el.open();
+    const root = el.shadowRoot!;
+    (root.querySelector("input[name=title]") as HTMLInputElement).value = "t";
+    (root.querySelector("form") as HTMLFormElement).requestSubmit();
+    const button = root.querySelector("button[type=submit]") as HTMLButtonElement;
+    await vi.waitFor(() => expect(button.disabled).toBe(true));
+    el.close();
+    await vi.waitFor(() => expect(button.disabled).toBe(false));
+    loaded(); // the script arrives too late
+    await new Promise((r) => setTimeout(r, 20));
+    expect(fake.api.execute).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("is rebuilt when the sitekey changes and removed with the element", async () => {

@@ -890,6 +890,99 @@ def test_real_turnstile_with_cloudflares_test_sitekey(browser):
         tab.get_by_role("button", name="Send").click()
         tab.get_by_text("Your report was sent").wait_for(timeout=30_000)
         assert verifier.seen == [_CF_DUMMY_TOKEN] and len(store) == 1
+        # An invisible challenge leaves no empty box (and no gap) in the form.
+        assert tab.locator("heed-feedback .gate").is_hidden()
+
+
+_CF_FORCED_INTERACTIVE = "3x00000000000000000000FF"
+
+
+@pytest.mark.skipif(
+    not _cloudflare_reachable(), reason="needs network access to Cloudflare"
+)
+def test_real_interactive_turnstile_challenge_is_clickable_in_the_modal_dialog(
+    browser,
+):
+    """Cloudflare's forced-interactive test key: the visitor must tick the box, and the
+    box must be reachable although a modal dialog makes the rest of the page inert."""
+
+    class Verifier:
+        seen: list = []
+
+        def verify(self, token, *, remote_ip=None):
+            self.seen.append(token)
+            return token == _CF_DUMMY_TOKEN
+
+    verifier = Verifier()
+    cf = "https://challenges.cloudflare.com"
+    page = _loader_page(
+        f'data-bot-gate="turnstile" data-bot-sitekey="{_CF_FORCED_INTERACTIVE}"',
+        csp_extra=f"; frame-src {cf}; trusted-types heed heed-bot-gate",
+        script_src=cf,
+    )
+    with _site(browser, page=page, router_kwargs={"bot_verifier": verifier}) as (
+        tab,
+        _problems,
+        store,
+        _origin,
+    ):
+        tab.get_by_role("button", name="Feedback").click()
+        tab.get_by_label("Title").fill("tick the box")
+        tab.get_by_role("button", name="Send").click()
+        tab.get_by_text("Please complete the check").wait_for(timeout=30_000)
+        gate = tab.locator("heed-feedback .gate")
+        gate.wait_for(state="visible", timeout=30_000)  # shown: the challenge needs the visitor
+        tab.wait_for_timeout(2_000)  # the checkbox appears after the frame's animation
+        box = gate.bounding_box()
+        # The checkbox sits in a closed shadow root of a cross-origin frame: click by position.
+        tab.mouse.click(box["x"] + 32, box["y"] + 32)
+        tab.get_by_text("Your report was sent").wait_for(timeout=30_000)
+        assert verifier.seen == [_CF_DUMMY_TOKEN] and len(store) == 1
+        assert not gate.is_visible()  # and hidden again once it is done
+
+
+def _hcaptcha_reachable() -> bool:
+    try:
+        socket.create_connection(("js.hcaptcha.com", 443), 3).close()
+        return True
+    except OSError:
+        return False
+
+
+# hCaptcha's documented test sitekey (always passes); its token is the fixed string below.
+_HC_TEST_SITEKEY = "10000000-ffff-ffff-ffff-000000000001"
+_HC_TEST_TOKEN = "10000000-aaaa-bbbb-cccc-000000000001"
+
+
+@pytest.mark.skipif(
+    not _hcaptcha_reachable(), reason="needs network access to hCaptcha"
+)
+def test_real_hcaptcha_with_its_test_sitekey(browser):
+    class Verifier:
+        seen: list = []
+
+        def verify(self, token, *, remote_ip=None):
+            self.seen.append(token)
+            return token == _HC_TEST_TOKEN
+
+    verifier = Verifier()
+    hc = "https://js.hcaptcha.com https://*.hcaptcha.com https://hcaptcha.com"
+    page = _loader_page(
+        f'data-bot-gate="hcaptcha" data-bot-sitekey="{_HC_TEST_SITEKEY}"',
+        csp_extra=f"; frame-src {hc}; connect-src *; trusted-types heed heed-bot-gate",
+        script_src=hc,
+    )
+    with _site(browser, page=page, router_kwargs={"bot_verifier": verifier}) as (
+        tab,
+        _problems,
+        store,
+        _origin,
+    ):
+        tab.get_by_role("button", name="Feedback").click()
+        tab.get_by_label("Title").fill("through hcaptcha")
+        tab.get_by_role("button", name="Send").click()
+        tab.get_by_text("Your report was sent").wait_for(timeout=30_000)
+        assert verifier.seen == [_HC_TEST_TOKEN] and len(store) == 1
 
 
 # --- translations (heed#39) --------------------------------------------------------

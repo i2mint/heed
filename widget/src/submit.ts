@@ -70,15 +70,16 @@ export async function sendReport(
   fetchImpl: typeof fetch = fetch,
 ): Promise<SubmitOutcome> {
   const controller = new AbortController();
+  const phase = { gating: false }; // a challenge the visitor never completed is not a slow server
   let timer: ReturnType<typeof setTimeout> | undefined;
   const deadline = new Promise<SubmitOutcome>((resolve) => {
     timer = setTimeout(() => {
       controller.abort();
-      resolve(failure("timeout"));
+      resolve(failure(phase.gating ? "bot" : "timeout"));
     }, options.timeoutMs);
   });
   try {
-    return await Promise.race([attempt(input, options, fetchImpl, controller.signal), deadline]);
+    return await Promise.race([attempt(input, options, fetchImpl, controller.signal, phase), deadline]);
   } finally {
     clearTimeout(timer);
   }
@@ -86,14 +87,23 @@ export async function sendReport(
 
 const failure = (kind: ErrorKind, retryAfterSeconds: number | null = null): SubmitOutcome => ({ ok: false, kind, retryAfterSeconds });
 
-async function attempt(input: SubmitInput, options: HeedOptions, fetchImpl: typeof fetch, signal: AbortSignal): Promise<SubmitOutcome> {
+async function attempt(
+  input: SubmitInput,
+  options: HeedOptions,
+  fetchImpl: typeof fetch,
+  signal: AbortSignal,
+  phase: { gating: boolean },
+): Promise<SubmitOutcome> {
   let botToken: string | null = null;
   if (options.botToken) {
+    phase.gating = true;
     try {
       botToken = (await options.botToken()) || null;
     } catch (e) {
       console.warn("heed: the bot-token provider failed", e);
       return failure("bot");
+    } finally {
+      phase.gating = false;
     }
   }
   if (signal.aborted) return failure("timeout");

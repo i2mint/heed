@@ -107,6 +107,8 @@ export class HeedFeedbackElement extends Base {
   #sending = false;
   #shot: Shot | null = null;
   #gate: { key: string; gate: BotGate | null } | null = null;
+  /** The visitor left while the send waited on its challenge: that send ends without a word. */
+  #abandoned = false;
   /** Static texts of the UI, re-rendered when the language changes. */
   #texts: [Text, TextKey][] = [];
   /** The language whose translations were last asked for. */
@@ -251,7 +253,10 @@ export class HeedFeedbackElement extends Base {
     launcher.addEventListener("click", () => this.open());
     cancel.addEventListener("click", () => this.close());
     doneClose.addEventListener("click", () => this.close());
-    dialog.addEventListener("close", () => this.#emit("heed:close", {}));
+    dialog.addEventListener("close", () => {
+      this.#cancelToken();
+      this.#emit("heed:close", {});
+    });
     form.addEventListener("submit", (event) => {
       event.preventDefault();
       void this.#submit();
@@ -329,6 +334,7 @@ export class HeedFeedbackElement extends Base {
       return;
     }
     this.#sending = true;
+    this.#abandoned = false;
     ui.submit.disabled = true;
     ui.form.setAttribute("aria-busy", "true");
     let outcome: SubmitOutcome | null = null;
@@ -350,15 +356,26 @@ export class HeedFeedbackElement extends Base {
       };
       const sending = this.#withGate(o);
       outcome = await sendReport(input, sending);
-      if (!outcome.ok && outcome.kind === "too_large" && screenshot) {
-        // The server's cap is lower than ours: the words matter more than the picture.
+      // The server's cap is lower than ours: the words matter more than the picture. A challenge needs the
+      // dialog open, so with a built-in gate and a closed dialog there is no resend (the error below says so).
+      if (!outcome.ok && outcome.kind === "too_large" && screenshot && (ui.dialog.open || !this.#currentGate(o))) {
+        // The screenshot check comes after the token is verified, so a second challenge runs;
+        // keep saying why the visitor is waiting.
         droppedShot = true;
-        outcome = await sendReport({ ...input, screenshot: null }, sending);
+        const why = this.#msgs().shotDropped;
+        this.#setStatus(`${why} ${this.#msgs().sending}`, false);
+        outcome = await sendReport({ ...input, screenshot: null }, this.#withGate(o, why));
       }
     } finally {
+      this.#gate?.gate?.cancel(); // a token still awaited (the send timed out) is no longer wanted
       this.#sending = false;
       ui.submit.disabled = false;
       ui.form.removeAttribute("aria-busy");
+    }
+    if (this.#abandoned) {
+      this.#abandoned = false;
+      this.#setStatus("", false);
+      return;
     }
     if (!outcome) return;
     if (outcome.ok) {
@@ -411,7 +428,13 @@ export class HeedFeedbackElement extends Base {
     return this.#gate!.gate;
   }
 
+  /** Stop waiting for the challenge's token (the dialog closed, the element left the page). */
+  #cancelToken(): void {
+    if (this.#gate?.gate?.cancel() && this.#sending) this.#abandoned = true;
+  }
+
   #dropGate(): null {
+    this.#cancelToken();
     this.#gate?.gate?.destroy();
     this.#gate = null;
     return null;
@@ -422,7 +445,8 @@ export class HeedFeedbackElement extends Base {
     this.#currentGate(this.options)?.warm().catch((e) => console.warn("heed: the bot gate could not start", e));
   }
 
-  #withGate(o: HeedOptions): HeedOptions {
+  /** `o` with the gate's token as `botToken`; `note` stays in front of the status lines while it runs. */
+  #withGate(o: HeedOptions, note = ""): HeedOptions {
     const gate = this.#currentGate(o);
     if (!gate) return o;
     const ui = this.#ui;
@@ -430,8 +454,9 @@ export class HeedFeedbackElement extends Base {
       ...o,
       botToken: () => {
         // An interactive challenge waits on the visitor: say so instead of "Sending…".
-        if (ui) this.#setStatus(this.#msgs().gateWaiting, false);
-        return gate.token().finally(() => ui && this.#setStatus(this.#msgs().sending, false));
+        const say = (m: string) => ui && this.#setStatus(note ? `${note} ${m}` : m, false);
+        say(this.#msgs().gateWaiting);
+        return gate.token().then((token) => (say(this.#msgs().sending), token)); // a failure is reported by the send, not here
       },
     };
   }

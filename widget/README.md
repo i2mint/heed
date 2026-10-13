@@ -122,7 +122,7 @@ Every option has a default; set it as an element attribute, as a `data-*` attrib
 | `screenshotTimeoutMs` (`screenshot-timeout-ms`) | `10000` | Give up on the screenshot after this long; the report is sent without it. |
 | `screenshotMaxNodes` (`screenshot-max-nodes`) | `5000` | No screenshot of pages with more elements than this (cloning them would freeze the tab). |
 | `anonId` (`anon-id`) | none | An opaque id your app chooses to group one visitor's reports. The widget never invents or stores one. |
-| `botGate` (`bot-gate`) | none (off) | Built-in challenge: `turnstile`. Loads Cloudflare's script when the dialog opens, runs it for every send. Needs `botSitekey`; see "Bot gate" below. |
+| `botGate` (`bot-gate`) | none (off) | Built-in challenge: `turnstile` or `hcaptcha`. Loads the provider's script when the dialog opens, runs it for every send. Needs `botSitekey`; see "Bot gate" below. |
 | `botSitekey` (`bot-sitekey`) | none | The challenge provider's public site key. The secret key stays on the server (`bot_secret`, `HEED_BOT_SECRET`). |
 | `botGateScript` | provider's | Code-only: another URL for the provider's script (a self-hosted proxy, a test stand-in). |
 | `botToken` | none | `() => token` (or a promise of one): the bot-gate seam. Return a Turnstile/hCaptcha token when the backend's bot gate is on. |
@@ -152,14 +152,14 @@ The translations are not in the widget bundle. A visitor whose language is not E
 
 ## Bot gate
 
-When the backend demands a challenge token (`bot_gate`, [embedding-security.md](../misc/docs/embedding-security.md)), the widget can run Cloudflare Turnstile itself:
+When the backend demands a challenge token (`bot_gate`, [embedding-security.md](../misc/docs/embedding-security.md)), the widget can run Cloudflare Turnstile (or hCaptcha, `data-bot-gate="hcaptcha"`) itself:
 
 ```html
 <script async src="https://feedback.example/heed/widget/heed.js"
         data-bot-gate="turnstile" data-bot-sitekey="0x4AAAA…"></script>
 ```
 
-Off unless `bot-gate` is set; nothing is loaded from the provider until the visitor opens the dialog. The challenge is rendered inside the dialog (a modal dialog makes the rest of the page inert, so an interactive challenge placed outside it could not be clicked) in Turnstile's "managed, interaction-only" mode: most visitors see nothing, and a token is requested for each send, so it is never stale. The time the challenge takes counts against `timeoutMs`. A failed or blocked challenge shows the "could not confirm you are human" message and sends nothing. An explicit `botToken` provider always takes precedence. The page's CSP must allow the provider (table in embedding-security.md); under Trusted Types add the policy `heed-bot-gate` (and `'allow-duplicates'` if the page loads two heed bundles); it passes the provider's script URL, or the `botGateScript` your own code sets. For another provider, keep using `botToken`; `GATES` in `src/botgate.ts` is where an adapter would be added.
+Off unless `bot-gate` is set; nothing is loaded from the provider until the visitor opens the dialog. The challenge is rendered inside the dialog (a modal dialog makes the rest of the page inert, so an interactive challenge placed outside it could not be clicked) in Turnstile's "managed, interaction-only" mode: most visitors see nothing, and a token is requested for each send, so it is never stale. The challenge's box is shown only while it needs the visitor. The time the challenge takes counts against `timeoutMs`; a challenge the visitor never completes shows the same "could not confirm you are human" message as a failed one, and closing the dialog mid-challenge cancels that send (the draft stays). If the server refuses the screenshot as too large, the report is resent without it, which runs a second challenge (the server checks the token before the screenshot's size, so the first is spent), with the status line saying why; if the dialog was closed meanwhile, nothing is resent. A failed or blocked challenge shows the "could not confirm you are human" message and sends nothing. An explicit `botToken` provider always takes precedence. The page's CSP must allow the provider (table in embedding-security.md); under Trusted Types add the policy `heed-bot-gate` (and `'allow-duplicates'` if the page loads two heed bundles); it passes the provider's script URL, or the `botGateScript` your own code sets. hCaptcha runs in its invisible mode, and the widget asks it to place any challenge it chooses to show inside the dialog (its `challenge-container` parameter); hCaptcha's test key never asks for one, so that placement is untested against a real challenge. For another provider, keep using `botToken`; `GATES` in `src/botgate.ts` is where an adapter would be added.
 
 ## What is sent
 

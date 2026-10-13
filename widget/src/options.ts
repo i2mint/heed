@@ -63,7 +63,7 @@ export interface HeedOptions {
   screenshotTimeoutMs: number;
   /** No screenshot of pages with more elements than this (cloning them would freeze the page). */
   screenshotMaxNodes: number;
-  /** Built-in challenge to run before each send: "" (off), or a provider in GATES ("turnstile"). `botToken` overrides it. */
+  /** Built-in challenge to run before each send: "" (off), or a provider in GATES ("turnstile", "hcaptcha"). `botToken` overrides it. */
   botGate: string;
   /** The challenge provider's public site key (the secret stays on the server). */
   botSitekey: string;
