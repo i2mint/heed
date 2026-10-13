@@ -30,13 +30,24 @@ def _free_port() -> int:
         return s.getsockname()[1]
 
 
+class _Store(dict):
+    """The sink's reports, with the stored screenshots beside them."""
+
+    def __init__(self):
+        super().__init__()
+        self.attachments: dict = {}
+
+
 @contextmanager
 def _backend(*, router_kwargs=None, **config):
     """A heed app on its own port; yields (base_url, the sink's store)."""
-    store: dict = {}
+    store = _Store()
     port = _free_port()
     app = make_app(
-        StoreSink(store), config=HeedConfig(**config), **(router_kwargs or {})
+        StoreSink(store),
+        config=HeedConfig(**config),
+        attachment_store=store.attachments,
+        **(router_kwargs or {}),
     )
     server = uvicorn.Server(
         uvicorn.Config(app, host=HOST, port=port, log_level="warning")
@@ -76,12 +87,15 @@ def _page(backend: str, body: str, *, csp_extra: str = "") -> str:
 
 
 def _embed_page(backend: str) -> str:
-    """The bundle plus a hand-written element (no loader)."""
+    """The bundle plus a hand-written element (no loader). Screenshots are off: this
+    page's CSP is stricter than the rasterizer can work under (see the screenshot
+    tests below)."""
     bundle = load_widget_manifest()["entries"]["widget"]
     return _page(
         backend,
         f'<script src="{backend}/heed/widget/{bundle}"></script>\n'
-        f'<heed-feedback endpoint="{backend}/heed/report"></heed-feedback>',
+        f'<heed-feedback endpoint="{backend}/heed/report" screenshot="false">'
+        "</heed-feedback>",
     )
 
 
@@ -262,7 +276,9 @@ def test_focus_and_modality_survive_success_and_reparenting(browser):
 
 
 def _loader_page(script_attrs: str = "", before: str = ""):
-    """The documented embed: one async loader tag, optionally after inline calls."""
+    """The documented embed: one async loader tag, optionally after inline calls
+    (screenshots off, as in ``_embed_page``)."""
+    script_attrs += ' data-screenshot="false"'
 
     def page(backend: str) -> str:
         return _page(
@@ -371,7 +387,9 @@ def test_unsubscribing_before_the_bundle_arrives(browser):
     def page(backend):
         # A synchronous loader, so the inline script runs right after it.
         return _page(
-            backend, f'<script src="{backend}/heed/widget/heed.js"></script>{script}'
+            backend,
+            f'<script src="{backend}/heed/widget/heed.js" data-screenshot="false">'
+            f"</script>{script}",
         )
 
     with _site(browser, page=page) as (tab, problems, _store, _origin):
@@ -412,3 +430,219 @@ def test_an_element_with_id_heed_does_not_stop_the_embed(browser):
     with _site(browser, page=page) as (tab, problems, _store, _origin):
         tab.get_by_role("button", name="Feedback").wait_for()
         assert problems == []
+
+
+def _shot_page(
+    backend: str, *, strict: bool = False, extra: str = "", loader_attrs: str = ""
+) -> str:
+    """A scrolled page with a fixed header, a masked block and a filled-in field.
+
+    Without ``strict`` its CSP is what screenshots need (inline styles allowed, images
+    from data: and blob:, no Trusted Types); with it, the strict policy above.
+    """
+    content = (
+        "<style>body{margin:0;font:16px sans-serif}"
+        ".hdr{position:fixed;top:0;left:0;right:0;height:40px;background:#00ff00}"
+        ".secret{position:absolute;top:900px;left:100px;width:300px;height:100px;"
+        "background:#fff;color:#f00;font-size:40px}"
+        ".tall{height:3000px;background:#ffffff}</style>"
+        '<div class="hdr">header</div>'
+        '<div class="secret" data-heed-mask>4111 1111</div>'
+        '<input id="email" value="someone@example.com">'
+        f"{extra}"
+        '<div class="tall"></div>'
+        f'<script async src="{backend}/heed/widget/heed.js" {loader_attrs}></script>'
+    )
+    if strict:
+        return _page(backend, content)
+    csp = (
+        f"default-src 'none'; script-src {backend} 'nonce-{NONCE}'; "
+        f"connect-src {backend}; style-src 'unsafe-inline'; img-src data: blob:"
+    )
+    return f"""<!doctype html><html><head><meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="{csp}"><title>shots</title></head>
+<body>{content}</body></html>"""
+
+
+def _pixel(png: bytes, x: int, y: int):
+    from io import BytesIO
+
+    from PIL import Image
+
+    image = Image.open(BytesIO(png)).convert("RGB")
+    sx, sy = image.width / 1024, image.height / 700  # the capture scale
+    return image.getpixel((int(x * sx), int(y * sy)))
+
+
+def test_screenshot_of_the_visible_page_with_masking(browser):
+    pytest.importorskip("PIL")
+    with _site(browser, page=_shot_page) as (page, problems, store, _origin):
+        page.evaluate("window.scrollTo(0, 850)")
+        page.get_by_role("button", name="Feedback").click()
+        preview = page.get_by_role("img", name="Screenshot to be sent")
+        preview.wait_for(timeout=15_000)
+        page.get_by_label("Title").fill("with a screenshot")
+        page.get_by_role("button", name="Send").click()
+        page.get_by_text("Your report was sent").wait_for()
+        assert problems == []
+        (saved,) = [json.loads(v) for v in store.values()]
+        (attachment,) = saved["attachments"]
+        png = store.attachments[attachment["ref"]]
+        assert attachment["media_type"] == "image/png"
+        # The scrolled viewport: the fixed header stays at the top...
+        assert _pixel(png, 500, 20) == (0, 255, 0)
+        # ...the masked block (page y 900-1000, so 50-150 on screen) is black...
+        assert _pixel(png, 250, 100) == (0, 0, 0)
+        # ...and the page below it is white, not the top of the document, including
+        # under the dialog (its own fields are not masked onto the page).
+        assert _pixel(png, 800, 400) == (255, 255, 255)
+        assert _pixel(png, 512, 350) == (255, 255, 255)
+
+
+def test_untick_the_screenshot_and_none_is_sent(browser):
+    with _site(browser, page=_shot_page) as (page, _problems, store, _origin):
+        page.get_by_role("button", name="Feedback").click()
+        page.get_by_role("img", name="Screenshot to be sent").wait_for(timeout=15_000)
+        page.get_by_label("Include a screenshot of this page").uncheck()
+        page.get_by_label("Title").fill("no screenshot please")
+        page.get_by_role("button", name="Send").click()
+        page.get_by_text("Your report was sent").wait_for()
+        (saved,) = [json.loads(v) for v in store.values()]
+        assert saved["attachments"] == [] and store.attachments == {}
+
+
+def test_a_csp_too_strict_for_screenshots_still_sends_the_report(browser):
+    def page(backend):
+        return _shot_page(backend, strict=True)
+
+    with _site(browser, page=page) as (tab, _problems, store, _origin):
+        tab.get_by_role("button", name="Feedback").click()
+        tab.get_by_text("No screenshot could be taken").wait_for(timeout=15_000)
+        tab.get_by_label("Title").fill("strict page")
+        tab.get_by_role("button", name="Send").click()
+        tab.get_by_text("Your report was sent").wait_for()
+        (saved,) = [json.loads(v) for v in store.values()]
+        assert saved["attachments"] == []
+        assert any("blocks screenshots" in w for w in tab.heed_warnings)
+
+
+# Every way a secret has been seen to escape masking; each secret is red text, and the
+# stored screenshot must contain no red at all.
+_RED_IMG = (
+    "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' "
+    "height='40'%3E%3Crect width='120' height='40' fill='red'/%3E%3C/svg%3E"
+)
+_LEAKS = (
+    "<style>.red{color:#f00;font-size:30px}"
+    '.ps::after{content:"SECRET-P";position:absolute;top:30px;color:#f00;'
+    "font-size:30px}</style>"
+    '<div style="position:absolute;top:1000px;left:20px">'
+    '<input id="odd" type="foo" class="red">'
+    '<input id="spaced" type="text " class="red">'
+    '<input id="mail" class="red" value="someone@example.com">'
+    '<textarea class="red">prefilled secret</textarea>'
+    '<div data-heed-mask style="height:20px;width:200px;position:relative">'
+    '<span class="red" style="position:absolute;top:30px">escaped child</span></div>'
+    '<div data-heed-mask class="red" style="height:10px;width:400px">overflowing text '
+    "that goes on</div>"
+    '<div data-heed-mask style="display:contents"><span class="red">contents</span>'
+    "</div>"
+    '<div class="pii red">only matched in the live page</div>'
+    '<svg width="300" height="40"><text data-heed-mask x="0" y="30" fill="#f00" '
+    'font-size="30">svg secret</text></svg>'
+    '<div contenteditable class="red">editable</div>'
+    '<iframe id="editor" srcdoc="<body style=color:#f00;font-size:30px>x</body>">'
+    "</iframe>"
+    f'<img data-heed-mask src="{_RED_IMG}">'
+    '<div id="sc" style="height:60px;overflow:auto"><div style="height:200px"></div>'
+    '<canvas id="cv" data-heed-mask width="200" height="40"></canvas></div>'
+    '<div data-heed-mask class="ps" style="position:relative;height:20px;width:100px">'
+    "</div>"
+    '<div id="cs"><span class="red">SECRET-CS</span></div>'
+    "</div>"
+    f'<script nonce="{NONCE}">'
+    "document.getElementById('odd').value = 'SECRET-A';"
+    "document.getElementById('spaced').value = 'SECRET-B';"
+    "const f = document.getElementById('editor');"
+    "f.addEventListener('load', () => { f.contentDocument.designMode = 'on';"
+    " f.contentDocument.body.textContent = 'rich text secret'; });"
+    "const c = document.getElementById('cv').getContext('2d');"
+    "c.fillStyle = '#f00'; c.fillRect(0, 0, 200, 40);"
+    "document.getElementById('sc').scrollTop = 200;"
+    "document.getElementById('cs').attachShadow({mode: 'closed'})"
+    ".textContent = 'shadow';"
+    "</script>"
+)
+
+
+def _red_pixels(png: bytes) -> int:
+    from io import BytesIO
+
+    from PIL import Image
+
+    image = Image.open(BytesIO(png)).convert("RGB")
+    return sum(
+        1 for r, g, b in image.get_flattened_data() if r > 180 and g < 90 and b < 90
+    )
+
+
+def _shot_report(browser, page, scroll_to=950):
+    with _site(browser, page=page) as (tab, problems, store, _origin):
+        tab.evaluate(f"window.scrollTo(0, {scroll_to})")
+        tab.get_by_role("button", name="Feedback").click()
+        tab.get_by_role("img", name="Screenshot to be sent").wait_for(timeout=20_000)
+        tab.get_by_label("Title").fill("leak hunt")
+        tab.get_by_role("button", name="Send").click()
+        tab.get_by_text("Your report was sent").wait_for()
+        (saved,) = [json.loads(v) for v in store.values()]
+        (attachment,) = saved["attachments"]
+        return store.attachments[attachment["ref"]], problems
+
+
+def test_no_secret_reaches_the_screenshot(browser):
+    pytest.importorskip("PIL")
+
+    def page(backend):
+        return _shot_page(
+            backend,
+            extra=_LEAKS,
+            loader_attrs='data-mask-selector=":root .pii, [data-heed-mask]"',
+        )
+
+    png, problems = _shot_report(browser, page)
+    assert _red_pixels(png) == 0
+    assert problems == []
+
+
+def test_password_like_fields_are_masked_even_with_mask_inputs_off(browser):
+    pytest.importorskip("PIL")
+    fields = (
+        '<div style="position:absolute;top:1000px;left:20px">'
+        '<input class="red" type="text" autocomplete="current-password" '
+        'value="shown-password" style="color:#f00;font-size:30px">'
+        '<input class="red" autocomplete="cc-number" value="4111111111111111" '
+        'style="color:#f00;font-size:30px"></div>'
+    )
+
+    def page(backend):
+        return _shot_page(
+            backend, extra=fields, loader_attrs='data-mask-inputs="false"'
+        )
+
+    png, _problems = _shot_report(browser, page)
+    assert _red_pixels(png) == 0
+
+
+def test_masked_images_inside_an_iframe_with_mask_inputs_off(browser):
+    pytest.importorskip("PIL")
+    inner = f"<img data-heed-mask src=&quot;{_RED_IMG}&quot;>"
+    frame = (
+        '<div style="position:absolute;top:1000px;left:20px">'
+        f'<iframe srcdoc="{inner}" style="width:300px;height:100px"></iframe></div>'
+    )
+
+    def page(backend):
+        return _shot_page(backend, extra=frame, loader_attrs='data-mask-inputs="false"')
+
+    png, _problems = _shot_report(browser, page)
+    assert _red_pixels(png) == 0

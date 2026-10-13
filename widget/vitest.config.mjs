@@ -1,6 +1,6 @@
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
-  define: { __HEED_VERSION__: JSON.stringify("test") },
+  define: { __HEED_VERSION__: JSON.stringify("test"), __HEED_RASTER__: JSON.stringify("heed-raster-test.js"), __HEED_RASTER_INTEGRITY__: JSON.stringify("") },
   test: { environment: "jsdom", include: ["test/**/*.test.ts"], setupFiles: ["test/setup.ts"] },
 });

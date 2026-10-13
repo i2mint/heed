@@ -30,6 +30,7 @@ import {
 } from "./options";
 import { CONTRACT } from "./contract.gen";
 import { MESSAGES, type SubmitOutcome, sendReport } from "./submit";
+import { builtinScreenshot, captureWithin } from "./capture";
 import { applyStyles } from "./styles";
 
 export const TAG = "heed-feedback";
@@ -58,6 +59,16 @@ function h<K extends keyof HTMLElementTagNameMap>(
   return el;
 }
 
+/** A screenshot being taken (or taken) for the open dialog. */
+interface Shot {
+  /** Settles once the preview is on screen, or the capture or preview failed. */
+  settled: Promise<void>;
+  blob: Blob | null;
+  url: string | null;
+  /** The visitor has been shown the preview: only then may the image be sent. */
+  shown: boolean;
+}
+
 interface Ui {
   launcher: HTMLButtonElement;
   dialog: HTMLDialogElement;
@@ -68,6 +79,11 @@ interface Ui {
   title: HTMLInputElement;
   body: HTMLTextAreaElement;
   honeypot: HTMLInputElement;
+  note: HTMLParagraphElement;
+  shotRow: HTMLDivElement;
+  shotBox: HTMLInputElement;
+  shotState: HTMLParagraphElement;
+  preview: HTMLImageElement;
   status: HTMLParagraphElement;
   error: HTMLParagraphElement;
   submit: HTMLButtonElement;
@@ -85,6 +101,7 @@ export class HeedFeedbackElement extends HTMLElement {
   #imperative: Partial<HeedOptions> = {};
   #ui: Ui | null = null;
   #sending = false;
+  #shot: Shot | null = null;
 
   /** The effective options: defaults, then attributes, then `configure()`/properties. */
   get options(): HeedOptions {
@@ -150,6 +167,7 @@ export class HeedFeedbackElement extends HTMLElement {
     if (!ui.done.hidden) this.#showForm();
     ui.dialog.showModal();
     ui.title.focus();
+    this.#startScreenshot();
     this.#emit("heed:open", {});
   }
 
@@ -184,6 +202,11 @@ export class HeedFeedbackElement extends HTMLElement {
     const error = h(doc, "p", { class: "status error", role: "alert" });
     const submit = h(doc, "button", { type: "submit", class: "primary", part: "submit" }, "Send");
     const cancel = h(doc, "button", { type: "button", value: "cancel" }, "Cancel");
+    const note = h(doc, "p", { class: "note" });
+    const shotBox = h(doc, "input", { type: "checkbox", checked: true });
+    const shotState = h(doc, "p", { class: "note", role: "status" });
+    const preview = h(doc, "img", { class: "preview", alt: "Screenshot to be sent", hidden: true, part: "preview" });
+    const shotRow = h(doc, "div", { class: "shot" }, h(doc, "label", { class: "check" }, shotBox, MESSAGES.shotLabel), shotState, preview);
     const form = h(
       doc,
       "form",
@@ -192,7 +215,8 @@ export class HeedFeedbackElement extends HTMLElement {
       h(doc, "label", {}, "Title", title),
       h(doc, "label", {}, "Details", body),
       h(doc, "div", { class: "hp", "aria-hidden": "true" }, h(doc, "label", {}, "Leave this field empty", honeypot)),
-      h(doc, "p", { class: "note" }, "Sent with your report: this page's address (without its query) and your browser details."),
+      note,
+      shotRow,
       h(doc, "div", { class: "messages" }, status, error),
       h(doc, "div", { class: "actions" }, cancel, submit),
     );
@@ -214,7 +238,7 @@ export class HeedFeedbackElement extends HTMLElement {
     title.addEventListener("input", () => {
       if (error.textContent) this.#setStatus("", false);
     });
-    return { launcher, dialog, heading, form, categoryLabel, category, title, body, honeypot, status, error, submit, doneClose, done, doneMessage, doneLink };
+    return { launcher, dialog, heading, form, categoryLabel, category, title, body, honeypot, note, shotRow, shotBox, shotState, preview, status, error, submit, doneClose, done, doneMessage, doneLink };
   }
 
   /** Bring the rendered UI in line with the current options. */
@@ -230,6 +254,8 @@ export class HeedFeedbackElement extends HTMLElement {
     ui.body.maxLength = CONTRACT.limits.body_chars;
     ui.honeypot.name = o.honeypotField || "hp";
     ui.honeypot.disabled = !o.honeypotField;
+    ui.note.textContent = o.screenshot ? MESSAGES.noteShot : MESSAGES.note;
+    ui.shotRow.hidden = !o.screenshot;
     const wanted = o.categories.join(",");
     if (ui.category.dataset.categories !== wanted) {
       const previous = ui.category.value;
@@ -258,27 +284,40 @@ export class HeedFeedbackElement extends HTMLElement {
     this.#sending = true;
     ui.submit.disabled = true;
     ui.form.setAttribute("aria-busy", "true");
-    this.#setStatus(MESSAGES.sending, false);
-    let outcome: SubmitOutcome;
+    let outcome: SubmitOutcome | null = null;
+    let droppedShot = false;
     try {
+      const screenshot = await this.#screenshotToSend();
+      if (screenshot === "review") {
+        this.#setStatus(MESSAGES.shotReview, false);
+        return;
+      }
+      this.#setStatus(MESSAGES.sending, false);
       const win = this.ownerDocument.defaultView ?? window;
-      outcome = await sendReport(
-        {
-          draft: { category: (ui.category.value || o.categories[0]) as Category, title: ui.title.value, body: ui.body.value },
-          env: collectEnvironment(win, o.extra),
-          pageUrl: reportPageUrl(win.location.href, o.pageUrl),
-          honeypot: ui.honeypot.value,
-        },
-        o,
-      );
+      const input = {
+        draft: { category: (ui.category.value || o.categories[0]) as Category, title: ui.title.value, body: ui.body.value },
+        env: collectEnvironment(win, o.extra),
+        pageUrl: reportPageUrl(win.location.href, o.pageUrl),
+        honeypot: ui.honeypot.value,
+        screenshot,
+      };
+      outcome = await sendReport(input, o);
+      if (!outcome.ok && outcome.kind === "too_large" && screenshot) {
+        // The server's cap is lower than ours: the words matter more than the picture.
+        droppedShot = true;
+        outcome = await sendReport({ ...input, screenshot: null }, o);
+      }
     } finally {
       this.#sending = false;
       ui.submit.disabled = false;
       ui.form.removeAttribute("aria-busy");
     }
+    if (!outcome) return;
     if (outcome.ok) {
       ui.form.reset();
-      ui.doneMessage.textContent = outcome.status === "held" ? MESSAGES.held : MESSAGES.received;
+      this.#clearScreenshot();
+      ui.doneMessage.textContent =
+        (outcome.status === "held" ? MESSAGES.held : MESSAGES.received) + (droppedShot ? ` ${MESSAGES.shotDropped}` : "");
       ui.doneLink.hidden = !outcome.url;
       if (outcome.url) ui.doneLink.href = outcome.url;
       else ui.doneLink.removeAttribute("href");
@@ -292,6 +331,85 @@ export class HeedFeedbackElement extends HTMLElement {
       this.#setStatus(MESSAGES[outcome.kind] + retry, true);
       this.#emit("heed:error", { kind: outcome.kind });
     }
+  }
+
+  /**
+   * The screenshot to attach: only one the visitor has been shown. If it is still
+   * being taken, wait for it, show it, and ask for a second Send ("review").
+   */
+  async #screenshotToSend(): Promise<Blob | null | "review"> {
+    const ui = this.#ui;
+    const shot = this.#shot;
+    if (!ui || !this.options.screenshot || !shot || !ui.shotBox.checked) return null;
+    if (shot.shown) return shot.blob;
+    this.#setStatus(MESSAGES.shotFinishing, false);
+    await shot.settled;
+    return shot.shown && ui.shotBox.checked && this.#shot === shot ? "review" : null;
+  }
+
+  /** Capture the page behind the dialog, in the background; the visitor sees a preview. */
+  #startScreenshot(): void {
+    const ui = this.#ui;
+    this.#clearScreenshot();
+    const o = this.options;
+    if (!ui || !o.screenshot) return;
+    ui.shotBox.checked = true;
+    ui.shotBox.disabled = false;
+    ui.shotState.textContent = MESSAGES.shotTaking;
+    const win = this.ownerDocument.defaultView ?? window;
+    const shot: Shot = { settled: Promise.resolve(), blob: null, url: null, shown: false };
+    const fail = (message: string) => {
+      ui.shotBox.checked = false;
+      ui.shotBox.disabled = true;
+      ui.preview.hidden = true;
+      ui.shotState.textContent = message;
+    };
+    // Let the dialog paint before the (main-thread) capture starts.
+    shot.settled = new Promise((r) => setTimeout(r, 50))
+      .then(() =>
+        captureWithin(
+          o.takeScreenshot ?? builtinScreenshot,
+          win,
+          { maskInputs: o.maskInputs, maskSelector: o.maskSelector, maxNodes: o.screenshotMaxNodes },
+          o.screenshotTimeoutMs,
+        ),
+      )
+      .then(
+        (blob) =>
+          new Promise<void>((done) => {
+            if (this.#shot !== shot) return done(); // a newer capture (or a reset) replaced this one
+            if (!blob) {
+              fail(MESSAGES.shotFailed);
+              return done();
+            }
+            shot.blob = blob;
+            shot.url = URL.createObjectURL(blob);
+            const settle = (ok: boolean) => {
+              ui.preview.onload = ui.preview.onerror = null;
+              if (this.#shot === shot) {
+                if (ok) {
+                  shot.shown = true;
+                  ui.shotState.textContent = "";
+                } else fail(MESSAGES.shotNoPreview); // e.g. a CSP without img-src blob:
+              }
+              done();
+            };
+            ui.preview.onload = () => settle(true);
+            ui.preview.onerror = () => settle(false);
+            ui.preview.src = shot.url;
+            ui.preview.hidden = false;
+          }),
+      );
+    this.#shot = shot;
+  }
+
+  #clearScreenshot(): void {
+    if (this.#shot?.url) URL.revokeObjectURL(this.#shot.url);
+    this.#shot = null;
+    if (!this.#ui) return;
+    this.#ui.preview.hidden = true;
+    this.#ui.preview.removeAttribute("src");
+    this.#ui.shotState.textContent = "";
   }
 
   #showForm(): void {

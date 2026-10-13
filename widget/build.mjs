@@ -21,11 +21,23 @@ const here = dirname(fileURLToPath(import.meta.url));
 const OUT_DIR = join(here, "..", "heed", "static", "widget");
 const pkg = JSON.parse(readFileSync(join(here, "package.json"), "utf8"));
 // Gzipped-size budgets in bytes, per entry.
-const BUDGETS = { widget: 8_000, loader: 1_300 };
+const BUDGETS = { raster: 14_000, widget: 10_000, loader: 1_300 };
 const RETAIN_VERSIONS = 5;
-// Built in order: the loader embeds the widget bundle's hashed name and SRI hash.
+// Built in order: the bundle embeds the rasterizer's hashed name and SRI hash, the
+// loader the bundle's.
 const ENTRIES = {
-  widget: { src: "src/index.ts", stem: "heed-widget", define: () => ({ __HEED_VERSION__: JSON.stringify(pkg.version) }) },
+  // Only ever loaded by the bundle, by its hashed name: no stable name.
+  // It bundles modern-screenshot (MIT), whose licence travels inside the file.
+  raster: { src: "src/raster.ts", stem: "heed-raster", stable: false, define: () => ({}), banner: licence("modern-screenshot") },
+  widget: {
+    src: "src/index.ts",
+    stem: "heed-widget",
+    define: (m) => ({
+      __HEED_VERSION__: JSON.stringify(pkg.version),
+      __HEED_RASTER__: JSON.stringify(m.entries.raster),
+      __HEED_RASTER_INTEGRITY__: JSON.stringify(m.files[m.entries.raster].integrity),
+    }),
+  },
   loader: {
     src: "src/loader.ts",
     stem: "heed",
@@ -38,9 +50,10 @@ const ENTRIES = {
 
 const sha = (algo, data, enc) => createHash(algo).update(data).digest(enc);
 
-async function bundle(src, define) {
+async function bundle(src, define, banner) {
   const result = await build({
     define,
+    banner: banner ? { js: banner } : undefined,
     entryPoints: [join(here, src)],
     bundle: true,
     format: "iife",
@@ -57,8 +70,8 @@ const MANIFEST = join(OUT_DIR, "manifest.json");
 const manifest = { version: pkg.version, entries: {}, files: {} };
 const outputs = {};
 let overBudget = false;
-for (const [entry, { src, stem, define }] of Object.entries(ENTRIES)) {
-  const code = await bundle(src, define(manifest));
+for (const [entry, { src, stem, define, stable = true, banner }] of Object.entries(ENTRIES)) {
+  const code = await bundle(src, define(manifest), banner);
   const name = `${stem}-${sha("sha256", code, "hex").slice(0, 10)}.js`;
   const gz = gzipSync(code, { level: 9 }).length;
   outputs[name] = code;
@@ -70,9 +83,11 @@ for (const [entry, { src, stem, define }] of Object.entries(ENTRIES)) {
     bytes: code.length,
     gzip_bytes: gz,
   };
-  outputs[`${stem}.js`] = code;
-  // No integrity for the stable name: its content changes with every upgrade.
-  manifest.files[`${stem}.js`] = { immutable: false, bytes: code.length, gzip_bytes: gz };
+  if (stable) {
+    outputs[`${stem}.js`] = code;
+    // No integrity for the stable name: its content changes with every upgrade.
+    manifest.files[`${stem}.js`] = { immutable: false, bytes: code.length, gzip_bytes: gz };
+  }
   console.log(`${name}: ${code.length} B, ${gz} B gzipped (budget ${BUDGETS[entry]})`);
   if (gz > BUDGETS[entry]) overBudget = true;
 }
@@ -89,6 +104,7 @@ for (const old of readdirSync(OUT_DIR)) {
 }
 for (const [name, code] of Object.entries(outputs)) writeFileSync(join(OUT_DIR, name), code);
 writeFileSync(join(OUT_DIR, "manifest.json"), JSON.stringify(manifest, null, 2) + "\n");
+
 
 /** Hashed files of earlier versions, from the manifest being replaced. */
 function retainedFiles() {
@@ -110,4 +126,9 @@ function compareVersions(a, b) {
     if (d) return d;
   }
   return 0;
+}
+
+function licence(pkgName) {
+  const text = readFileSync(join(here, "node_modules", pkgName, "LICENSE"), "utf8").trim();
+  return `/*! Includes ${pkgName}:\n${text.replaceAll("*/", "* /")}\n*/`;
 }

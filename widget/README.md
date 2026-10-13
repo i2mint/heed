@@ -86,9 +86,15 @@ Every option has a default; set it as an element attribute, as a `data-*` attrib
 | `timeoutMs` (`timeout-ms`) | `30000` | Give up on a submission after this long. |
 | `botTokenField` (`bot-token-field`) | `bot_token` | Must match the server's `HEED_BOT_TOKEN_FIELD`. |
 | `honeypotField` (`honeypot-field`) | `hp_website` | Must match the server's `HEED_HONEYPOT_FIELD`; empty for none. |
+| `screenshot` (`screenshot`) | `true` | Offer a screenshot of the visible page (the visitor sees a preview and can untick it). |
+| `maskInputs` (`mask-inputs`) | `true` | In the screenshot, black out every field a visitor types into, selects, editable regions and iframes. Password-like fields always are. |
+| `maskSelector` (`mask-selector`) | `[data-heed-mask]` | Elements blacked out in the screenshot. |
+| `screenshotTimeoutMs` (`screenshot-timeout-ms`) | `10000` | Give up on the screenshot after this long; the report is sent without it. |
+| `screenshotMaxNodes` (`screenshot-max-nodes`) | `5000` | No screenshot of pages with more elements than this (cloning them would freeze the tab). |
 | `anonId` (`anon-id`) | none | An opaque id your app chooses to group one visitor's reports. The widget never invents or stores one. |
 | `botToken` | none | `() => token` (or a promise of one): the bot-gate seam. Return a Turnstile/hCaptcha token when the backend's bot gate is on. |
 | `extra` | none | `() => ({key: "value"})`: extra facts sent in `env.extra` (app version, flags…), trimmed to the server's limits. |
+| `takeScreenshot` | built-in | `(window, {maskInputs, maskSelector, maxNodes, maxBytes, maxPixels}) => Promise<Blob \| null>`: replace the screenshot strategy (an app that bundles heed itself, or its own capture). |
 
 ```js
 const el = document.querySelector("heed-feedback");
@@ -101,7 +107,25 @@ Events (they bubble and cross the shadow boundary): `heed:open`, `heed:close`, `
 
 ## What is sent
 
-The title, details and category the visitor typed; the page URL (without query and fragment by default); and the browser environment (user agent, viewport, language, pixel ratio). Nothing is stored on the visitor's device. Screenshots are added in a later step of [i2mint/heed#6](https://github.com/i2mint/heed/issues/6).
+The title, details and category the visitor typed; the page URL (without query and fragment by default); the browser environment (user agent, viewport, language, pixel ratio); and, unless the visitor unticks it, a screenshot of the visible page. Nothing is stored on the visitor's device.
+
+## Screenshots
+
+When the dialog opens, the widget loads its rasterizer (`heed-raster-<hash>.js`, about 11 kB gzipped, fetched only then and pinned by SRI from the bundle) and re-renders the part of the page the visitor sees, leaving the widget itself out. The capture runs in the background and the visitor sees a preview with an "Include a screenshot" checkbox. **Only a screenshot the visitor has been shown is ever sent**: pressing Send while it is still being taken finishes it, shows it, and asks them to check it and press Send again; if the preview cannot be displayed (a CSP without `img-src blob:`), it is not sent. Any failure means the report goes without one.
+
+Privacy is enforced twice before the image leaves the page. First, the cloned page is scrubbed before it is drawn: field values and the contents of masked elements are removed, decided on the live page (so selectors, input types and editability mean what they mean to the browser). Second, black boxes are painted over the final image wherever the live page has masked content, including children positioned or overflowing outside their element. What is masked:
+
+- password-like fields, always (`type=password`, or `autocomplete` `current-password`, `new-password`, `one-time-code`, `cc-*`);
+- with `maskInputs` (the default): every field a visitor types into, selects, editable regions, and every iframe or embed;
+- whatever `maskSelector` matches (`[data-heed-mask]` by default):
+
+```html
+<div class="account-balance" data-heed-mask>…</div>
+```
+
+Mark an element `data-heed-ignore` to leave it out entirely (a chat widget, say).
+
+Limits to know: it is a DOM re-rendering, not true pixels, so videos, cross-origin iframes, tainted canvases and some CSS come out blank or approximate. Cloning a page costs main-thread time in proportion to its size, so pages with more than `screenshotMaxNodes` elements (5000) get no screenshot rather than a frozen tab. It needs a page whose Content-Security-Policy allows inline styles and `img-src data: blob:` and does not enforce Trusted Types; on a stricter page the widget detects it once before downloading anything (the inline-style probe may itself produce one CSP violation report), logs a console warning, and sends reports without a screenshot (`screenshot="false"` skips even the check). The image is at most 8 megapixels, PNG, falling back to JPEG, and kept under 60% of the server's size cap; if the server still refuses it as too large, the report is re-sent without it.
 
 ## Theming
 
@@ -109,7 +133,7 @@ Set CSS custom properties on the element (`--heed-accent`, `--heed-accent-fg`, `
 
 ## Content-Security-Policy
 
-The widget needs no `'unsafe-inline'` and no `'unsafe-eval'`: its styles are constructed stylesheets and its DOM is built without `innerHTML`, so it also runs under `require-trusted-types-for 'script'`. Allow the backend's origin in `script-src` and `connect-src`. Under Trusted Types, the loader creates a policy named `heed` that only passes the bundle's own URL; if your CSP lists allowed policy names (`trusted-types ...`), add `heed` (and `'allow-duplicates'` if the page creates a policy of that name itself); otherwise the loader warns in the console and the widget does not load.
+The widget itself needs no `'unsafe-inline'` and no `'unsafe-eval'`: its styles are constructed stylesheets and its DOM is built without `innerHTML`, so it also runs under `require-trusted-types-for 'script'`. Allow the backend's origin in `script-src` and `connect-src`. Screenshots are the exception: they need `style-src 'unsafe-inline'`, `img-src data: blob:`, and no Trusted Types enforcement (see above). Under Trusted Types, the loader creates a policy named `heed` that only passes the bundle's own URL; if your CSP lists allowed policy names (`trusted-types ...`), add `heed` (and `'allow-duplicates'` if the page creates a policy of that name itself); otherwise the loader warns in the console and the widget does not load.
 
 ## Develop
 

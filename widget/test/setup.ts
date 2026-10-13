@@ -10,3 +10,9 @@ if (!proto.showModal) {
     this.dispatchEvent(new Event("close"));
   };
 }
+
+// jsdom has no object URLs.
+if (!URL.createObjectURL) {
+  URL.createObjectURL = () => "blob:heed-test";
+  URL.revokeObjectURL = () => {};
+}
