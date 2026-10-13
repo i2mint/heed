@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import logging
 import re
+import time
 import unicodedata
 from collections.abc import Callable, Iterable, Mapping, MutableMapping
 from enum import Enum
@@ -26,6 +27,7 @@ from uuid import uuid4
 from heed.base import Report, Status
 from heed.security import normalize_origin
 from heed.sinks.base import Sink, SinkResult
+from heed.storage import CLAIMS_ATTR
 
 logger = logging.getLogger(__name__)
 
@@ -141,9 +143,11 @@ def chain_moderators(*moderators: Moderator) -> Moderator:
 #: Prefix of the keys reports are claimed under, in the holding store itself, while
 #: they are being released (when no separate ``claimed_store`` is given).
 CLAIM_PREFIX = "claimed--"
-#: Separates a report id from the per-release token (a uuid4 hex) in a claim key.
+#: Separates a report id from the per-release token in a claim key. The token is
+#: ``<claim time, ms since the epoch>-<uuid4 hex>`` (claims made before #21 have no
+#: time, and count as stale).
 _CLAIM_SEP = "--"
-_CLAIM_TOKEN = re.compile(r"[0-9a-f]{32}")
+_CLAIM_TOKEN = re.compile(r"(?:(?P<ms>[0-9]{1,15})-)?[0-9a-f]{32}")
 
 
 def release_held(
@@ -153,6 +157,7 @@ def release_held(
     sink: Sink | None = None,
     resolve_sink: SinkResolver | None = None,
     claimed_store: MutableMapping[str, str] | None = None,
+    clock: Callable[[], float] = time.time,
 ) -> SinkResult:
     """Release a held report: route it on and remove it from holding.
 
@@ -162,9 +167,11 @@ def release_held(
 
     The report is claimed before submitting, so a second release while the first is in
     flight finds nothing to send. Claiming *moves* it: it is written under a claim key
-    of its own (``claimed--<id>--<token>`` in ``holding_store``, or ``<id>--<token>``
-    in ``claimed_store``, a store used for nothing else) and only then deleted from
-    holding. If the sink fails the report is put back in holding; a release only ever
+    of its own (``<id>--<time>-<token>``) in the claims store and only then deleted
+    from holding. The claims store is ``claimed_store`` if given, else the one a
+    `make_holding_store` store carries, else (legacy) ``holding_store`` itself under a
+    ``claimed--`` prefix -- which makes every release list the whole holding store.
+    If the sink fails the report is put back in holding; a release only ever
     deletes its own claim, and only once the sink has accepted the report or it is
     back in holding. So a crash at any point leaves the report in holding, in the
     claims, or in both -- never lost -- and :func:`recover_claimed` returns stranded
@@ -177,21 +184,21 @@ def release_held(
     """
     if (sink is None) == (resolve_sink is None):
         raise ValueError("pass exactly one of sink= or resolve_sink=")
-    if claimed_store is None and report_id.startswith(CLAIM_PREFIX):
+    claims, own_prefix = _claims_of(holding_store, claimed_store)
+    if own_prefix and report_id.startswith(CLAIM_PREFIX):
         raise ValueError(
             f"{report_id!r} is a claim, not a held report: use recover_claimed() to "
             "return stranded claims to holding"
         )
-    claims = holding_store if claimed_store is None else claimed_store
     raw = holding_store.get(report_id)
     if raw is None:
         raise KeyError(f"No held report with id {report_id!r}")
-    if _claim_keys_of(report_id, claims, own_prefix=claimed_store is None):
+    if _claim_keys_of(report_id, claims, own_prefix=own_prefix):
         raise KeyError(
             f"Held report {report_id!r} is being released, or a crashed release left a "
             "claim on it: call recover_claimed() when no release is running"
         )
-    claim_key = _new_claim_key(report_id, own_prefix=claimed_store is None)
+    claim_key = _new_claim_key(report_id, own_prefix=own_prefix, now=clock())
     claims[claim_key] = raw
     if report_id not in holding_store:  # a concurrent release took it meanwhile
         _drop_claim(claims, claim_key)
@@ -202,9 +209,7 @@ def release_held(
         # Usually a concurrent release took it first, and its claim is the one that
         # counts. But if no other claim exists the delete may have happened anyway
         # (stores that report errors after acting): keep ours, so it is not lost.
-        others = set(
-            _claim_keys_of(report_id, claims, own_prefix=claimed_store is None)
-        )
+        others = set(_claim_keys_of(report_id, claims, own_prefix=own_prefix))
         if report_id in holding_store or others - {claim_key}:
             _drop_claim(claims, claim_key)
             raise KeyError(f"No held report with id {report_id!r}") from None
@@ -270,14 +275,22 @@ def recover_claimed(
     *,
     holding_store: MutableMapping[str, str],
     claimed_store: MutableMapping[str, str] | None = None,
+    stale_after: float | None = None,
+    clock: Callable[[], float] = time.time,
 ) -> list[str]:
     """Return every claimed report to holding, and the ids returned.
 
     A claim outlives its :func:`release_held` only if the process died mid-release
     (the sink may or may not have accepted the report, so a recovered report may be
-    sent twice -- never zero times). Call this when no release is running -- e.g. at
-    startup -- since an in-flight release's claim looks the same. Pass the same
-    ``claimed_store`` as to :func:`release_held`.
+    sent twice -- never zero times). Pass the same ``claimed_store`` as to
+    :func:`release_held`.
+
+    An in-flight release's claim looks the same as a stranded one. With one process,
+    call this when no release is running (e.g. at startup) and leave ``stale_after``
+    unset: every claim is recovered. With several workers, one worker's startup can
+    overlap another's release, so pass ``stale_after`` (seconds; longer than any sink
+    call can take, e.g. ``600``): only claims older than that are recovered. Claims made
+    before claim keys carried a time count as stale.
 
     Only a valid report (whose own id matches its claim key) is ever written to
     holding, and a valid holding copy is never replaced: a claim whose report is
@@ -285,10 +298,16 @@ def recover_claimed(
     is torn or missing restores it. Otherwise a claim that is not a valid report is
     left in place, and not returned.
     """
-    own_prefix = claimed_store is None
-    claims = holding_store if own_prefix else claimed_store
+    if stale_after is not None and stale_after < 0:
+        raise ValueError(f"stale_after must be >= 0 seconds, got {stale_after}")
+    claims, own_prefix = _claims_of(holding_store, claimed_store)
+    now = clock()
     recovered = []
     for claim_key in [k for k in list(claims) if _is_claim_key(k, own_prefix)]:
+        claimed_at = _claim_time(claim_key, own_prefix)
+        if stale_after is not None and claimed_at is not None:
+            if now - claimed_at < stale_after:
+                continue  # possibly a release still in flight
         report_id = _report_id_of_claim_key(claim_key, own_prefix)
         if _is_report(holding_store.get(report_id), report_id):
             _drop_claim(claims, claim_key)  # holding is intact: the claim is redundant
@@ -311,19 +330,43 @@ def _is_report(raw, report_id):
         return False
 
 
-def _new_claim_key(report_id, *, own_prefix):
-    """A claim key no other release of ``report_id`` can produce."""
-    key = f"{report_id}{_CLAIM_SEP}{uuid4().hex}"
+def _claims_of(holding_store, claimed_store):
+    """``(claims store, whether claims carry the CLAIM_PREFIX in holding itself)``."""
+    if claimed_store is None:
+        claimed_store = getattr(holding_store, CLAIMS_ATTR, None)
+    if claimed_store is None:
+        return holding_store, True
+    if claimed_store is holding_store:
+        raise ValueError("the claims store must not be the holding store itself")
+    return claimed_store, False
+
+
+def _new_claim_key(report_id, *, own_prefix, now):
+    """A claim key no other release of ``report_id`` can make, stamped with ``now``."""
+    key = f"{report_id}{_CLAIM_SEP}{int(now * 1000)}-{uuid4().hex}"
     return CLAIM_PREFIX + key if own_prefix else key
 
 
-def _is_claim_key(key, own_prefix):
+def _claim_token(key, own_prefix):
+    """The claim key's token match, or None if ``key`` is not a claim key."""
     if own_prefix:
         if not key.startswith(CLAIM_PREFIX):
-            return False
+            return None
         key = key[len(CLAIM_PREFIX) :]
     report_id, sep, token = key.rpartition(_CLAIM_SEP)
-    return bool(sep and report_id and _CLAIM_TOKEN.fullmatch(token))
+    if not (sep and report_id):
+        return None
+    return _CLAIM_TOKEN.fullmatch(token)
+
+
+def _is_claim_key(key, own_prefix):
+    return _claim_token(key, own_prefix) is not None
+
+
+def _claim_time(claim_key, own_prefix):
+    """When the claim was made (seconds since the epoch), or None if it predates #21."""
+    ms = _claim_token(claim_key, own_prefix)["ms"]
+    return None if ms is None else int(ms) / 1000
 
 
 def _report_id_of_claim_key(claim_key, own_prefix):

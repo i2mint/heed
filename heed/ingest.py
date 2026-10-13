@@ -314,7 +314,7 @@ def make_router(
     if moderator is not None and holding_sink is None:
         raise ValueError(
             "a moderator needs a holding_sink to park held reports in (a failing "
-            "moderator also holds), e.g. holding_sink=StoreSink(make_report_store("
+            "moderator also holds), e.g. holding_sink=StoreSink(make_holding_store("
             "'held/'))"
         )
     if holding_sink is not None and moderator is None:
