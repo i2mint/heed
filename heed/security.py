@@ -69,10 +69,16 @@ def cors_headers(
 
     The request's own origin is echoed (never ``*``) so the response is correct with
     or without credentials; ``Vary: Origin`` keeps shared caches honest.
+    ``Retry-After`` is exposed so the widget can tell a visitor when to retry.
     """
     if not origin or origin == "null" or not origin_allowed(origin, allowed):
         return {}
-    headers = {"Access-Control-Allow-Origin": origin, "Vary": "Origin"}
+    headers = {
+        "Access-Control-Allow-Origin": origin,
+        "Vary": "Origin",
+        # Not CORS-safelisted, so a cross-origin widget could not read it otherwise.
+        "Access-Control-Expose-Headers": "Retry-After",
+    }
     if allow_credentials:
         headers["Access-Control-Allow-Credentials"] = "true"
     return headers

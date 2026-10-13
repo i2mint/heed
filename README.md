@@ -66,6 +66,17 @@ app = make_app(StoreSink({}), config=config)
 
 For production, set `allowed_origins`, `trusted_proxies` (behind a reverse proxy), `rate_limit_backend="redis"` with `redis_url` (several workers), and `bot_secret` to turn the bot gate on. Embedders also need a Content-Security-Policy that allows the widget: see [`misc/docs/embedding-security.md`](misc/docs/embedding-security.md).
 
+## Embedding the widget
+
+The backend serves the widget too, so a site adds two tags (the bundle's hashed name and its `integrity` value are in `heed/static/widget/manifest.json`):
+
+```html
+<script src="https://feedback.example/heed/widget/heed-widget-<hash>.js" integrity="sha384-…" crossorigin="anonymous" defer></script>
+<heed-feedback endpoint="https://feedback.example/heed/report"></heed-feedback>
+```
+
+Options, events, theming and CSP notes: [`widget/README.md`](widget/README.md).
+
 ## Documents
 
 - [`misc/docs/research-report.md`](misc/docs/research-report.md) — the competitive
