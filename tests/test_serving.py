@@ -4,6 +4,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from heed import (
+    ANY_HOST,
     AttachmentSigner,
     HeedConfig,
     ReportSubmission,
@@ -221,3 +222,75 @@ def test_the_resolver_skips_refs_the_route_would_not_serve():
         attachments=[Attachment(ref="../x.png", size=1, media_type="image/png")],
     )
     assert screenshot_url_resolver("http://x", AttachmentSigner(KEY))(report) is None
+
+
+# ---------------------------------------------------------------------------
+# Follow-ups (issue #29)
+# ---------------------------------------------------------------------------
+
+
+def test_a_symlink_out_of_the_root_is_not_served(tmp_path):
+    from heed import make_attachment_store
+
+    root, outside = tmp_path / "root", tmp_path / "outside"
+    root.mkdir(), outside.mkdir()
+    (outside / "secret.png").write_bytes(_tiny_png())
+    (root / REF).symlink_to(outside / "secret.png")
+    store = make_attachment_store(str(root))
+    with pytest.raises(KeyError):
+        store[REF]
+    signer = AttachmentSigner(KEY)
+    assert _client(store, signer=signer).get(signer.url("/attachments", REF)).status_code == 404
+    # a plain file in the root, and a root that is itself reached through a symlink
+    (root / "ok.png").write_bytes(_tiny_png())
+    (tmp_path / "link").symlink_to(root)
+    assert make_attachment_store(str(tmp_path / "link"))["ok.png"] == _tiny_png()
+    assert make_attachment_store(str(root), follow_symlinks=True)[REF] == _tiny_png()
+
+
+def test_hosts_are_required_unless_any_is_explicit():
+    signer = AttachmentSigner(KEY)
+    with pytest.raises(ValueError, match="allowed_hosts"):
+        make_attachment_app({}, signer=signer)
+    for any_host in (ANY_HOST, [ANY_HOST]):
+        app = make_attachment_app({REF: _tiny_png()}, signer=signer, allowed_hosts=any_host)
+        r = TestClient(app, base_url="http://whatever.example")
+        assert r.get(signer.url("/attachments", REF)).status_code == 200
+
+
+def test_cache_control_can_be_replaced():
+    signer = AttachmentSigner(KEY)
+    r = _client(signer=signer, cache_control="public, max-age=300").get(
+        signer.url("/attachments", REF)
+    )
+    assert r.headers["cache-control"] == "public, max-age=300"
+    with pytest.raises(ValueError, match="single header line"):
+        _client(cache_control="a\r\nSet-Cookie: x=1")
+    cfg = HeedConfig.from_env({"HEED_ATTACHMENT_CACHE_CONTROL": "public, max-age=60"})
+    r = _client(signer=signer, config=cfg).get(signer.url("/attachments", REF))
+    assert r.headers["cache-control"] == "public, max-age=60"
+
+
+def test_rotated_out_keys_come_from_config():
+    old, new = "o" * 32, KEY
+    cfg = HeedConfig.from_env(
+        {"HEED_ATTACHMENT_SIGNING_KEY": new, "HEED_ATTACHMENT_PREVIOUS_KEYS": old}
+    )
+    assert old not in repr(cfg)
+    signer = AttachmentSigner.from_config(cfg)
+    old_url = AttachmentSigner(old).url("/attachments", REF)
+    assert _client(signer=signer).get(old_url).status_code == 200
+    assert old not in repr(signer)
+    with pytest.raises(ValueError, match="previous_keys"):
+        HeedConfig(attachment_previous_keys=[old])
+
+
+def test_a_value_over_max_bytes_is_not_served(caplog):
+    signer = AttachmentSigner(KEY)
+    url = signer.url("/attachments", REF)
+    big = _client({REF: _tiny_png()}, signer=signer, max_bytes=10)
+    assert big.get(url).status_code == 404
+    assert "not served" in caplog.text
+    cfg = HeedConfig(max_screenshot_bytes=10, max_body_bytes=10)
+    assert _client(signer=signer, config=cfg).get(url).status_code == 404
+    assert _client(signer=signer).get(url).status_code == 200

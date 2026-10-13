@@ -58,6 +58,8 @@ logger = logging.getLogger(__name__)
 DEFAULT_REF_PATTERN = re.compile(
     r"[0-9a-f]{32}\.(?:%s)" % "|".join(map(re.escape, IMAGE_EXTENSIONS.values()))
 )
+#: ``allowed_hosts=ANY_HOST`` (or ``["*"]``): the route answers on every host.
+ANY_HOST = "*"
 MIN_SIGNING_KEY_BYTES = 32
 _SIGNATURE_CONTEXT = b"heed-attachment-v1"
 _SIG = re.compile(r"[A-Za-z0-9_-]{43}")  # urlsafe base64 of a SHA-256, unpadded
@@ -117,6 +119,7 @@ class AttachmentSigner:
         """The signer ``config`` describes, or None if it has no signing key."""
         if not config.attachment_signing_key:
             return None
+        kwargs.setdefault("previous_keys", config.attachment_previous_keys)
         return cls(
             config.attachment_signing_key,
             ttl_seconds=config.attachment_url_ttl_seconds,
@@ -199,6 +202,8 @@ def make_attachment_router(
     allow_unsigned: bool = False,
     allowed_hosts: Iterable[str] | None = None,
     cross_origin: bool = False,
+    cache_control: str | None = None,
+    max_bytes: int | None = None,
     path: str = "/attachments",
     ref_pattern: re.Pattern = DEFAULT_REF_PATTERN,
 ) -> APIRouter:
@@ -220,9 +225,18 @@ def make_attachment_router(
         allow_unsigned: Serve any ref without a signature (a ref is then the
             capability). Only for stores whose every screenshot may be public.
         allowed_hosts: Hostnames this route answers on: the dedicated attachment origin.
-            ``None`` answers on any host (and logs a warning).
+            Required (here or as ``config.attachment_hosts``): ``ANY_HOST`` says any
+            host is fine, which is only right when the route has no origin of its own.
         cross_origin: ``Cross-Origin-Resource-Policy: cross-origin``, which an image
             embedded in a GitHub issue needs (GitHub's camo proxy fetches it).
+        cache_control: Replaces the ``Cache-Control`` of a served image (default
+            ``private, no-store``), e.g. ``public, max-age=300`` if GitHub's camo proxy
+            should cache signed, cross-origin images. Defaults to
+            ``config.attachment_cache_control``.
+        max_bytes: Stored values larger than this are not served (a bare 404 and a
+            warning). Defaults to ``config.max_screenshot_bytes``. It does not stop a
+            store from reading the value into memory; it keeps serving from relying on
+            the ingest cap alone.
         ref_pattern: Refs to serve (full match); the default is what heed writes.
     """
     cfg = config or HeedConfig()
@@ -237,17 +251,28 @@ def make_attachment_router(
         )
     if allowed_hosts is None:
         allowed_hosts = cfg.attachment_hosts
-    if isinstance(allowed_hosts, str):
+    if allowed_hosts is None:
+        raise ValueError(
+            "make_attachment_router needs allowed_hosts: the hostnames of the "
+            "dedicated attachment origin (HeedConfig.attachment_hosts / "
+            f"{ENV_PREFIX}ATTACHMENT_HOSTS). Pass allowed_hosts=ANY_HOST to answer on "
+            "any host."
+        )
+    if isinstance(allowed_hosts, str) and allowed_hosts != ANY_HOST:
         raise TypeError(
             "allowed_hosts must be a list of hostnames, not a string: "
             f"{allowed_hosts!r}"
         )
-    hosts = None if allowed_hosts is None else {h.lower() for h in allowed_hosts}
-    if hosts is None:
-        logger.warning(
-            "heed: the attachment route answers on any host. Serve it from its own "
-            "origin and set allowed_hosts (HeedConfig.attachment_hosts)."
-        )
+    hosts = {allowed_hosts} if isinstance(allowed_hosts, str) else set(allowed_hosts)
+    hosts = {h.lower() for h in hosts}
+    if ANY_HOST in hosts:
+        hosts = None
+    if cache_control is None:
+        cache_control = cfg.attachment_cache_control
+    if cache_control is not None and not cache_control.isprintable():
+        raise ValueError(f"cache_control must be a single header line: {cache_control!r}")
+    if max_bytes is None:
+        max_bytes = cfg.max_screenshot_bytes
     if not pillow_available():
         logger.warning(
             "heed: Pillow is not installed, so screenshots ingested here with the "
@@ -273,12 +298,19 @@ def make_attachment_router(
             data = attachment_store[ref]
         except KeyError:
             return not_found()
+        if len(data) > max_bytes:
+            logger.warning(
+                "heed: %s is %d bytes, over max_bytes=%d: not served", ref, len(data), max_bytes
+            )
+            return not_found()
         media_type = sniff_image_type(data)
         if media_type != _MEDIA_TYPE_OF_EXTENSION.get(ref.rsplit(".", 1)[-1]):
             media_type = "application/octet-stream"
         headers = attachment_headers(
             media_type, filename=ref, cross_origin=cross_origin
         )
+        if cache_control is not None:
+            headers["Cache-Control"] = cache_control
         return Response(content=data, headers=headers)
 
     return router
