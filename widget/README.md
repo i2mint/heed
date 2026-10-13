@@ -96,7 +96,7 @@ export function Feedback() {
 }
 ```
 
-Function props (`botToken`, `extra`, `takeScreenshot`) work in React 18 and 19 alike (the wrapper passes every prop through `configure()`), and a removed prop goes back to its default. Bundled this way, the screenshot rasterizer is a separate chunk your bundler loads only when the dialog opens. Without a bundler, the loader's `<heed-feedback>` works in JSX as is.
+`id`, `title`, `data-*` and `aria-*` props go onto the element. The package is ES modules only, and safe to import during server-side rendering (Next.js, Remix): the element is defined only in the browser, and the entries are marked `"use client"`. If the page also loads the served script (or another copy of heed), whichever defines `<heed-feedback>` first is the one in use; heed warns in the console. Function props (`botToken`, `extra`, `takeScreenshot`) work in React 18 and 19 alike (the wrapper passes every prop through `configure()`), and a removed prop goes back to its default. Bundled this way, the screenshot rasterizer is a separate chunk your bundler loads only when the dialog opens. Without a bundler, the loader's `<heed-feedback>` works in JSX as is.
 
 ## Options
 

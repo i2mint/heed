@@ -5,8 +5,8 @@
  * embedder opts into `pageUrl: "full"` (queries carry tokens, emails, reset links),
  * and nothing here identifies the visitor beyond the user-agent string.
  */
-import { CONTRACT } from "./contract.gen";
-import type { ExtraProvider, PageUrlMode } from "./options";
+import { CONTRACT } from "./contract.gen.js";
+import type { ExtraProvider, PageUrlMode } from "./options.js";
 
 const L = CONTRACT.limits;
 

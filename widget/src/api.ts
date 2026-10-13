@@ -17,8 +17,8 @@
  * The mounted widget is put back if the page replaces `<body>` (Turbo, htmx boost,
  * pjax…), so the button survives client-side navigations.
  */
-import { HeedFeedbackElement, TAG } from "./element";
-import { type HeedOptions, cleanOptions, optionsFromAttributes, parseBool } from "./options";
+import { HeedFeedbackElement, TAG } from "./element.js";
+import { type HeedOptions, cleanOptions, optionsFromAttributes, parseBool } from "./options.js";
 
 declare const __HEED_VERSION__: string;
 

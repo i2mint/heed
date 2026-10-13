@@ -10,12 +10,16 @@
  *                 onSubmitted={(r) => console.log(r.id)} />
  *
  * A ref gives `open()` and `close()`, for opening it from your own menu item.
+ * `id`, `title`, `data-*` and `aria-*` props go onto the element itself.
+ *
+ * Safe to import during server-side rendering: the element is only defined in a
+ * browser, and the package's entries are marked "use client".
  */
 import { createElement, forwardRef, useEffect, useImperativeHandle, useRef, type CSSProperties } from "react";
-import "./lib";
-import type { HeedFeedbackElement } from "./element";
-import { TAG } from "./element";
-import { type HeedOptions, defaultOptions } from "./options";
+import "./lib.js";
+import type { HeedFeedbackElement } from "./element.js";
+import { TAG } from "./element.js";
+import { type HeedOptions, defaultOptions } from "./options.js";
 
 export interface HeedSubmitted {
   id: string;
@@ -23,14 +27,17 @@ export interface HeedSubmitted {
   url: string | null;
 }
 
-export interface HeedFeedbackProps extends Partial<HeedOptions> {
+/** Attributes forwarded to the element itself (a test id, a label…). */
+type ElementAttributes = { id?: string; title?: string } & { [K in `data-${string}` | `aria-${string}`]?: string };
+
+export interface HeedFeedbackProps extends Partial<HeedOptions>, ElementAttributes {
   onOpen?: () => void;
   onClose?: () => void;
   onSubmitted?: (report: HeedSubmitted) => void;
   onError?: (error: { kind: string }) => void;
   className?: string;
   /** Inline style, e.g. theming custom properties: `{ "--heed-accent": "#0a7" }`. */
-  style?: CSSProperties & Record<`--${string}`, string>;
+  style?: CSSProperties | (CSSProperties & Record<`--${string}`, string>);
 }
 
 export interface HeedFeedbackHandle {
@@ -42,9 +49,15 @@ export interface HeedFeedbackHandle {
 const EVENTS = { onOpen: "heed:open", onClose: "heed:close", onSubmitted: "heed:submitted", onError: "heed:error" } as const;
 
 export const HeedFeedback = forwardRef<HeedFeedbackHandle, HeedFeedbackProps>(function HeedFeedback(props, ref) {
-  const { onOpen, onClose, onSubmitted, onError, className, style, ...options } = props;
+  const { onOpen, onClose, onSubmitted, onError, className, style, ...rest } = props;
+  const attributes: Record<string, unknown> = {};
+  const options: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(rest)) {
+    if (key === "id" || key === "title" || key.startsWith("data-") || key.startsWith("aria-")) attributes[key] = value;
+    else options[key] = value;
+  }
   const el = useRef<HeedFeedbackElement>(null);
-  const previous = useRef<string[]>([]);
+  const previous = useRef<Record<string, unknown>>({});
   const handlers = useRef({ onOpen, onClose, onSubmitted, onError });
   handlers.current = { onOpen, onClose, onSubmitted, onError };
 
@@ -60,15 +73,18 @@ export const HeedFeedback = forwardRef<HeedFeedbackHandle, HeedFeedbackProps>(fu
     [],
   );
 
-  // Every render: pass the props on, and reset options whose prop was removed.
+  // Every render: pass changed props on, and reset options whose prop was removed.
   useEffect(() => {
     const element = el.current;
     if (!element) return;
     const given = Object.fromEntries(Object.entries(options).filter(([, v]) => v !== undefined));
+    const before = previous.current;
     const defaults = defaultOptions() as unknown as Record<string, unknown>;
-    const removed = Object.fromEntries(previous.current.filter((k) => !(k in given)).map((k) => [k, defaults[k]]));
-    previous.current = Object.keys(given);
-    element.configure({ ...removed, ...given });
+    const changes: Record<string, unknown> = {};
+    for (const key of Object.keys(before)) if (!(key in given)) changes[key] = defaults[key];
+    for (const [key, value] of Object.entries(given)) if (!(key in before) || before[key] !== value) changes[key] = value;
+    previous.current = given;
+    if (Object.keys(changes).length) element.configure(changes);
     // React 18 does not map className onto custom elements.
     if (className) element.setAttribute("class", className);
     else element.removeAttribute("class");
@@ -88,5 +104,5 @@ export const HeedFeedback = forwardRef<HeedFeedbackHandle, HeedFeedbackProps>(fu
     return () => listeners.forEach((off) => off());
   }, []);
 
-  return createElement(TAG, { ref: el, style });
+  return createElement(TAG, { ...attributes, ref: el, style });
 });

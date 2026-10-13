@@ -23,6 +23,7 @@ jobs:
       - run: npm run check
       - run: npm test
       - run: npm run build:lib
+      - run: npm run test:ssr
       - name: Built files are up to date
         run: |
           npm run build

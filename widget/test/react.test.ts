@@ -79,4 +79,29 @@ describe("<HeedFeedback>", () => {
     const { moduleScreenshot } = await import("../src/lib");
     expect(screenshotStrategy()).toBe(moduleScreenshot);
   });
+  it("forwards id, title, data-* and aria-* to the element", () => {
+    render({ endpoint: "/r", id: "fb", title: "Feedback", "data-testid": "x", "aria-label": "Send feedback" });
+    const el = element();
+    expect([el.id, el.title, el.dataset.testid, el.getAttribute("aria-label")]).toEqual(["fb", "Feedback", "x", "Send feedback"]);
+  });
+
+  it("re-applies only changed props, so a bad value warns once", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    render({ endpoint: "/r", label: 5 });
+    render({ endpoint: "/r", label: 5 });
+    render({ endpoint: "/r", label: 5, heading: "x" });
+    expect(warn.mock.calls.filter((c) => String(c[0]).includes("label"))).toHaveLength(1);
+    warn.mockRestore();
+  });
+});
+
+describe("defineHeedElement", () => {
+  it("warns when another copy of heed defined the element first", async () => {
+    const { defineHeedElement } = await import("../src/element");
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const registry = { get: () => class extends HTMLElement {}, define: vi.fn() } as unknown as CustomElementRegistry;
+    defineHeedElement(registry);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("another copy"));
+    warn.mockRestore();
+  });
 });

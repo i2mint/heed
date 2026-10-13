@@ -7,9 +7,9 @@
  * the SRI hash baked in at build time (the same chain as loader → bundle). Code that
  * bundles heed itself (no `<script>` to locate) passes its own `takeScreenshot`.
  */
-import { CONTRACT } from "./contract.gen";
-import type { ScreenshotTaker } from "./options";
-import type { CaptureOptions, Raster } from "./raster";
+import { CONTRACT } from "./contract.gen.js";
+import type { ScreenshotTaker } from "./options.js";
+import type { CaptureOptions, Raster } from "./raster.js";
 
 declare const __HEED_RASTER__: string;
 declare const __HEED_RASTER_INTEGRITY__: string;

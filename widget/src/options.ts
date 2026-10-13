@@ -9,7 +9,7 @@
  * sites, so every kilobyte counts, and the real validation happens on the server
  * (heed's Pydantic models). This table is the widget's schema.
  */
-import { CONTRACT } from "./contract.gen";
+import { CONTRACT } from "./contract.gen.js";
 
 export type Category = (typeof CONTRACT.categories)[number];
 export type Position = "bottom-right" | "bottom-left" | "none";

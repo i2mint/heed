@@ -23,7 +23,8 @@
     "check": "tsc --noEmit",
     "test": "vitest run",
     "build:lib": "node build-lib.mjs",
-    "prepack": "npm run build:lib"
+    "prepack": "npm run build:lib",
+    "test:ssr": "node test-ssr.mjs"
   },
   "peerDependencies": {
     "react": ">=17"

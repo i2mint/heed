@@ -5,6 +5,7 @@
 import { build } from "esbuild";
 import { execFileSync } from "node:child_process";
 import { readFileSync, rmSync } from "node:fs";
+import { licence } from "./licence.mjs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -24,6 +25,9 @@ await build({
   external: ["react", "react-dom"],
   minify: true,
   legalComments: "inline",
+  // The rasterizer chunk includes modern-screenshot (MIT), whose licence travels in
+  // every file; "use client" lets React Server Components import the entries.
+  banner: { js: `"use client";\n${licence("modern-screenshot")}` },
   define: {
     __HEED_VERSION__: JSON.stringify(pkg.version),
     // Only the served bundle loads the rasterizer by URL; here it is imported.

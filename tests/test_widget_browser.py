@@ -668,33 +668,37 @@ def test_masked_images_inside_an_iframe_with_mask_inputs_off(browser):
 
 WIDGET_DIR = Path(__file__).resolve().parent.parent / "widget"
 _REACT_APP = """
-import { createElement } from "react";
+import { StrictMode, createElement } from "react";
 import { createRoot } from "react-dom/client";
-import { HeedFeedback } from "./pkg/react.js";
+import { HeedFeedback } from "heed-widget/react";
 
 createRoot(document.getElementById("root")).render(
-  createElement(HeedFeedback, {
+  createElement(StrictMode, null, createElement(HeedFeedback, {
     endpoint: document.body.dataset.endpoint,
     label: "React feedback",
+    "data-testid": "feedback",
     onSubmitted: (report) => { document.title = "sent " + report.status; },
-  }),
+  })),
 );
 """
 
 
 @pytest.fixture(scope="module")
 def react_app(tmp_path_factory):
-    """The shipped ES module package (build-lib.mjs) inside a small React app."""
+    """The shipped ES module package (build-lib.mjs), resolved through its
+    ``exports`` map, inside a small React app in StrictMode."""
     esbuild = WIDGET_DIR / "node_modules" / ".bin" / "esbuild"
     node = shutil.which("node")
     if not (node and esbuild.exists()):
         pytest.skip("needs node and widget/node_modules (npm ci in widget/)")
     root = tmp_path_factory.mktemp("react-app")
+    package = root / "node_modules" / "heed-widget"
     subprocess.run(
-        [node, str(WIDGET_DIR / "build-lib.mjs"), str(root / "pkg")],
+        [node, str(WIDGET_DIR / "build-lib.mjs"), str(package / "dist")],
         check=True,
         capture_output=True,
     )
+    shutil.copy(WIDGET_DIR / "package.json", package / "package.json")
     (root / "main.js").write_text(_REACT_APP)
     out = root / "out"
     subprocess.run(
@@ -727,6 +731,7 @@ def test_react_wrapper_in_a_bundled_app(browser, react_app):
 <script type="module" src="/main.js"></script></body></html>"""
 
     with _site(browser, page=page, static_dir=react_app) as (tab, problems, store, _o):
+        assert tab.get_by_test_id("feedback").count() == 1  # StrictMode: one element
         tab.get_by_role("button", name="React feedback").click()
         # The rasterizer comes from the app's own lazily loaded chunk.
         tab.get_by_role("img", name="Screenshot to be sent").wait_for(timeout=20_000)

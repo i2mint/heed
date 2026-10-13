@@ -7,20 +7,20 @@
  * is imported lazily from here, so the app's bundler splits it into a chunk that is
  * only fetched when a visitor opens the widget.
  */
-import { screenshotsAllowed, setScreenshotStrategy } from "./capture";
-import { defineHeedElement } from "./element";
-import type { ScreenshotTaker } from "./options";
+import { screenshotsAllowed, setScreenshotStrategy } from "./capture.js";
+import { defineHeedElement } from "./element.js";
+import type { ScreenshotTaker } from "./options.js";
 
 /** Screenshots through a lazily imported rasterizer chunk. */
 export const moduleScreenshot: ScreenshotTaker = async (win, options) => {
   if (!screenshotsAllowed(win.document)) return null;
-  const { capture } = await import("./raster");
+  const { capture } = await import("./raster.js");
   return capture(win, options);
 };
 
 setScreenshotStrategy(moduleScreenshot);
 defineHeedElement();
 
-export { HeedFeedbackElement, TAG, defineHeedElement } from "./element";
-export { MESSAGES } from "./submit";
-export type { BotTokenProvider, Category, ExtraProvider, HeedOptions, Position, ScreenshotTaker } from "./options";
+export { HeedFeedbackElement, TAG, defineHeedElement } from "./element.js";
+export { MESSAGES } from "./submit.js";
+export type { BotTokenProvider, Category, ExtraProvider, HeedOptions, Position, ScreenshotTaker } from "./options.js";
