@@ -17,6 +17,8 @@ export type PageUrlMode = "path" | "full";
 
 /** Supplies a bot-gate token (Turnstile, hCaptcha…) at submit time; the seam for heed#5's gate. */
 export type BotTokenProvider = () => string | null | undefined | Promise<string | null | undefined>;
+/** Takes the screenshot; replaces the built-in rasterizer (tests, or apps that bundle heed). */
+export type ScreenshotTaker = (win: Window, options: { maskInputs: boolean; maskSelector: string; maxBytes: number; maxPixels: number }) => Promise<Blob | null>;
 /** Extra environment facts to attach (app version, feature flags…), string → string. */
 export type ExtraProvider = () => Record<string, string>;
 
@@ -43,10 +45,20 @@ export interface HeedOptions {
   honeypotField: string;
   /** An opaque id the host app chooses to group one visitor's reports; none by default. */
   anonId: string;
+  /** Offer a screenshot of the page (the visitor sees it and can untick it). */
+  screenshot: boolean;
+  /** Show bullets for every text field and black out selects and editable regions in the screenshot (password fields always are). */
+  maskInputs: boolean;
+  /** Elements to black out in the screenshot. */
+  maskSelector: string;
+  /** Give up on the screenshot after this many milliseconds (the report is then sent without it). */
+  screenshotTimeoutMs: number;
   /** Bot-gate token provider. Function options are set as properties or through `init`, never as attributes. */
   botToken: BotTokenProvider | null;
   /** Extra environment provider. */
   extra: ExtraProvider | null;
+  /** Screenshot strategy; null uses the built-in, lazily loaded rasterizer. */
+  takeScreenshot: ScreenshotTaker | null;
 }
 
 type Parse<T> = (text: string) => T | undefined;
@@ -101,8 +113,13 @@ export const OPTION_SPECS: Specs = {
   botTokenField: { default: CONTRACT.fields.bot_token, attr: "bot-token-field", parse: text },
   honeypotField: { default: CONTRACT.fields.honeypot ?? "", attr: "honeypot-field", parse: text },
   anonId: { default: "", attr: "anon-id", parse: anonId },
+  screenshot: { default: true, attr: "screenshot", parse: parseBool },
+  maskInputs: { default: true, attr: "mask-inputs", parse: parseBool },
+  maskSelector: { default: "[data-heed-mask]", attr: "mask-selector", parse: text },
+  screenshotTimeoutMs: { default: 10_000, attr: "screenshot-timeout-ms", parse: positiveInt },
   botToken: { default: null },
   extra: { default: null },
+  takeScreenshot: { default: null },
 };
 
 export const OPTION_ATTRIBUTES: string[] = Object.values(OPTION_SPECS as Record<string, OptionSpec<unknown>>)

@@ -19,11 +19,12 @@ declare const __HEED_BUNDLE__: string;
 declare const __HEED_INTEGRITY__: string;
 
 type Entry = ArrayLike<unknown> & { off?: unknown };
+type Policy = { createScriptURL(u: string): unknown };
 type Stub = ((...args: unknown[]) => unknown) & { q?: Entry[]; loaded?: boolean; booted?: boolean; loading?: boolean; [method: string]: unknown };
-type TT = { createPolicy(n: string, p: object): { createScriptURL(u: string): unknown } };
+type TT = { createPolicy(n: string, p: object): Policy };
 
 (() => {
-  const w = window as unknown as Window & { heed?: Stub; trustedTypes?: TT };
+  const w = window as unknown as Window & { heed?: Stub; trustedTypes?: TT; __heedTT?: { p: Policy | null; a: Set<string> } };
   const d = document;
   const warn = (m: string) => console.warn(`heed: ${m}`);
   const TWICE = "loader included twice; ignoring this one";
@@ -67,14 +68,16 @@ type TT = { createPolicy(n: string, p: object): { createScriptURL(u: string): un
   w.heed = stub;
 
   // Under `require-trusted-types-for 'script'` a script URL must come from a policy;
-  // this one only ever passes the bundle's own URL.
+  // this one only passes heed's own files (the bundle adds the rasterizer's URL).
   const url = new URL(__HEED_BUNDLE__, self.src).href;
-  let policy: { createScriptURL(u: string): unknown } | null = null;
+  const allowed = new Set([url]);
+  let policy: Policy | null = null;
   try {
-    policy = w.trustedTypes?.createPolicy("heed", { createScriptURL: (u: string) => (u === url ? u : "") }) ?? null;
+    policy = w.trustedTypes?.createPolicy("heed", { createScriptURL: (u: string) => (allowed.has(u) ? u : "") }) ?? null;
   } catch {
     // reported below, if the page enforces Trusted Types
   }
+  w.__heedTT = { p: policy, a: allowed };
   let requested = false;
   function load() {
     if (requested) return;

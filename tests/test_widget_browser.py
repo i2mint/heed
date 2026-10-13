@@ -30,13 +30,24 @@ def _free_port() -> int:
         return s.getsockname()[1]
 
 
+class _Store(dict):
+    """The sink's reports, with the stored screenshots beside them."""
+
+    def __init__(self):
+        super().__init__()
+        self.attachments: dict = {}
+
+
 @contextmanager
 def _backend(*, router_kwargs=None, **config):
     """A heed app on its own port; yields (base_url, the sink's store)."""
-    store: dict = {}
+    store = _Store()
     port = _free_port()
     app = make_app(
-        StoreSink(store), config=HeedConfig(**config), **(router_kwargs or {})
+        StoreSink(store),
+        config=HeedConfig(**config),
+        attachment_store=store.attachments,
+        **(router_kwargs or {}),
     )
     server = uvicorn.Server(
         uvicorn.Config(app, host=HOST, port=port, log_level="warning")
@@ -76,12 +87,15 @@ def _page(backend: str, body: str, *, csp_extra: str = "") -> str:
 
 
 def _embed_page(backend: str) -> str:
-    """The bundle plus a hand-written element (no loader)."""
+    """The bundle plus a hand-written element (no loader). Screenshots are off: this
+    page's CSP is stricter than the rasterizer can work under (see the screenshot
+    tests below)."""
     bundle = load_widget_manifest()["entries"]["widget"]
     return _page(
         backend,
         f'<script src="{backend}/heed/widget/{bundle}"></script>\n'
-        f'<heed-feedback endpoint="{backend}/heed/report"></heed-feedback>',
+        f'<heed-feedback endpoint="{backend}/heed/report" screenshot="false">'
+        "</heed-feedback>",
     )
 
 
@@ -262,7 +276,9 @@ def test_focus_and_modality_survive_success_and_reparenting(browser):
 
 
 def _loader_page(script_attrs: str = "", before: str = ""):
-    """The documented embed: one async loader tag, optionally after inline calls."""
+    """The documented embed: one async loader tag, optionally after inline calls
+    (screenshots off, as in ``_embed_page``)."""
+    script_attrs += ' data-screenshot="false"'
 
     def page(backend: str) -> str:
         return _page(
@@ -371,7 +387,9 @@ def test_unsubscribing_before_the_bundle_arrives(browser):
     def page(backend):
         # A synchronous loader, so the inline script runs right after it.
         return _page(
-            backend, f'<script src="{backend}/heed/widget/heed.js"></script>{script}'
+            backend,
+            f'<script src="{backend}/heed/widget/heed.js" data-screenshot="false">'
+            f"</script>{script}",
         )
 
     with _site(browser, page=page) as (tab, problems, _store, _origin):
@@ -412,3 +430,92 @@ def test_an_element_with_id_heed_does_not_stop_the_embed(browser):
     with _site(browser, page=page) as (tab, problems, _store, _origin):
         tab.get_by_role("button", name="Feedback").wait_for()
         assert problems == []
+
+
+def _shot_page(backend: str, *, strict: bool = False) -> str:
+    """A scrolled page with a fixed header, a masked block and a filled-in field.
+
+    Without ``strict`` its CSP is what screenshots need (inline styles allowed, images
+    from data: and blob:, no Trusted Types); with it, the strict policy above.
+    """
+    content = (
+        "<style>body{margin:0;font:16px sans-serif}"
+        ".hdr{position:fixed;top:0;left:0;right:0;height:40px;background:#00ff00}"
+        ".secret{position:absolute;top:900px;left:100px;width:300px;height:100px;"
+        "background:#fff;color:#f00;font-size:40px}"
+        ".tall{height:3000px;background:#ffffff}</style>"
+        '<div class="hdr">header</div>'
+        '<div class="secret" data-heed-mask>4111 1111</div>'
+        '<input id="email" value="someone@example.com">'
+        '<div class="tall"></div>'
+        f'<script async src="{backend}/heed/widget/heed.js"></script>'
+    )
+    if strict:
+        return _page(backend, content)
+    csp = (
+        f"default-src 'none'; script-src {backend}; connect-src {backend}; "
+        "style-src 'unsafe-inline'; img-src data: blob:"
+    )
+    return f"""<!doctype html><html><head><meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="{csp}"><title>shots</title></head>
+<body>{content}</body></html>"""
+
+
+def _pixel(png: bytes, x: int, y: int):
+    from io import BytesIO
+
+    from PIL import Image
+
+    image = Image.open(BytesIO(png)).convert("RGB")
+    sx, sy = image.width / 1024, image.height / 700  # the capture scale
+    return image.getpixel((int(x * sx), int(y * sy)))
+
+
+def test_screenshot_of_the_visible_page_with_masking(browser):
+    pytest.importorskip("PIL")
+    with _site(browser, page=_shot_page) as (page, problems, store, _origin):
+        page.evaluate("window.scrollTo(0, 850)")
+        page.get_by_role("button", name="Feedback").click()
+        preview = page.get_by_role("img", name="Screenshot to be sent")
+        preview.wait_for(timeout=15_000)
+        page.get_by_label("Title").fill("with a screenshot")
+        page.get_by_role("button", name="Send").click()
+        page.get_by_text("Your report was sent").wait_for()
+        assert problems == []
+        (saved,) = [json.loads(v) for v in store.values()]
+        (attachment,) = saved["attachments"]
+        png = store.attachments[attachment["ref"]]
+        assert attachment["media_type"] == "image/png"
+        # The scrolled viewport: the fixed header stays at the top...
+        assert _pixel(png, 500, 20) == (0, 255, 0)
+        # ...the masked block (page y 900-1000, so 50-150 on screen) is black...
+        assert _pixel(png, 250, 100) == (0, 0, 0)
+        # ...and the page below it is white, not the top of the document.
+        assert _pixel(png, 800, 400) == (255, 255, 255)
+
+
+def test_untick_the_screenshot_and_none_is_sent(browser):
+    with _site(browser, page=_shot_page) as (page, _problems, store, _origin):
+        page.get_by_role("button", name="Feedback").click()
+        page.get_by_role("img", name="Screenshot to be sent").wait_for(timeout=15_000)
+        page.get_by_label("Include a screenshot of this page").uncheck()
+        page.get_by_label("Title").fill("no screenshot please")
+        page.get_by_role("button", name="Send").click()
+        page.get_by_text("Your report was sent").wait_for()
+        (saved,) = [json.loads(v) for v in store.values()]
+        assert saved["attachments"] == [] and store.attachments == {}
+
+
+def test_a_csp_too_strict_for_screenshots_still_sends_the_report(browser):
+    def page(backend):
+        return _shot_page(backend, strict=True)
+
+    with _site(browser, page=page) as (tab, _problems, store, _origin):
+        tab.get_by_role("button", name="Feedback").click()
+        tab.get_by_text("No screenshot could be taken").wait_for(timeout=15_000)
+        tab.get_by_label("Title").fill("strict page")
+        tab.get_by_role("button", name="Send").click()
+        tab.get_by_text("Your report was sent").wait_for()
+        (saved,) = [json.loads(v) for v in store.values()]
+        assert saved["attachments"] == []
+        assert any("blocks screenshots" in w for w in tab.heed_warnings)

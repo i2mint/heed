@@ -109,7 +109,7 @@ Content-Security-Policy:
 
 - `script-src` must list the origin serving the widget bundle. Prefer pinning the bundle with Subresource Integrity over allowing a whole CDN: each built file's `integrity` value is in `heed/static/widget/manifest.json` (served files carry `Access-Control-Allow-Origin: *`, so `crossorigin="anonymous"` works).
 - `connect-src` must list the heed backend origin; that is where the report is POSTed.
-- `img-src data: blob:` lets the widget preview the screenshot it captured.
+- Screenshots need `img-src data: blob:` (the rasterizer draws through a `data:` SVG image; the preview is a `blob:` URL), `style-src 'unsafe-inline'`, and no Trusted Types enforcement. On a stricter page the widget skips the screenshot after one probe and sends the report without it; the rest of the widget needs none of these.
 - The widget ([i2mint/heed#6](https://github.com/i2mint/heed/issues/6)) renders in a Shadow DOM with constructed stylesheets and builds its DOM without `innerHTML`, so it needs no `'unsafe-inline'` in `style-src`, no `'unsafe-eval'`, and runs under `require-trusted-types-for 'script'` (the loader's Trusted Types policy is named `heed` and only passes the bundle's own URL; add `heed` to a `trusted-types` allow-list). `tests/test_widget_browser.py` checks this in Chromium with `style-src 'none'`; treat any widget build that needs more as a bug.
 
 - The widget sends through the page's own `fetch`, so a script on the page that wraps `fetch` (analytics, error tracking) can see a report's text. Shadow DOM is isolation, not a security boundary: the embedding page is trusted with what its visitors type into the widget.

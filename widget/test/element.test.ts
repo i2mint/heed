@@ -2,8 +2,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import "../src/index";
 import { HeedFeedbackElement, TAG, defineHeedElement } from "../src/element";
 
+// Screenshots are covered in screenshot.test.ts; off here so sends start at once.
 const mount = (attrs: Record<string, string> = { endpoint: "https://h.example/heed/report" }) => {
   const el = document.createElement(TAG) as HeedFeedbackElement;
+  el.setAttribute("screenshot", "false");
   for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
   document.body.append(el);
   return el;
@@ -147,6 +149,7 @@ describe("<heed-feedback>", () => {
     vi.stubGlobal("fetch", fetch);
     const early = document.createElement("heed-early") as HeedFeedbackElement;
     early.setAttribute("endpoint", "/r");
+    early.setAttribute("screenshot", "false");
     (early as unknown as { botToken: unknown }).botToken = () => "early-token";
     document.body.append(early);
     customElements.define("heed-early", class extends HeedFeedbackElement {});

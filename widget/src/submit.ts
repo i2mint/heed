@@ -57,6 +57,12 @@ export const MESSAGES = {
   network: "Could not reach the feedback service. Check your connection and try again.",
   timeout: "The feedback service took too long to answer. Please try again.",
   retryIn: (s: number) => `You can try again in ${s} seconds.`,
+  note: "Sent with your report: this page's address (without its query) and your browser details.",
+  noteShot: "Sent with your report: this page's address (without its query), your browser details, and the screenshot below if ticked. Typed text is masked in it.",
+  shotLabel: "Include a screenshot of this page",
+  shotTaking: "Taking a screenshot…",
+  shotFinishing: "Finishing the screenshot…",
+  shotFailed: "No screenshot could be taken; the report will be sent without one.",
 } as const;
 
 export function buildFormData(input: SubmitInput, options: HeedOptions, botToken: string | null): FormData {
