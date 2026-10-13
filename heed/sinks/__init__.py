@@ -4,7 +4,9 @@ Import the sink you need, or look one up by short name via :func:`get_sink_class
 """
 
 from heed.sinks.base import BaseSink, DupCandidate, Sink, SinkResult
+from heed.sinks.category import CategorySink
 from heed.sinks.github import (
+    CategoryTreatment,
     GitHubIssuesSink,
     github_sink_from_token,
     render_issue_body,
@@ -14,6 +16,7 @@ from heed.sinks.store import StoreSink
 _REGISTRY: dict[str, type] = {
     "store": StoreSink,
     "github": GitHubIssuesSink,
+    "category": CategorySink,
 }
 
 
@@ -32,6 +35,8 @@ __all__ = [
     "DupCandidate",
     "StoreSink",
     "GitHubIssuesSink",
+    "CategorySink",
+    "CategoryTreatment",
     "github_sink_from_token",
     "render_issue_body",
     "get_sink_class",

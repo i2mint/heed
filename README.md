@@ -66,6 +66,21 @@ app = make_app(StoreSink({}), config=config)
 
 For production, set `allowed_origins`, `trusted_proxies` (behind a reverse proxy), `rate_limit_backend="redis"` with `redis_url` (several workers), and `bot_secret` to turn the bot gate on. Embedders also need a Content-Security-Policy that allows the widget: see [`misc/docs/embedding-security.md`](misc/docs/embedding-security.md).
 
+## One inbox for bugs, ideas and questions
+
+The widget's category picker sets `Report.category`; the sink decides what each category becomes:
+
+```python
+from heed import CategorySink, CategoryTreatment, GitHubIssuesSink, github_sink_from_token
+
+issues = github_sink_from_token("myorg/myapp", token)   # bug -> labelled issue with full context;
+                                                          # feature/question -> light issue (no env dump)
+ideas = github_sink_from_token("myorg/ideas", token, public_label="board")
+sink = CategorySink({"feature": ideas}, default=issues)  # or route a category to another sink
+```
+
+`GitHubIssuesSink(treatments={Category.feature: CategoryTreatment(("idea",), title_prefix="[idea] ")})` changes labels, title prefix and `detail` ("full" | "light") per category. For a future public board, sinks that can list their items implement `public_items()`; the GitHub sink returns issues a maintainer labelled `public` as `PublicItem`s (title, category, status from labels or issue state, link, 👍 votes, dates, never the body or identity), and `heed.roadmap(items)` / `heed.changelog(items)` are the two views over them.
+
 ## Embedding the widget
 
 The backend serves the widget too, so a site adds one tag:

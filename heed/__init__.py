@@ -50,6 +50,7 @@ from heed.base import (
     Status,
     new_report_id,
 )
+from heed.board import PublicItem, changelog, roadmap
 from heed.config import HeedConfig
 from heed.images import make_image_sanitizer, reencode_image, strip_image
 from heed.ingest import make_app, make_router, process_submission
@@ -83,6 +84,8 @@ from heed.serving import (
 )
 from heed.sinks import (
     BaseSink,
+    CategorySink,
+    CategoryTreatment,
     GitHubIssuesSink,
     Sink,
     SinkResult,
@@ -121,6 +124,12 @@ __all__ = [
     "StoreSink",
     "GitHubIssuesSink",
     "github_sink_from_token",
+    "CategorySink",
+    "CategoryTreatment",
+    # board (the read side)
+    "PublicItem",
+    "roadmap",
+    "changelog",
     # backend
     "HeedConfig",
     "process_submission",
