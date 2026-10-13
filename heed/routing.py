@@ -138,8 +138,9 @@ def chain_moderators(*moderators: Moderator) -> Moderator:
 #: Prefix of the keys reports are claimed under, in the holding store itself, while
 #: they are being released (when no separate ``claimed_store`` is given).
 CLAIM_PREFIX = "claimed--"
-#: Separates a report id from the per-release token in a claim key.
+#: Separates a report id from the per-release token (a uuid4 hex) in a claim key.
 _CLAIM_SEP = "--"
+_CLAIM_TOKEN = re.compile(r"[0-9a-f]{32}")
 
 
 def release_held(
@@ -184,11 +185,23 @@ def release_held(
         )
     claim_key = _new_claim_key(report_id, own_prefix=claimed_store is None)
     claims[claim_key] = raw
+    if report_id not in holding_store:  # a concurrent release took it meanwhile
+        _drop_claim(claims, claim_key)
+        raise KeyError(f"No held report with id {report_id!r}")
     try:
         del holding_store[report_id]
-    except KeyError:  # a concurrent release took it first
-        _drop_claim(claims, claim_key)
-        raise KeyError(f"No held report with id {report_id!r}") from None
+    except KeyError:
+        # Usually a concurrent release took it first, and its claim is the one that
+        # counts. But if no other claim exists the delete may have happened anyway
+        # (stores that report errors after acting): keep ours, so it is not lost.
+        others = set(_claim_keys_of(report_id, claims, own_prefix=claimed_store is None))
+        if report_id in holding_store or others - {claim_key}:
+            _drop_claim(claims, claim_key)
+            raise KeyError(f"No held report with id {report_id!r}") from None
+        raise KeyError(
+            f"Could not take held report {report_id!r} out of holding; its claim is "
+            "kept: call recover_claimed() when no release is running"
+        ) from None
     try:
         report = Report.model_validate_json(raw)
         destination = sink if sink is not None else resolve_sink(report.origin)
@@ -225,8 +238,10 @@ def recover_claimed(
     startup -- since an in-flight release's claim looks the same. Pass the same
     ``claimed_store`` as to :func:`release_held`.
 
-    A claim whose report is still in holding is just dropped (the holding copy is
-    intact; the claim may be a torn write). A claim that is not a valid report is
+    Only a valid report (whose own id matches its claim key) is ever written to
+    holding, and a valid holding copy is never replaced: a claim whose report is
+    intact in holding is just dropped (even a torn one), and one whose holding copy
+    is torn or missing restores it. Otherwise a claim that is not a valid report is
     left in place, and not returned.
     """
     own_prefix = claimed_store is None
@@ -234,17 +249,25 @@ def recover_claimed(
     recovered = []
     for claim_key in [k for k in list(claims) if _is_claim_key(k, own_prefix)]:
         report_id = _report_id_of_claim_key(claim_key, own_prefix)
-        if report_id in holding_store:
-            _drop_claim(claims, claim_key)
+        if _is_report(holding_store.get(report_id), report_id):
+            _drop_claim(claims, claim_key)  # holding is intact: the claim is redundant
             continue
-        raw = claims[claim_key]
-        try:
-            Report.model_validate_json(raw)
-        except ValueError:
+        raw = claims.get(claim_key)
+        if not _is_report(raw, report_id):
             continue  # torn or foreign: never let it replace anything
         _unclaim(report_id, raw, holding_store, claims, claim_key)
         recovered.append(report_id)
     return recovered
+
+
+def _is_report(raw, report_id):
+    """Whether ``raw`` is a valid serialized report with id ``report_id``."""
+    if raw is None:
+        return False
+    try:
+        return Report.model_validate_json(raw).id == report_id
+    except ValueError:
+        return False
 
 
 def _new_claim_key(report_id, *, own_prefix):
@@ -254,9 +277,12 @@ def _new_claim_key(report_id, *, own_prefix):
 
 
 def _is_claim_key(key, own_prefix):
-    if own_prefix and not key.startswith(CLAIM_PREFIX):
-        return False
-    return _CLAIM_SEP in (key[len(CLAIM_PREFIX) :] if own_prefix else key)
+    if own_prefix:
+        if not key.startswith(CLAIM_PREFIX):
+            return False
+        key = key[len(CLAIM_PREFIX) :]
+    report_id, sep, token = key.rpartition(_CLAIM_SEP)
+    return bool(sep and report_id and _CLAIM_TOKEN.fullmatch(token))
 
 
 def _report_id_of_claim_key(claim_key, own_prefix):

@@ -14,6 +14,8 @@ from heed import (
 )
 from heed.routing import CLAIM_PREFIX
 
+TOKEN = "0" * 32  # a claim token (a uuid4 hex) chosen by the test
+
 
 class Crash(BaseException):
     """Stands in for the process dying (SIGKILL): nothing after it runs."""
@@ -115,7 +117,7 @@ def test_separate_claimed_store():
 def test_recover_claimed_with_separate_store():
     held, claimed = {}, {}
     rid = _hold(held)
-    claimed[rid + "--token"] = held.pop(rid)  # what a crash after unholding leaves
+    claimed[rid + "--" + TOKEN] = held.pop(rid)  # what a crash after unholding leaves
     assert recover_claimed(holding_store=held, claimed_store=claimed) == [rid]
     assert rid in held and claimed == {}
 
@@ -123,10 +125,10 @@ def test_recover_claimed_with_separate_store():
 def test_a_claim_key_is_not_releasable():
     held = {}
     rid = _hold(held)
-    held[CLAIM_PREFIX + rid + "--token"] = held.pop(rid)
+    held[CLAIM_PREFIX + rid + "--" + TOKEN] = held.pop(rid)
     with pytest.raises(ValueError, match="recover_claimed"):
         release_held(
-            CLAIM_PREFIX + rid + "--token", holding_store=held, sink=StoreSink({})
+            CLAIM_PREFIX + rid + "--" + TOKEN, holding_store=held, sink=StoreSink({})
         )
 
 
@@ -163,7 +165,7 @@ def test_a_release_that_loses_a_race_leaves_no_claim():
 def test_a_claimed_report_is_not_released_again_until_recovered():
     held = {}
     rid = _hold(held)
-    held[CLAIM_PREFIX + rid + "--token"] = held[rid]  # a crash right after claiming
+    held[CLAIM_PREFIX + rid + "--" + TOKEN] = held[rid]  # a crash right after claiming
     with pytest.raises(KeyError, match="recover_claimed"):
         release_held(rid, holding_store=held, sink=StoreSink({}))
     assert recover_claimed(holding_store=held) == []  # holding copy kept, claim dropped
@@ -175,12 +177,54 @@ def test_recover_never_replaces_a_good_copy_with_a_torn_claim(tmp_path):
     held = make_report_store(str(tmp_path))
     rid = _hold(held)
     good = held[rid]
-    held[CLAIM_PREFIX + rid + "--token"] = ""  # killed mid-write of the claim
+    held[CLAIM_PREFIX + rid + "--" + TOKEN] = ""  # killed mid-write of the claim
     assert recover_claimed(holding_store=held) == []
     assert held[rid] == good and list(held) == [rid]
 
 
 def test_recover_leaves_an_invalid_claim_alone():
-    held, claimed = {}, {"x--token": "not a report"}
+    held, claimed = {}, {"x--" + TOKEN: "not a report"}
     assert recover_claimed(holding_store=held, claimed_store=claimed) == []
-    assert held == {} and claimed == {"x--token": "not a report"}
+    assert held == {} and claimed == {"x--" + TOKEN: "not a report"}
+
+
+def test_recover_restores_a_torn_holding_copy_from_the_claim(tmp_path):
+    held = make_report_store(str(tmp_path))
+    rid = _hold(held)
+    held[CLAIM_PREFIX + rid + "--" + TOKEN] = held[rid]
+    held[rid] = '{"id":"' + rid[:3]  # killed mid-write of the put-back
+    assert recover_claimed(holding_store=held) == [rid]
+    assert list(held) == [rid]
+    assert release_held(rid, holding_store=held, sink=StoreSink({})).ok
+
+
+@pytest.mark.parametrize("rid", ["claimed--site--42", "claimed--a--b"])
+def test_ids_that_look_like_claims_are_not_claims(rid):
+    held = {}
+    _hold_with_id(held, rid)
+    assert recover_claimed(holding_store=held) == []
+    assert list(held) == [rid]
+
+
+def test_a_delete_that_acts_then_raises_keeps_the_claim():
+    class DeletesThenRaises(dict):
+        def __delitem__(self, k):
+            super().__delitem__(k)
+            if not k.startswith(CLAIM_PREFIX):
+                raise KeyError(k)
+
+    held = DeletesThenRaises()
+    rid = _hold(held)
+    with pytest.raises(KeyError, match="recover_claimed"):
+        release_held(rid, holding_store=held, sink=StoreSink({}))
+    assert recover_claimed(holding_store=held) == [rid] and list(held) == [rid]
+
+
+def _hold_with_id(held, rid):
+    process_submission(
+        ReportSubmission(title="x"),
+        StoreSink({}),
+        moderator=hold_all,
+        holding_sink=StoreSink(held),
+        id_gen=lambda: rid,
+    )
