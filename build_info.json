@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "built_at": "2026-10-13T23:22:28Z",
+  "built_at": "2026-10-13T23:22:49Z",
   "package": {
     "name": "heed",
     "version": "0.0.1",
@@ -21,12 +21,12 @@
   "ci": {
     "provider": "github",
     "repository": "i2mint/heed",
-    "sha": "8a9bfffd55114377cdfabd1d27302218e062fb67",
+    "sha": "2507039430d1d8d60c607e6824b309c2b5649b17",
     "sha_in_history": true,
     "ref": "refs/heads/main",
     "ref_name": "main",
-    "run_id": "38483699744",
-    "run_url": "https://github.com/i2mint/heed/actions/runs/38483699744",
+    "run_id": "38483717469",
+    "run_url": "https://github.com/i2mint/heed/actions/runs/38483717469",
     "server_url": "https://github.com"
   },
   "tools": {
