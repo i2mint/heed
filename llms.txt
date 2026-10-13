@@ -1,0 +1,29 @@
+# heed
+
+> Embeddable, no-install, framework-agnostic end-user feedback / bug-report / feature-request capability with a pluggable backend (standalone; optional enlace add-on)
+
+
+## Pages
+
+- [heed](index.html.md): &#42;&#42;Embeddable, no-install, framework-agnostic end-user feedback&#42;&#42; — a drop-in widget
+- [API reference](api.html.md): | &#96;heed&#96;   | heed — embeddable, no-install, framework-agnostic end-user feedback.   |
+- [heed](_autosummary/heed.html.md): heed — embeddable, no-install, framework-agnostic end-user feedback.
+- [heed.base](_autosummary/heed.base.html.md): Domain model for heed — the single source of truth shared by widget and backend.
+- [heed.config](_autosummary/heed.config.html.md): Configuration for the heed backend (smart defaults; keyword-only).
+- [heed.ingest](_autosummary/heed.ingest.html.md): The ingest layer — build a Report from a submission and route it to a sink.
+- [heed.security](_autosummary/heed.security.html.md): Public-endpoint hardening (the ingest endpoint is unauthenticated and hostile).
+- [heed.sinks](_autosummary/heed.sinks.html.md): Sinks: pluggable report destinations (strategy pattern).
+- [heed.sinks.base](_autosummary/heed.sinks.base.html.md): The sink abstraction — where a report goes (strategy pattern).
+- [heed.sinks.github](_autosummary/heed.sinks.github.html.md): A sink that turns a report into a GitHub issue.
+- [heed.sinks.store](_autosummary/heed.sinks.store.html.md): A sink that persists reports into a Mapping (the default, dependency-free sink).
+- [heed.storage](_autosummary/heed.storage.html.md): Storage helpers — dol-backed stores for reports and binary attachments.
+- [For AI agents](ai-agents.html.md): &#96;heed&#96; ships artifacts for coding agents alongside its code. This page lists
+- [About this build](about-this-build.html.md): This documentation was built on &#42;&#42;2026-10-13 04:15 UTC&#42;&#42; from commit &lt;a href="https://github.com/i2m...
+
+## Optional
+
+- [heed.md](heed.md): Complete documentation in a single file.
+
+## Build
+
+- [build_info.json](build_info.json): build provenance (commit, version, tool versions, whether the docs match the package)

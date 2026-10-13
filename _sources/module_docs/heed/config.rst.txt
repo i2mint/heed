@@ -1,4 +1,0 @@
-heed.config
-===========
-.. automodule:: heed.config
-   :members:

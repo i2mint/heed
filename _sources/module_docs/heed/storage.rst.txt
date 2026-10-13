@@ -1,4 +1,0 @@
-heed.storage
-============
-.. automodule:: heed.storage
-   :members:

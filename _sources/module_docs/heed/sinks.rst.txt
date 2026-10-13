@@ -1,4 +1,0 @@
-heed.sinks
-==========
-.. automodule:: heed.sinks
-   :members:

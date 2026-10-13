@@ -1,0 +1,13 @@
+heed.storage
+============
+
+.. automodule:: heed.storage
+
+   
+   .. rubric:: Functions
+
+   .. autosummary::
+   
+      make_attachment_store
+      make_report_store
+   

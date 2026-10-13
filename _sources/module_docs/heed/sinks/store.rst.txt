@@ -1,4 +1,0 @@
-heed.sinks.store
-================
-.. automodule:: heed.sinks.store
-   :members:

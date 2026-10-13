@@ -1,0 +1,57 @@
+﻿heed
+====
+
+.. automodule:: heed
+
+   
+   .. rubric:: Functions
+
+   .. autosummary::
+   
+      new_report_id
+      github_sink_from_token
+      process_submission
+      make_router
+      make_app
+      make_rate_limiter
+      make_bot_verifier
+      make_report_store
+      make_attachment_store
+   
+   .. rubric:: Classes
+
+   .. autosummary::
+   
+      Report
+      ReportSubmission
+      Identity
+      Environment
+      Category
+      Status
+      Attachment
+      LogEntry
+      NetEntry
+      Sink
+      BaseSink
+      SinkResult
+      StoreSink
+      GitHubIssuesSink
+      HeedConfig
+      RateLimiter
+      InMemoryRateLimiter
+      RedisRateLimiter
+      BotVerifier
+      SiteverifyBotVerifier
+   
+.. rubric:: Modules
+
+.. autosummary::
+   :toctree:
+   :recursive:
+
+   base
+   config
+   ingest
+   security
+   sinks
+   storage

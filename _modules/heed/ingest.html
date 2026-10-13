@@ -1,90 +1,717 @@
-
-
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" data-content_root="../../">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>heed.ingest &mdash; heed 0.0.1 documentation</title>
-      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
-      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=9edc463e" />
-      <link rel="stylesheet" type="text/css" href="../../_static/copybutton.css?v=76b2166b" />
-      <link rel="stylesheet" type="text/css" href="../../_static/graphviz.css?v=4ae1632d" />
+
+
+<html lang="en" data-content_root="../../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<link rel="alternate" type="text/markdown" href="ingest.html.md">
+<link rel="describedby" href="../../llms.txt" type="text/markdown">
+    <title>heed.ingest &#8212; heed</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../_static/styles/theme.css?digest=18bd87630a240e9c25be" rel="stylesheet" />
+<link href="../../_static/styles/pydata-sphinx-theme.css?digest=18bd87630a240e9c25be" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=d75fae25" />
+    <link rel="stylesheet" type="text/css" href="../../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../../_static/epythet.css?v=ef673b48" />
+  
+  <!-- So that users can add custom icons -->
+  <script defer src="../../_static/scripts/fontawesome.js?digest=18bd87630a240e9c25be"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=18bd87630a240e9c25be" />
+<link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=18bd87630a240e9c25be" />
+
+    <script src="../../_static/documentation_options.js?v=d45e8c67"></script>
+    <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../../_static/copybutton.js?v=fd10adb8"></script>
+    <script type="module">import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11.12.1/dist/mermaid.esm.min.mjs";
+
+
+
+
+
+const initStyles = () => {
+    const defaultStyle = document.createElement('style');
+    defaultStyle.textContent = "pre.mermaid {\n    /* Same as .mermaid-container > pre */\n    display: block;\n    width: 100%;\n}\n\npre.mermaid > svg {\n    /* Same as .mermaid-container > pre > svg */\n    height: 500px;\n    width: 100%;\n    max-width: 100% !important;\n}";
+    document.head.appendChild(defaultStyle);
+
+    const fullscreenStyle = document.createElement('style');
+    fullscreenStyle.textContent = ".mermaid-container {\n    position: relative;\n    display: flex;\n    flex-direction: row;\n    width: 100%;\n}\n\n.mermaid-container > pre {\n    display: block;\n    width: 100%;\n}\n\n.mermaid-container > pre > svg {\n    height: 500px;\n    width: 100%;\n    max-width: 100% !important;\n}\n\n.mermaid-fullscreen-btn {\n    position: absolute;\n    width: 28px;\n    height: 28px;\n    background: rgba(255, 255, 255, 0.95);\n    border: 1px solid rgba(0, 0, 0, 0.3);\n    border-radius: 4px;\n    cursor: pointer;\n    display: flex;\n    align-items: center;\n    justify-content: center;\n    transition: all 0.2s;\n    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);\n    font-size: 14px;\n    line-height: 1;\n    padding: 0;\n    color: #333;\n}\n\n.mermaid-fullscreen-btn:hover {\n    opacity: 100% !important;\n    background: rgba(255, 255, 255, 1);\n    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);\n    transform: scale(1.1);\n}\n\n.mermaid-fullscreen-btn.dark-theme {\n    background: rgba(50, 50, 50, 0.95);\n    border: 1px solid rgba(255, 255, 255, 0.3);\n    color: #e0e0e0;\n}\n\n.mermaid-fullscreen-btn.dark-theme:hover {\n    background: rgba(60, 60, 60, 1);\n    box-shadow: 0 3px 10px rgba(255, 255, 255, 0.2);\n}\n\n.mermaid-fullscreen-modal {\n    display: none;\n    position: fixed !important;\n    top: 0 !important;\n    left: 0 !important;\n    width: 95vw;\n    height: 100vh;\n    background: rgba(255, 255, 255, 0.98);\n    z-index: 9999;\n    padding: 20px;\n    overflow: auto;\n}\n\n.mermaid-fullscreen-modal.dark-theme {\n    background: rgba(0, 0, 0, 0.98);\n}\n\n.mermaid-fullscreen-modal.active {\n    display: flex;\n    align-items: center;\n    justify-content: center;\n}\n\n.mermaid-container-fullscreen {\n    position: relative;\n    width: 95vw;\n    height: 90vh;\n    max-width: 95vw;\n    max-height: 90vh;\n    background: white;\n    border-radius: 8px;\n    padding: 20px;\n    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);\n    overflow: auto;\n    display: flex;\n    align-items: center;\n    justify-content: center;\n}\n\n.mermaid-container-fullscreen.dark-theme {\n    background: #1a1a1a;\n    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8);\n}\n\n.mermaid-container-fullscreen pre.mermaid {\n    width: 100%;\n    height: 100%;\n    display: flex;\n    align-items: center;\n    justify-content: center;\n}\n\n.mermaid-container-fullscreen .mermaid svg {\n    height: 100% !important;\n    width: 100% !important;\n    cursor: grab;\n}\n\n.mermaid-fullscreen-close {\n    position: fixed !important;\n    top: 20px !important;\n    right: 20px !important;\n    width: 40px;\n    height: 40px;\n    background: rgba(255, 255, 255, 0.95);\n    border: 1px solid rgba(0, 0, 0, 0.2);\n    border-radius: 50%;\n    cursor: pointer;\n    z-index: 10000;\n    display: flex;\n    align-items: center;\n    justify-content: center;\n    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);\n    transition: all 0.2s;\n    font-size: 24px;\n    line-height: 1;\n    color: #333;\n}\n\n.mermaid-fullscreen-close:hover {\n    background: white;\n    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);\n    transform: scale(1.1);\n}\n\n.mermaid-fullscreen-close.dark-theme {\n    background: rgba(50, 50, 50, 0.95);\n    border: 1px solid rgba(255, 255, 255, 0.2);\n    color: #e0e0e0;\n}\n\n.mermaid-fullscreen-close.dark-theme:hover {\n    background: rgba(60, 60, 60, 1);\n    box-shadow: 0 6px 16px rgba(255, 255, 255, 0.2);\n}\n\n.mermaid-fullscreen-modal .mermaid-fullscreen-btn {\n    display: none !important;\n}";
+    document.head.appendChild(fullscreenStyle);
+}
+
+// Detect if page has dark background
+const isDarkTheme = () => {
+    // We use a set of heuristics:
+    // 1. Check for common dark mode classes or attributes
+    // 2. Check computed background color brightness
+    if (document.documentElement.classList.contains('dark') ||
+        document.documentElement.getAttribute('data-theme') === 'dark' ||
+        document.body.classList.contains('dark') ||
+        document.body.getAttribute('data-theme') === 'dark') {
+        // console.log("Dark theme detected via class/attribute");
+        return true;
+    }
+    if (document.documentElement.classList.contains('light') ||
+        document.documentElement.getAttribute('data-theme') === 'light' ||
+        document.body.classList.contains('light') ||
+        document.body.getAttribute('data-theme') === 'light') {
+        // console.log("Light theme detected via class/attribute");
+        return false;
+    }
+    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        // console.log("Dark theme detected via prefers-color-scheme");
+        return true;
+    }
+    const bgColor = window.getComputedStyle(document.body).backgroundColor;
+    const match = bgColor.match(/rgb\((\d+),\s*(\d+),\s*(\d+)/);
+    if (match) {
+        const r = parseInt(match[1]);
+        const g = parseInt(match[2]);
+        const b = parseInt(match[3]);
+        const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+        // console.log("Background color brightness:", brightness);
+        return brightness < 128;
+    }
+    // console.log("No dark or light theme detected, defaulting to light theme");
+    return false;
+};
+
+let darkTheme = isDarkTheme();
+let modal = null;
+let modalContent = null;
+let previousScrollOffset = [window.scrollX, window.scrollY];
+let _lazyObserver = null;
+let _renderQueue = Promise.resolve();
+let closeModal = () => {};
+
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && modal?.classList.contains('active')) {
+        closeModal();
+    }
+});
+
+// Apply d3 zoom to each SVG. Idempotent: an SVG already wrapped is skipped,
+// so this is safe to call both for the initial batch and for diagrams that
+// render lazily once they become visible.
+const addZoomToSvgs = (svgs) => {
+    svgs.each(function() {
+        if (this.getAttribute('data-zoom-applied') === 'true') return;
+        var svg = d3.select(this);
+        svg.html("<g class='wrapper'>" + svg.html() + "</g>");
+        var inner = svg.select("g");
+        var zoom = d3.zoom().on("zoom", function(event) {
+            inner.attr("transform", event.transform);
+        });
+        svg.call(zoom);
+        this.setAttribute('data-zoom-applied', 'true');
+    });
+};
+
+const runMermaid = async (rerun) => {
+    console.log("Running mermaid diagrams, rerun =", rerun);
+    // clear all existing mermaid charts
+    let all_mermaids = document.querySelectorAll(".mermaid");
+
+    if (rerun) {
+        // Disconnect any previous lazy rendering observer
+        if (_lazyObserver) {
+            _lazyObserver.disconnect();
+            _lazyObserver = null;
+        }
+
+        all_mermaids.forEach((el) => {
+            el.removeAttribute('data-mermaid-deferred');
+            el.removeAttribute('data-mermaid-render-failed');
+            if(!el.hasAttribute("data-original-code")) {
+                // store original code
+                // console.log(`Storing original code for first run: `, el.innerHTML);
+                el.setAttribute('data-original-code', el.innerHTML);
+            }
+            if(el.getAttribute("data-processed") === "true") {
+                // remove and restore original
+                el.removeAttribute("data-processed");
+                // console.log(`Restoring original code for re-run: `, el.getAttribute('data-original-code'));
+                el.innerHTML = el.getAttribute('data-original-code');
+            } else {
+                // store original code
+                // console.log(`Storing original code for re-run: `, el.innerHTML);
+                el.setAttribute('data-original-code', el.innerHTML);
+            }
+        });
+
+        // Separate visible and hidden elements. Mermaid's layout engine measures
+        // text dimensions via the DOM, which fails for elements hidden by a parent
+        // (e.g., Reveal.js non-active slides, sphinx-design unopened tabs),
+        // producing broken SVGs. Render visible elements now, defer hidden ones.
+        const visible = [];
+        const hidden = [];
+        all_mermaids.forEach((el) => {
+            // offsetParent is null for display:none ancestors.
+            // getClientRects().length > 0 catches position:fixed elements
+            // (which also have null offsetParent but are still visible).
+            if (el.offsetParent !== null || el.getClientRects().length > 0) {
+                visible.push(el);
+            } else {
+                hidden.push(el);
+                el.setAttribute('data-mermaid-deferred', 'true');
+            }
+        });
+
+        if (visible.length > 0) {
+            try {
+                await mermaid.run({ nodes: visible });
+            } catch (e) {
+                console.error("Mermaid rendering failed:", e);
+            }
+        }
+
+        // Lazily render hidden elements when they become visible.
+        // Uses a promise chain (_renderQueue) to serialize rendering,
+        // since IntersectionObserver may report multiple entries at once
+        // and mermaid.run() is not safe to call concurrently.
+        if (hidden.length > 0) {
+            if (typeof IntersectionObserver === 'undefined') {
+                console.warn("IntersectionObserver not available; hidden mermaid diagrams will not render.");
+            } else {
+                _renderQueue = Promise.resolve();
+                _lazyObserver = new IntersectionObserver((entries) => {
+                    for (const entry of entries) {
+                        if (entry.isIntersecting && entry.target.getAttribute("data-processed") !== "true") {
+                            _lazyObserver.unobserve(entry.target);
+                            const el = entry.target;
+                            _renderQueue = _renderQueue.then(async () => {
+                                try {
+                                    await mermaid.run({ nodes: [el] });
+                                    el.removeAttribute('data-mermaid-deferred');
+                                    // Apply zoom to the now-rendered diagram, matching
+                                    // the decoration visible diagrams receive.
+                                    if (false) {
+                                        addZoomToSvgs(d3.selectAll("").select(function() {
+                                            return this.querySelector("svg");
+                                        }));
+                                    }
+                                } catch (e) {
+                                    console.error("Mermaid deferred rendering failed:", e);
+                                    el.removeAttribute('data-mermaid-deferred');
+                                    el.setAttribute('data-mermaid-render-failed', 'true');
+                                }
+                            });
+                        }
+                    }
+                });
+                hidden.forEach((el) => _lazyObserver.observe(el));
+            }
+        }
+    }
+
+    all_mermaids = document.querySelectorAll(".mermaid");
+    // Exclude deferred (hidden) and render-failed elements from completion checks
+    const mermaids_active = document.querySelectorAll(".mermaid:not([data-mermaid-deferred]):not([data-mermaid-render-failed])");
+    const mermaids_processed = document.querySelectorAll(".mermaid:not([data-mermaid-deferred]):not([data-mermaid-render-failed])[data-processed='true']");
+
+    if (false) {
+        const mermaids_to_add_zoom = 0 === -1 ? mermaids_active.length : 0;
+        if(mermaids_to_add_zoom > 0) {
+            var svgs = d3.selectAll("").select(function() {
+                return this.querySelector("svg");
+            });
+            // Wait until every active (visible) diagram has rendered. Deferred
+            // diagrams are excluded, so a fixed d3_node_count that counts a
+            // hidden diagram no longer loops forever waiting for its SVG.
+            if(mermaids_active.length !== mermaids_processed.length) {
+                setTimeout(() => runMermaid(false), 200);
+                return;
+            }
+            addZoomToSvgs(svgs);
+        }
+    } else if(mermaids_active.length !== mermaids_processed.length) {
+        // Wait for mermaid to process all diagrams
+        setTimeout(() => runMermaid(false), 200);
+        return;
+    }
+
+    // Stop here if not adding fullscreen capability
+    if (!true) return;
+
+    if (modal !== null ) {
+        // Destroy existing modal
+        modal.remove();
+        modal = null;
+        modalContent = null;
+    }
+
+    modal = document.createElement('div');
+    modal.className = 'mermaid-fullscreen-modal' + (darkTheme ? ' dark-theme' : '');
+    modal.setAttribute('role', 'dialog');
+    modal.setAttribute('aria-modal', 'true');
+    modal.setAttribute('aria-label', 'Fullscreen diagram viewer');
+    modal.innerHTML = `
+        <button class="mermaid-fullscreen-close${darkTheme ? ' dark-theme' : ''}" aria-label="Close fullscreen">✕</button>
+        <div class="mermaid-container-fullscreen${darkTheme ? ' dark-theme' : ''}"></div>
+    `;
+    document.body.appendChild(modal);
+
+    modalContent = modal.querySelector('.mermaid-container-fullscreen');
+    const closeBtn = modal.querySelector('.mermaid-fullscreen-close');
+
+    closeModal = () => {
+        modal.classList.remove('active');
+        modalContent.innerHTML = '';
+        document.body.style.overflow = ''
+        window.scrollTo({left: previousScrollOffset[0], top: previousScrollOffset[1], behavior: 'instant'});
+    };
+
+    closeBtn.addEventListener('click', closeModal);
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) closeModal();
+    });
+    document.querySelectorAll('.mermaid').forEach((mermaidDiv) => {
+        if (mermaidDiv.parentNode.classList.contains('mermaid-container') ||
+            mermaidDiv.closest('.mermaid-fullscreen-modal')) {
+            // Already processed, adjust button class if needed
+            const existingBtn = mermaidDiv.parentNode.querySelector('.mermaid-fullscreen-btn');
+            if (existingBtn) {
+                existingBtn.className = 'mermaid-fullscreen-btn' + (darkTheme ? ' dark-theme' : '');
+            }
+            return;
+        }
+
+        const container = document.createElement('div');
+        container.className = 'mermaid-container';
+        mermaidDiv.parentNode.insertBefore(container, mermaidDiv);
+        container.appendChild(mermaidDiv);
+
+        const fullscreenBtn = document.createElement('button');
+        fullscreenBtn.className = 'mermaid-fullscreen-btn' + (darkTheme ? ' dark-theme' : '');
+        fullscreenBtn.setAttribute('aria-label', 'View diagram in fullscreen');
+        fullscreenBtn.textContent = "\u26f6";
+        fullscreenBtn.style.opacity = "50%";
+
+        // Calculate dynamic position based on diagram's margin and padding
+        const diagramStyle = window.getComputedStyle(mermaidDiv);
+        const marginTop = parseFloat(diagramStyle.marginTop) || 0;
+        const marginRight = parseFloat(diagramStyle.marginRight) || 0;
+        const paddingTop = parseFloat(diagramStyle.paddingTop) || 0;
+        const paddingRight = parseFloat(diagramStyle.paddingRight) || 0;
+        fullscreenBtn.style.top = `${marginTop + paddingTop + 4}px`;
+        fullscreenBtn.style.right = `${marginRight + paddingRight + 4}px`;
+
+        fullscreenBtn.addEventListener('click', () => {
+            previousScrollOffset = [window.scrollX, window.scrollY];
+            const clone = mermaidDiv.cloneNode(true);
+            modalContent.innerHTML = '';
+            modalContent.appendChild(clone);
+
+            const svg = clone.querySelector('svg');
+            if (svg) {
+                svg.removeAttribute('width');
+                svg.removeAttribute('height');
+                svg.style.width = '100%';
+                svg.style.height = 'auto';
+                svg.style.maxWidth = '100%';
+                svg.style.display = 'block';
+
+                if (false) {
+                    setTimeout(() => {
+                        const g = svg.querySelector('g');
+                        if (g) {
+                            var svgD3 = d3.select(svg);
+                            svgD3.html("<g class='wrapper'>" + svgD3.html() + "</g>");
+                            var inner = svgD3.select("g");
+                            var zoom = d3.zoom().on("zoom", function(event) {
+                                inner.attr("transform", event.transform);
+                            });
+                            svgD3.call(zoom);
+                        }
+                    }, 100);
+                }
+            }
+
+            modal.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        });
+        container.appendChild(fullscreenBtn);
+    });
+};
+
+
+
+const load = async () => {
+    initStyles();
+
+
+    await runMermaid(true);
+
+    const reRunIfThemeChanges = async () => {
+        const newDarkTheme = isDarkTheme();
+        if (newDarkTheme !== darkTheme) {
+            darkTheme = newDarkTheme;
+            console.log("Theme change detected, re-running mermaid with", darkTheme ? "dark" : "default", "theme");
+            await mermaid.initialize(
+                {...{"startOnLoad": false},
+                ...{ darkMode: darkTheme, theme: darkTheme ? "dark" : "default" },
+                }
+            );
+            await runMermaid(true);
+        }
+    };
+
+    // Update theme classes when theme changes
+    const themeObserver = new MutationObserver(reRunIfThemeChanges);
+    themeObserver.observe(document.documentElement, {
+        attributes: true,
+        attributeFilter: ['class', 'style', 'data-theme']
+    });
+    themeObserver.observe(document.body, {
+        attributes: true,
+        attributeFilter: ['class', 'style', 'data-theme']
+    });
+};
+
+
+
+
+
+console.log("Initializing mermaid with", darkTheme ? "dark" : "default", "theme");
+mermaid.initialize(
+    {...{"startOnLoad": false},
+    ...{ darkMode: darkTheme, theme: darkTheme ? "dark" : "default" },
+    }
+);
+
+window.addEventListener("load", load);
+window.runMermaid = runMermaid;</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = '_modules/heed/ingest';</script>
+    <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="color-scheme" content="light dark"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="0.0.1" />
+  
+    
+    <script src="../../_static/searchtools.js"></script>
+    <script src="../../_static/language_data.js"></script>
+    <script src="../../searchindex.js"></script>
+  
+  </head>
+  <body data-default-mode="">
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
 
   
-      <script src="../../_static/jquery.js?v=5d32c60e"></script>
-      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../../_static/documentation_options.js?v=d45e8c67"></script>
-      <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
-      <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
-      <script src="../../_static/toggleprompt.js?v=d7ede5d2"></script>
-      <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
-      <script src="../../_static/copybutton.js?v=f281be69"></script>
-    <script src="../../_static/js/theme.js"></script>
-    <link rel="index" title="Index" href="../../genindex.html" />
-    <link rel="search" title="Search" href="../../search.html" /> 
-</head>
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+  
+  
+  
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
 
-<body class="wy-body-for-nav"> 
-  <div class="wy-grid-for-nav">
-    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
-      <div class="wy-side-scroll">
-        <div class="wy-side-nav-search" >
-
-          
-          
-          <a href="../../index.html" class="icon icon-home">
-            heed
-          </a>
-<div role="search">
-  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
-    <input type="hidden" name="check_keywords" value="yes" />
-    <input type="hidden" name="area" value="default" />
-  </form>
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
 </div>
-        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
-              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="../../module_docs/heed.html">heed</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../module_docs/heed/__main__.html">heed.__main__</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../module_docs/heed/base.html">heed.base</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../module_docs/heed/config.html">heed.config</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../module_docs/heed/ingest.html">heed.ingest</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../module_docs/heed/security.html">heed.security</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../module_docs/heed/sinks.html">heed.sinks</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../module_docs/heed/sinks/base.html">heed.sinks.base</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../module_docs/heed/sinks/github.html">heed.sinks.github</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../module_docs/heed/sinks/store.html">heed.sinks.store</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../module_docs/heed/storage.html">heed.storage</a></li>
-</ul>
 
-        </div>
-      </div>
-    </nav>
+  
+    <header id="pst-header" class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button type="button" class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
 
-    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
-          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
-          <a href="../../index.html">heed</a>
-      </nav>
+  
+    
+  
 
-      <div class="wy-nav-content">
-        <div class="rst-content">
-          <div role="navigation" aria-label="Page navigation">
-  <ul class="wy-breadcrumbs">
-      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
-          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
-      <li class="breadcrumb-item active">heed.ingest</li>
-      <li class="wy-breadcrumbs-aside">
-      </li>
+<a class="navbar-brand logo" href="../../index.html">
+  
+  
+  
+  
+  
+  
+    <p class="title logo__title">heed</p>
+  
+</a></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../api.html">
+    API reference
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../ai-agents.html">
+    For AI agents
+  </a>
+</li>
+
   </ul>
-  <hr/>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button type="button" class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button type="button" class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg fa-fw" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg fa-fw" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg fa-fw" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button type="button" class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg fa-fw me-1"></i>System Settings</button></li>
+    <li><button type="button" class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg fa-fw me-1"></i>Light</button></li>
+    <li><button type="button" class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg fa-fw me-1"></i>Dark</button></li>
+  </ul>
+</div></div>
+      
+        <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/i2mint/heed" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i><span class="visually-hidden">GitHub</span></a>
+        </li>
+</ul></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button type="button" class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
 </div>
-          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
-           <div itemprop="articleBody">
-             
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+        
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar hide-on-wide">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../api.html">
+    API reference
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../ai-agents.html">
+    For AI agents
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button type="button" class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg fa-fw" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg fa-fw" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg fa-fw" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button type="button" class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg fa-fw me-1"></i>System Settings</button></li>
+    <li><button type="button" class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg fa-fw me-1"></i>Light</button></li>
+    <li><button type="button" class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg fa-fw me-1"></i>Dark</button></li>
+  </ul>
+</div></div>
+        
+          <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/i2mint/heed" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i><span class="visually-hidden">GitHub</span></a>
+        </li>
+</ul></div>
+        
+      </div>
+    
+  </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="../index.html" class="nav-link">Module code</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">heed.ingest</span></li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
   <h1>Source code for heed.ingest</h1><div class="highlight"><pre>
-<span></span><span class="sd">&quot;&quot;&quot;The ingest layer — build a Report from a submission and route it to a sink.</span>
+<span></span><span class="sd">"""The ingest layer — build a Report from a submission and route it to a sink.</span>
 
 <span class="sd">``process_submission`` is the pure, framework-free core (dependency-injected sink,</span>
 <span class="sd">stores, clock, id generator) so it is unit-testable without a server. ``make_router``</span>
@@ -92,25 +719,30 @@
 <span class="sd">``include_router`` into an enlace app. Identity is anonymous by default; pass a</span>
 <span class="sd">``user_dependency`` to bind identity when an auth layer (e.g. enlace_auth) is present.</span>
 
+<span class="sd">The router treats every request as hostile (see ``security.py`` and issue #5). Checks</span>
+<span class="sd">run cheapest-first so abuse is rejected before it costs anything: CORS preflight →</span>
+<span class="sd">origin allow-list → per-IP rate limit (both before ``user_dependency``) → body-size cap</span>
+<span class="sd">(streamed, before parsing) → form limits → honeypot → bot gate → per-origin rate limit</span>
+<span class="sd">→ model validation → screenshot sniffing.</span>
+
 <span class="sd">NOTE: this module does not ``from __future__ import annotations`` — FastAPI resolves</span>
 <span class="sd">route-handler annotations against module globals, so the request/response types are</span>
 <span class="sd">imported at module level.</span>
-<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">"""</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">MutableMapping</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Optional</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">fastapi</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
-    <span class="n">APIRouter</span><span class="p">,</span>
-    <span class="n">Depends</span><span class="p">,</span>
-    <span class="n">FastAPI</span><span class="p">,</span>
-    <span class="n">File</span><span class="p">,</span>
-    <span class="n">Form</span><span class="p">,</span>
-    <span class="n">HTTPException</span><span class="p">,</span>
-    <span class="n">Request</span><span class="p">,</span>
-    <span class="n">UploadFile</span><span class="p">,</span>
-<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fastapi</span><span class="w"> </span><span class="kn">import</span> <span class="n">APIRouter</span><span class="p">,</span> <span class="n">Depends</span><span class="p">,</span> <span class="n">FastAPI</span><span class="p">,</span> <span class="n">HTTPException</span><span class="p">,</span> <span class="n">Request</span><span class="p">,</span> <span class="n">Response</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fastapi.responses</span><span class="w"> </span><span class="kn">import</span> <span class="n">JSONResponse</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pydantic</span><span class="w"> </span><span class="kn">import</span> <span class="n">ValidationError</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">python_multipart.exceptions</span><span class="w"> </span><span class="kn">import</span> <span class="n">MultipartParseError</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">starlette.concurrency</span><span class="w"> </span><span class="kn">import</span> <span class="n">run_in_threadpool</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">starlette.datastructures</span><span class="w"> </span><span class="kn">import</span> <span class="n">UploadFile</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">starlette.exceptions</span><span class="w"> </span><span class="kn">import</span> <span class="n">HTTPException</span> <span class="k">as</span> <span class="n">StarletteHTTPException</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">starlette.formparsers</span><span class="w"> </span><span class="kn">import</span> <span class="n">MultiPartException</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">heed.base</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">Attachment</span><span class="p">,</span>
@@ -122,38 +754,63 @@
     <span class="n">utcnow</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">heed.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">HeedConfig</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">heed.security</span><span class="w"> </span><span class="kn">import</span> <span class="n">InMemoryRateLimiter</span><span class="p">,</span> <span class="n">RateLimiter</span><span class="p">,</span> <span class="n">origin_allowed</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">heed.security</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">IMAGE_EXTENSIONS</span><span class="p">,</span>
+    <span class="n">BotVerifier</span><span class="p">,</span>
+    <span class="n">RateLimiter</span><span class="p">,</span>
+    <span class="n">client_ip</span><span class="p">,</span>
+    <span class="n">cors_headers</span><span class="p">,</span>
+    <span class="n">make_bot_verifier</span><span class="p">,</span>
+    <span class="n">make_rate_limiter</span><span class="p">,</span>
+    <span class="n">normalize_origin</span><span class="p">,</span>
+    <span class="n">origin_allowed</span><span class="p">,</span>
+    <span class="n">parse_networks</span><span class="p">,</span>
+    <span class="n">preflight_headers</span><span class="p">,</span>
+    <span class="n">rate_limit_key</span><span class="p">,</span>
+    <span class="n">sniff_image_type</span><span class="p">,</span>
+<span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">heed.sinks.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">Sink</span><span class="p">,</span> <span class="n">SinkResult</span>
+
+<span class="n">_FORM_MEDIA_TYPES</span> <span class="o">=</span> <span class="p">(</span><span class="s2">"multipart/form-data"</span><span class="p">,</span> <span class="s2">"application/x-www-form-urlencoded"</span><span class="p">)</span>
+<span class="n">_TEXT_FIELDS</span> <span class="o">=</span> <span class="p">(</span><span class="s2">"title"</span><span class="p">,</span> <span class="s2">"body"</span><span class="p">,</span> <span class="s2">"category"</span><span class="p">,</span> <span class="s2">"page_url"</span><span class="p">,</span> <span class="s2">"env"</span><span class="p">,</span> <span class="s2">"anon_id"</span><span class="p">)</span>
+<span class="n">_MAX_LOC_CHARS</span> <span class="o">=</span> <span class="mi">64</span>
+<span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s2">"heed.ingest"</span><span class="p">)</span>
+<span class="c1"># Sent on every /report response, success or error.</span>
+<span class="n">_RESPONSE_HEADERS</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"X-Content-Type-Options"</span><span class="p">:</span> <span class="s2">"nosniff"</span><span class="p">,</span> <span class="s2">"Cache-Control"</span><span class="p">:</span> <span class="s2">"no-store"</span><span class="p">}</span>
 
 
 <div class="viewcode-block" id="process_submission">
-<a class="viewcode-back" href="../../module_docs/heed/ingest.html#heed.process_submission">[docs]</a>
+<a class="viewcode-back" href="../../_autosummary/heed.ingest.html#heed.process_submission">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">process_submission</span><span class="p">(</span>
     <span class="n">submission</span><span class="p">:</span> <span class="n">ReportSubmission</span><span class="p">,</span>
     <span class="n">sink</span><span class="p">:</span> <span class="n">Sink</span><span class="p">,</span>
     <span class="o">*</span><span class="p">,</span>
-    <span class="n">origin</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
+    <span class="n">origin</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">""</span><span class="p">,</span>
     <span class="n">user</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">screenshot</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bytes</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">screenshot_media_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"image/png"</span><span class="p">,</span>
     <span class="n">attachment_store</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">MutableMapping</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">config</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">HeedConfig</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">id_gen</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[],</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">new_report_id</span><span class="p">,</span>
     <span class="n">clock</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[],</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="n">utcnow</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Report</span><span class="p">,</span> <span class="n">SinkResult</span><span class="p">]:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Enrich ``submission`` into a Report, store any screenshot, and route to ``sink``.</span>
+<span class="w">    </span><span class="sd">"""Enrich ``submission`` into a Report, store any screenshot, and route to ``sink``.</span>
 
 <span class="sd">    Returns the (report, sink-result) pair. The server owns id/created_at/identity/</span>
 <span class="sd">    origin/status — never the client. Opt-in capture (console/network) is dropped unless</span>
 <span class="sd">    enabled in ``config``.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">config</span> <span class="o">=</span> <span class="n">config</span> <span class="ow">or</span> <span class="n">HeedConfig</span><span class="p">()</span>
     <span class="n">report_id</span> <span class="o">=</span> <span class="n">id_gen</span><span class="p">()</span>
 
     <span class="n">attachments</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Attachment</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="k">if</span> <span class="n">screenshot</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">attachment_store</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">key</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">report_id</span><span class="si">}</span><span class="s2">.png&quot;</span>
+        <span class="n">ext</span> <span class="o">=</span> <span class="n">IMAGE_EXTENSIONS</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">screenshot_media_type</span><span class="p">,</span> <span class="s2">"bin"</span><span class="p">)</span>
+        <span class="n">key</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">report_id</span><span class="si">}</span><span class="s2">.</span><span class="si">{</span><span class="n">ext</span><span class="si">}</span><span class="s2">"</span>
         <span class="n">attachment_store</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">screenshot</span>
-        <span class="n">attachments</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Attachment</span><span class="p">(</span><span class="n">ref</span><span class="o">=</span><span class="n">key</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">screenshot</span><span class="p">)))</span>
+        <span class="n">attachments</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+            <span class="n">Attachment</span><span class="p">(</span><span class="n">ref</span><span class="o">=</span><span class="n">key</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">screenshot</span><span class="p">),</span> <span class="n">media_type</span><span class="o">=</span><span class="n">screenshot_media_type</span><span class="p">)</span>
+        <span class="p">)</span>
 
     <span class="n">report</span> <span class="o">=</span> <span class="n">Report</span><span class="p">(</span>
         <span class="nb">id</span><span class="o">=</span><span class="n">report_id</span><span class="p">,</span>
@@ -185,36 +842,143 @@
     <span class="n">anon_id</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ReportSubmission</span><span class="p">:</span>
     <span class="n">env_obj</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">env</span><span class="p">)</span> <span class="k">if</span> <span class="n">env</span> <span class="k">else</span> <span class="p">{}</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">env_obj</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"env must be a JSON object"</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">ReportSubmission</span><span class="p">(</span>
         <span class="n">title</span><span class="o">=</span><span class="n">title</span><span class="p">,</span>
         <span class="n">body</span><span class="o">=</span><span class="n">body</span><span class="p">,</span>
         <span class="n">category</span><span class="o">=</span><span class="n">category</span><span class="p">,</span>
         <span class="n">page_url</span><span class="o">=</span><span class="n">page_url</span><span class="p">,</span>
         <span class="n">env</span><span class="o">=</span><span class="n">env_obj</span><span class="p">,</span>
-        <span class="n">anon_id</span><span class="o">=</span><span class="n">anon_id</span><span class="p">,</span>
+        <span class="n">anon_id</span><span class="o">=</span><span class="n">anon_id</span> <span class="ow">or</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span>
 
 
+<div class="viewcode-block" id="read_capped_body">
+<a class="viewcode-back" href="../../_autosummary/heed.ingest.html#heed.read_capped_body">[docs]</a>
+<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">read_capped_body</span><span class="p">(</span><span class="n">request</span><span class="p">:</span> <span class="n">Request</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">max_bytes</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bytes</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">"""Read the request body, or return None as soon as it exceeds ``max_bytes``.</span>
+
+<span class="sd">    Checks ``Content-Length`` first, then counts streamed bytes (a chunked request</span>
+<span class="sd">    has no length header), so an oversized body is never buffered whole.</span>
+<span class="sd">    """</span>
+    <span class="n">declared</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">headers</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"content-length"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">declared</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">int</span><span class="p">(</span><span class="n">declared</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">max_bytes</span><span class="p">:</span>
+                <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+    <span class="n">chunks</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">bytes</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">received</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">async</span> <span class="k">for</span> <span class="n">chunk</span> <span class="ow">in</span> <span class="n">request</span><span class="o">.</span><span class="n">stream</span><span class="p">():</span>
+        <span class="n">received</span> <span class="o">+=</span> <span class="nb">len</span><span class="p">(</span><span class="n">chunk</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">received</span> <span class="o">&gt;</span> <span class="n">max_bytes</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="n">chunks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">chunk</span><span class="p">)</span>
+    <span class="k">return</span> <span class="sa">b</span><span class="s2">""</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">chunks</span><span class="p">)</span></div>
+
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_safe_errors</span><span class="p">(</span><span class="n">error</span><span class="p">:</span> <span class="n">ValidationError</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]:</span>
+<span class="w">    </span><span class="sd">"""Validation errors without the input, and with location parts truncated</span>
+<span class="sd">    (``env.extra`` keys are client-chosen and could be long or hostile)."""</span>
+    <span class="k">return</span> <span class="p">[</span>
+        <span class="p">{</span>
+            <span class="s2">"loc"</span><span class="p">:</span> <span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">part</span><span class="p">)[:</span><span class="n">_MAX_LOC_CHARS</span><span class="p">]</span> <span class="k">for</span> <span class="n">part</span> <span class="ow">in</span> <span class="n">err</span><span class="p">[</span><span class="s2">"loc"</span><span class="p">]],</span>
+            <span class="s2">"msg"</span><span class="p">:</span> <span class="n">err</span><span class="p">[</span><span class="s2">"msg"</span><span class="p">],</span>
+            <span class="s2">"type"</span><span class="p">:</span> <span class="n">err</span><span class="p">[</span><span class="s2">"type"</span><span class="p">],</span>
+        <span class="p">}</span>
+        <span class="k">for</span> <span class="n">err</span> <span class="ow">in</span> <span class="n">error</span><span class="o">.</span><span class="n">errors</span><span class="p">(</span><span class="n">include_url</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">include_input</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="p">]</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_replay_request</span><span class="p">(</span><span class="n">request</span><span class="p">:</span> <span class="n">Request</span><span class="p">,</span> <span class="n">body</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Request</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""A Request over the same scope whose body is the already-read ``body``."""</span>
+    <span class="n">sent</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">receive</span><span class="p">():</span>
+        <span class="k">nonlocal</span> <span class="n">sent</span>
+        <span class="k">if</span> <span class="n">sent</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">{</span><span class="s2">"type"</span><span class="p">:</span> <span class="s2">"http.disconnect"</span><span class="p">}</span>
+        <span class="n">sent</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="k">return</span> <span class="p">{</span><span class="s2">"type"</span><span class="p">:</span> <span class="s2">"http.request"</span><span class="p">,</span> <span class="s2">"body"</span><span class="p">:</span> <span class="n">body</span><span class="p">,</span> <span class="s2">"more_body"</span><span class="p">:</span> <span class="kc">False</span><span class="p">}</span>
+
+    <span class="k">return</span> <span class="n">Request</span><span class="p">(</span><span class="n">request</span><span class="o">.</span><span class="n">scope</span><span class="p">,</span> <span class="n">receive</span><span class="o">=</span><span class="n">receive</span><span class="p">)</span>
+
+
+<span class="n">_OPENAPI_REQUEST_BODY</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">"requestBody"</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">"required"</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="s2">"content"</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s2">"multipart/form-data"</span><span class="p">:</span> <span class="p">{</span>
+                <span class="s2">"schema"</span><span class="p">:</span> <span class="p">{</span>
+                    <span class="s2">"type"</span><span class="p">:</span> <span class="s2">"object"</span><span class="p">,</span>
+                    <span class="s2">"required"</span><span class="p">:</span> <span class="p">[</span><span class="s2">"title"</span><span class="p">],</span>
+                    <span class="s2">"properties"</span><span class="p">:</span> <span class="p">{</span>
+                        <span class="s2">"title"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"type"</span><span class="p">:</span> <span class="s2">"string"</span><span class="p">},</span>
+                        <span class="s2">"body"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"type"</span><span class="p">:</span> <span class="s2">"string"</span><span class="p">},</span>
+                        <span class="s2">"category"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"type"</span><span class="p">:</span> <span class="s2">"string"</span><span class="p">},</span>
+                        <span class="s2">"page_url"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"type"</span><span class="p">:</span> <span class="s2">"string"</span><span class="p">},</span>
+                        <span class="s2">"env"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"type"</span><span class="p">:</span> <span class="s2">"string"</span><span class="p">,</span> <span class="s2">"description"</span><span class="p">:</span> <span class="s2">"JSON object"</span><span class="p">},</span>
+                        <span class="s2">"anon_id"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"type"</span><span class="p">:</span> <span class="s2">"string"</span><span class="p">},</span>
+                        <span class="s2">"bot_token"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"type"</span><span class="p">:</span> <span class="s2">"string"</span><span class="p">},</span>
+                        <span class="s2">"screenshot"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"type"</span><span class="p">:</span> <span class="s2">"string"</span><span class="p">,</span> <span class="s2">"format"</span><span class="p">:</span> <span class="s2">"binary"</span><span class="p">},</span>
+                    <span class="p">},</span>
+                <span class="p">}</span>
+            <span class="p">}</span>
+        <span class="p">},</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+
+
 <div class="viewcode-block" id="make_router">
-<a class="viewcode-back" href="../../module_docs/heed/ingest.html#heed.make_router">[docs]</a>
+<a class="viewcode-back" href="../../_autosummary/heed.ingest.html#heed.make_router">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">make_router</span><span class="p">(</span>
     <span class="n">sink</span><span class="p">:</span> <span class="n">Sink</span><span class="p">,</span>
     <span class="o">*</span><span class="p">,</span>
     <span class="n">config</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">HeedConfig</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">attachment_store</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">MutableMapping</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">rate_limiter</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">RateLimiter</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">origin_rate_limiter</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">RateLimiter</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">bot_verifier</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">BotVerifier</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">user_dependency</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Callable</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">APIRouter</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Build a FastAPI APIRouter exposing ``POST /report``.</span>
+<span class="w">    </span><span class="sd">"""Build a FastAPI APIRouter exposing ``POST /report`` (and its CORS preflight).</span>
 
 <span class="sd">    Run standalone via :func:`make_app`, or ``include_router`` it into an enlace app.</span>
 <span class="sd">    Provide ``user_dependency`` (a FastAPI dependency returning a user id or None) to</span>
 <span class="sd">    bind identity when an auth layer like enlace_auth is present.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+
+<span class="sd">    Hardening defaults come from ``config``; any piece can be injected instead:</span>
+<span class="sd">    ``rate_limiter`` (per client IP), ``origin_rate_limiter`` (per Origin) and</span>
+<span class="sd">    ``bot_verifier`` (by default built from ``config.bot_secret``, i.e. off until a</span>
+<span class="sd">    secret is configured).</span>
+<span class="sd">    """</span>
     <span class="n">cfg</span> <span class="o">=</span> <span class="n">config</span> <span class="ow">or</span> <span class="n">HeedConfig</span><span class="p">()</span>
-    <span class="n">limiter</span> <span class="o">=</span> <span class="n">rate_limiter</span> <span class="ow">or</span> <span class="n">InMemoryRateLimiter</span><span class="p">(</span>
-        <span class="n">max_per_window</span><span class="o">=</span><span class="n">cfg</span><span class="o">.</span><span class="n">rate_limit_per_minute</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_limiter</span><span class="p">(</span><span class="n">per_window</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">namespace</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RateLimiter</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">make_rate_limiter</span><span class="p">(</span>
+            <span class="n">cfg</span><span class="o">.</span><span class="n">rate_limit_backend</span><span class="p">,</span>
+            <span class="n">max_per_window</span><span class="o">=</span><span class="n">per_window</span><span class="p">,</span>
+            <span class="n">window_seconds</span><span class="o">=</span><span class="n">cfg</span><span class="o">.</span><span class="n">rate_limit_window_seconds</span><span class="p">,</span>
+            <span class="n">namespace</span><span class="o">=</span><span class="n">namespace</span><span class="p">,</span>
+            <span class="n">redis_url</span><span class="o">=</span><span class="n">cfg</span><span class="o">.</span><span class="n">redis_url</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="n">ip_limiter</span> <span class="o">=</span> <span class="n">rate_limiter</span> <span class="ow">or</span> <span class="n">_limiter</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">rate_limit_per_minute</span><span class="p">,</span> <span class="s2">"ip"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">origin_rate_limiter</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">cfg</span><span class="o">.</span><span class="n">origin_rate_limit_per_minute</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">origin_rate_limiter</span> <span class="o">=</span> <span class="n">_limiter</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">origin_rate_limit_per_minute</span><span class="p">,</span> <span class="s2">"origin"</span><span class="p">)</span>
+    <span class="n">verifier</span> <span class="o">=</span> <span class="n">bot_verifier</span> <span class="ow">or</span> <span class="n">make_bot_verifier</span><span class="p">(</span>
+        <span class="n">cfg</span><span class="o">.</span><span class="n">bot_gate</span><span class="p">,</span> <span class="n">cfg</span><span class="o">.</span><span class="n">bot_secret</span><span class="p">,</span> <span class="n">expected_hostnames</span><span class="o">=</span><span class="n">cfg</span><span class="o">.</span><span class="n">bot_expected_hostnames</span>
     <span class="p">)</span>
+    <span class="n">trusted_networks</span> <span class="o">=</span> <span class="n">parse_networks</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">trusted_proxies</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">cfg</span><span class="o">.</span><span class="n">allowed_origins</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+            <span class="s2">"heed: allowed_origins is not set, so any origin may submit reports. "</span>
+            <span class="s2">"Set HeedConfig(allowed_origins=[...]) in production."</span>
+        <span class="p">)</span>
+    <span class="n">retry_after</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">rate_limit_window_seconds</span><span class="p">))</span>
     <span class="n">router</span> <span class="o">=</span> <span class="n">APIRouter</span><span class="p">()</span>
 
     <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_no_user</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
@@ -222,77 +986,204 @@
 
     <span class="n">user_dep</span> <span class="o">=</span> <span class="n">user_dependency</span> <span class="ow">or</span> <span class="n">_no_user</span>
 
-    <span class="nd">@router</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="s2">&quot;/report&quot;</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_cors</span><span class="p">(</span><span class="n">origin</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">cfg</span><span class="o">.</span><span class="n">handle_cors</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">dict</span><span class="p">(</span><span class="n">_RESPONSE_HEADERS</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="o">**</span><span class="n">_RESPONSE_HEADERS</span><span class="p">,</span>
+            <span class="o">**</span><span class="n">cors_headers</span><span class="p">(</span>
+                <span class="n">origin</span> <span class="ow">or</span> <span class="kc">None</span><span class="p">,</span>
+                <span class="n">cfg</span><span class="o">.</span><span class="n">allowed_origins</span><span class="p">,</span>
+                <span class="n">allow_credentials</span><span class="o">=</span><span class="n">cfg</span><span class="o">.</span><span class="n">cors_allow_credentials</span><span class="p">,</span>
+            <span class="p">),</span>
+        <span class="p">}</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_fail</span><span class="p">(</span><span class="n">status</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">detail</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">origin</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">**</span><span class="n">extra_headers</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">HTTPException</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">HTTPException</span><span class="p">(</span>
+            <span class="n">status_code</span><span class="o">=</span><span class="n">status</span><span class="p">,</span>
+            <span class="n">detail</span><span class="o">=</span><span class="n">detail</span><span class="p">,</span>
+            <span class="n">headers</span><span class="o">=</span><span class="p">{</span><span class="o">**</span><span class="n">_cors</span><span class="p">(</span><span class="n">origin</span><span class="p">),</span> <span class="o">**</span><span class="n">extra_headers</span><span class="p">},</span>
+        <span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">cfg</span><span class="o">.</span><span class="n">handle_cors</span><span class="p">:</span>
+
+        <span class="nd">@router</span><span class="o">.</span><span class="n">options</span><span class="p">(</span><span class="s2">"/report"</span><span class="p">,</span> <span class="n">include_in_schema</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">report_preflight</span><span class="p">(</span><span class="n">request</span><span class="p">:</span> <span class="n">Request</span><span class="p">):</span>
+            <span class="n">headers</span> <span class="o">=</span> <span class="n">preflight_headers</span><span class="p">(</span>
+                <span class="n">request</span><span class="o">.</span><span class="n">headers</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"origin"</span><span class="p">),</span>
+                <span class="n">cfg</span><span class="o">.</span><span class="n">allowed_origins</span><span class="p">,</span>
+                <span class="n">allow_credentials</span><span class="o">=</span><span class="n">cfg</span><span class="o">.</span><span class="n">cors_allow_credentials</span><span class="p">,</span>
+                <span class="n">max_age_seconds</span><span class="o">=</span><span class="n">cfg</span><span class="o">.</span><span class="n">cors_max_age_seconds</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">headers</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="n">status_code</span><span class="o">=</span><span class="mi">403</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="n">status_code</span><span class="o">=</span><span class="mi">204</span><span class="p">,</span> <span class="n">headers</span><span class="o">=</span><span class="n">headers</span><span class="p">)</span>
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_parse_form</span><span class="p">(</span><span class="n">request</span><span class="p">:</span> <span class="n">Request</span><span class="p">,</span> <span class="n">origin</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+        <span class="n">media_type</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">headers</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"content-type"</span><span class="p">,</span> <span class="s2">""</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">";"</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">media_type</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">_FORM_MEDIA_TYPES</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">_fail</span><span class="p">(</span><span class="mi">415</span><span class="p">,</span> <span class="s2">"expected multipart/form-data"</span><span class="p">,</span> <span class="n">origin</span><span class="p">)</span>
+        <span class="n">body</span> <span class="o">=</span> <span class="k">await</span> <span class="n">read_capped_body</span><span class="p">(</span><span class="n">request</span><span class="p">,</span> <span class="n">max_bytes</span><span class="o">=</span><span class="n">cfg</span><span class="o">.</span><span class="n">max_body_bytes</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">body</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">_fail</span><span class="p">(</span><span class="mi">413</span><span class="p">,</span> <span class="s2">"request body too large"</span><span class="p">,</span> <span class="n">origin</span><span class="p">)</span>
+        <span class="n">replay</span> <span class="o">=</span> <span class="n">_replay_request</span><span class="p">(</span><span class="n">request</span><span class="p">,</span> <span class="n">body</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">form</span> <span class="o">=</span> <span class="k">await</span> <span class="n">replay</span><span class="o">.</span><span class="n">form</span><span class="p">(</span>
+                <span class="n">max_files</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+                <span class="n">max_fields</span><span class="o">=</span><span class="n">cfg</span><span class="o">.</span><span class="n">max_form_fields</span><span class="p">,</span>
+                <span class="n">max_part_size</span><span class="o">=</span><span class="n">cfg</span><span class="o">.</span><span class="n">max_field_bytes</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">except</span> <span class="p">(</span>
+            <span class="n">MultiPartException</span><span class="p">,</span>
+            <span class="n">MultipartParseError</span><span class="p">,</span>
+            <span class="n">StarletteHTTPException</span><span class="p">,</span>
+        <span class="p">)</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="c1"># malformed multipart, too many parts/files, a part over max_part_size</span>
+            <span class="k">raise</span> <span class="n">_fail</span><span class="p">(</span><span class="mi">400</span><span class="p">,</span> <span class="s2">"malformed form data"</span><span class="p">,</span> <span class="n">origin</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">form</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">cfg</span><span class="o">.</span><span class="n">max_form_fields</span> <span class="o">+</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">_fail</span><span class="p">(</span><span class="mi">400</span><span class="p">,</span> <span class="s2">"too many form fields"</span><span class="p">,</span> <span class="n">origin</span><span class="p">)</span>
+            <span class="n">fields</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">form</span><span class="o">.</span><span class="n">multi_items</span><span class="p">():</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">UploadFile</span><span class="p">):</span>
+                    <span class="k">if</span> <span class="n">key</span> <span class="o">!=</span> <span class="s2">"screenshot"</span><span class="p">:</span>
+                        <span class="k">raise</span> <span class="n">_fail</span><span class="p">(</span><span class="mi">400</span><span class="p">,</span> <span class="s2">"unexpected file field"</span><span class="p">,</span> <span class="n">origin</span><span class="p">)</span>
+                    <span class="n">fields</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="k">await</span> <span class="n">value</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+                <span class="k">elif</span> <span class="n">key</span> <span class="o">==</span> <span class="s2">"screenshot"</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="n">_fail</span><span class="p">(</span><span class="mi">422</span><span class="p">,</span> <span class="s2">"screenshot must be a file upload"</span><span class="p">,</span> <span class="n">origin</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">value</span><span class="o">.</span><span class="n">encode</span><span class="p">())</span> <span class="o">&gt;</span> <span class="n">cfg</span><span class="o">.</span><span class="n">max_field_bytes</span><span class="p">:</span>
+                        <span class="k">raise</span> <span class="n">_fail</span><span class="p">(</span><span class="mi">413</span><span class="p">,</span> <span class="s2">"form field too large"</span><span class="p">,</span> <span class="n">origin</span><span class="p">)</span>
+                    <span class="n">fields</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+            <span class="k">return</span> <span class="n">fields</span>
+        <span class="k">finally</span><span class="p">:</span>
+            <span class="k">await</span> <span class="n">form</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_admit</span><span class="p">(</span><span class="n">request</span><span class="p">:</span> <span class="n">Request</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Origin allow-list + per-IP limit. A route-level dependency, so it runs</span>
+<span class="sd">        before ``user_dependency`` (which may hit an auth store) and before any body</span>
+<span class="sd">        is read."""</span>
+        <span class="n">origin</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">headers</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"origin"</span><span class="p">,</span> <span class="s2">""</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">origin_allowed</span><span class="p">(</span><span class="n">origin</span> <span class="ow">or</span> <span class="kc">None</span><span class="p">,</span> <span class="n">cfg</span><span class="o">.</span><span class="n">allowed_origins</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="n">HTTPException</span><span class="p">(</span>
+                <span class="n">status_code</span><span class="o">=</span><span class="mi">403</span><span class="p">,</span> <span class="n">detail</span><span class="o">=</span><span class="s2">"origin not allowed"</span><span class="p">,</span> <span class="n">headers</span><span class="o">=</span><span class="n">_RESPONSE_HEADERS</span>
+            <span class="p">)</span>
+        <span class="n">ip</span> <span class="o">=</span> <span class="n">client_ip</span><span class="p">(</span>
+            <span class="n">request</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">host</span> <span class="k">if</span> <span class="n">request</span><span class="o">.</span><span class="n">client</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">request</span><span class="o">.</span><span class="n">headers</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"x-forwarded-for"</span><span class="p">),</span>
+            <span class="n">trusted_proxies</span><span class="o">=</span><span class="n">trusted_networks</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="c1"># Limiters may do network I/O (Redis): keep it off the event loop.</span>
+        <span class="n">bucket</span> <span class="o">=</span> <span class="n">rate_limit_key</span><span class="p">(</span><span class="n">ip</span><span class="p">,</span> <span class="n">ipv6_prefix</span><span class="o">=</span><span class="n">cfg</span><span class="o">.</span><span class="n">ipv6_rate_limit_prefix</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="k">await</span> <span class="n">run_in_threadpool</span><span class="p">(</span><span class="n">ip_limiter</span><span class="o">.</span><span class="n">allow</span><span class="p">,</span> <span class="n">bucket</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="n">_fail</span><span class="p">(</span>
+                <span class="mi">429</span><span class="p">,</span> <span class="s2">"rate limit exceeded"</span><span class="p">,</span> <span class="n">origin</span><span class="p">,</span> <span class="o">**</span><span class="p">{</span><span class="s2">"Retry-After"</span><span class="p">:</span> <span class="n">retry_after</span><span class="p">}</span>
+            <span class="p">)</span>
+        <span class="n">request</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">heed_origin</span> <span class="o">=</span> <span class="n">origin</span>
+        <span class="n">request</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">heed_ip</span> <span class="o">=</span> <span class="n">ip</span>
+
+    <span class="nd">@router</span><span class="o">.</span><span class="n">post</span><span class="p">(</span>
+        <span class="s2">"/report"</span><span class="p">,</span>
+        <span class="n">dependencies</span><span class="o">=</span><span class="p">[</span><span class="n">Depends</span><span class="p">(</span><span class="n">_admit</span><span class="p">)],</span>
+        <span class="n">openapi_extra</span><span class="o">=</span><span class="n">_OPENAPI_REQUEST_BODY</span><span class="p">,</span>
+    <span class="p">)</span>
     <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">submit_report</span><span class="p">(</span>
         <span class="n">request</span><span class="p">:</span> <span class="n">Request</span><span class="p">,</span>
-        <span class="n">title</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">Form</span><span class="p">(</span><span class="o">...</span><span class="p">),</span>
-        <span class="n">body</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">Form</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">),</span>
-        <span class="n">category</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">Form</span><span class="p">(</span><span class="s2">&quot;bug&quot;</span><span class="p">),</span>
-        <span class="n">page_url</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">Form</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">),</span>
-        <span class="n">env</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">Form</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">{}</span><span class="s2">&quot;</span><span class="p">),</span>
-        <span class="n">anon_id</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">Form</span><span class="p">(</span><span class="kc">None</span><span class="p">),</span>
-        <span class="n">screenshot</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">UploadFile</span><span class="p">]</span> <span class="o">=</span> <span class="n">File</span><span class="p">(</span><span class="kc">None</span><span class="p">),</span>
         <span class="n">user</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">Depends</span><span class="p">(</span><span class="n">user_dep</span><span class="p">),</span>
     <span class="p">):</span>
-        <span class="n">origin</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">headers</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;origin&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">origin_allowed</span><span class="p">(</span><span class="n">origin</span> <span class="ow">or</span> <span class="kc">None</span><span class="p">,</span> <span class="n">cfg</span><span class="o">.</span><span class="n">allowed_origins</span><span class="p">):</span>
-            <span class="k">raise</span> <span class="n">HTTPException</span><span class="p">(</span><span class="n">status_code</span><span class="o">=</span><span class="mi">403</span><span class="p">,</span> <span class="n">detail</span><span class="o">=</span><span class="s2">&quot;origin not allowed&quot;</span><span class="p">)</span>
-        <span class="n">client_key</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">host</span> <span class="k">if</span> <span class="n">request</span><span class="o">.</span><span class="n">client</span> <span class="k">else</span> <span class="s2">&quot;unknown&quot;</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">limiter</span><span class="o">.</span><span class="n">allow</span><span class="p">(</span><span class="n">client_key</span><span class="p">):</span>
-            <span class="k">raise</span> <span class="n">HTTPException</span><span class="p">(</span><span class="n">status_code</span><span class="o">=</span><span class="mi">429</span><span class="p">,</span> <span class="n">detail</span><span class="o">=</span><span class="s2">&quot;rate limit exceeded&quot;</span><span class="p">)</span>
+        <span class="n">origin</span><span class="p">,</span> <span class="n">ip</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">heed_origin</span><span class="p">,</span> <span class="n">request</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">heed_ip</span>
+        <span class="n">fields</span> <span class="o">=</span> <span class="k">await</span> <span class="n">_parse_form</span><span class="p">(</span><span class="n">request</span><span class="p">,</span> <span class="n">origin</span><span class="p">)</span>
 
+        <span class="k">if</span> <span class="n">cfg</span><span class="o">.</span><span class="n">honeypot_field</span> <span class="ow">and</span> <span class="n">fields</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">honeypot_field</span><span class="p">):</span>
+            <span class="c1"># Look like success so the bot learns nothing; route nowhere.</span>
+            <span class="k">return</span> <span class="n">JSONResponse</span><span class="p">(</span>
+                <span class="p">{</span><span class="s2">"id"</span><span class="p">:</span> <span class="n">new_report_id</span><span class="p">(),</span> <span class="s2">"ok"</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span> <span class="s2">"ref"</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span> <span class="s2">"url"</span><span class="p">:</span> <span class="kc">None</span><span class="p">},</span>
+                <span class="n">headers</span><span class="o">=</span><span class="n">_cors</span><span class="p">(</span><span class="n">origin</span><span class="p">),</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">verifier</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">token</span> <span class="o">=</span> <span class="n">fields</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">bot_token_field</span><span class="p">)</span>
+            <span class="n">token</span> <span class="o">=</span> <span class="n">token</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">token</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="k">else</span> <span class="kc">None</span>
+            <span class="n">human</span> <span class="o">=</span> <span class="k">await</span> <span class="n">run_in_threadpool</span><span class="p">(</span><span class="n">verifier</span><span class="o">.</span><span class="n">verify</span><span class="p">,</span> <span class="n">token</span><span class="p">,</span> <span class="n">remote_ip</span><span class="o">=</span><span class="n">ip</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">human</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">_fail</span><span class="p">(</span><span class="mi">403</span><span class="p">,</span> <span class="s2">"bot verification failed"</span><span class="p">,</span> <span class="n">origin</span><span class="p">)</span>
+
+        <span class="c1"># Per-origin limit only counts submissions that passed the honeypot and the</span>
+        <span class="c1"># bot gate, so spoofed-Origin junk cannot exhaust a real site's budget as</span>
+        <span class="c1"># cheaply. (Origin is a client-set header; see embedding-security.md.)</span>
+        <span class="k">if</span> <span class="n">origin_rate_limiter</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">origin_key</span> <span class="o">=</span> <span class="n">normalize_origin</span><span class="p">(</span><span class="n">origin</span><span class="p">)</span> <span class="k">if</span> <span class="n">origin</span> <span class="k">else</span> <span class="s2">"-"</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="k">await</span> <span class="n">run_in_threadpool</span><span class="p">(</span><span class="n">origin_rate_limiter</span><span class="o">.</span><span class="n">allow</span><span class="p">,</span> <span class="n">origin_key</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="n">_fail</span><span class="p">(</span>
+                    <span class="mi">429</span><span class="p">,</span> <span class="s2">"rate limit exceeded"</span><span class="p">,</span> <span class="n">origin</span><span class="p">,</span> <span class="o">**</span><span class="p">{</span><span class="s2">"Retry-After"</span><span class="p">:</span> <span class="n">retry_after</span><span class="p">}</span>
+                <span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">fields</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"title"</span><span class="p">),</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="n">_fail</span><span class="p">(</span><span class="mi">422</span><span class="p">,</span> <span class="s2">"title is required"</span><span class="p">,</span> <span class="n">origin</span><span class="p">)</span>
+        <span class="n">text</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">fields</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">k</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">_TEXT_FIELDS</span><span class="p">}</span>
+        <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">v</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">text</span><span class="o">.</span><span class="n">values</span><span class="p">()):</span>
+            <span class="k">raise</span> <span class="n">_fail</span><span class="p">(</span><span class="mi">422</span><span class="p">,</span> <span class="s2">"unexpected file in a text field"</span><span class="p">,</span> <span class="n">origin</span><span class="p">)</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="n">submission</span> <span class="o">=</span> <span class="n">_build_submission</span><span class="p">(</span>
-                <span class="n">title</span><span class="o">=</span><span class="n">title</span><span class="p">,</span>
-                <span class="n">body</span><span class="o">=</span><span class="n">body</span><span class="p">,</span>
-                <span class="n">category</span><span class="o">=</span><span class="n">category</span><span class="p">,</span>
-                <span class="n">page_url</span><span class="o">=</span><span class="n">page_url</span><span class="p">,</span>
-                <span class="n">env</span><span class="o">=</span><span class="n">env</span><span class="p">,</span>
-                <span class="n">anon_id</span><span class="o">=</span><span class="n">anon_id</span><span class="p">,</span>
+                <span class="n">title</span><span class="o">=</span><span class="n">text</span><span class="p">[</span><span class="s2">"title"</span><span class="p">],</span>
+                <span class="n">body</span><span class="o">=</span><span class="n">text</span><span class="p">[</span><span class="s2">"body"</span><span class="p">]</span> <span class="ow">or</span> <span class="s2">""</span><span class="p">,</span>
+                <span class="n">category</span><span class="o">=</span><span class="n">text</span><span class="p">[</span><span class="s2">"category"</span><span class="p">]</span> <span class="ow">or</span> <span class="s2">"bug"</span><span class="p">,</span>
+                <span class="n">page_url</span><span class="o">=</span><span class="n">text</span><span class="p">[</span><span class="s2">"page_url"</span><span class="p">]</span> <span class="ow">or</span> <span class="s2">""</span><span class="p">,</span>
+                <span class="n">env</span><span class="o">=</span><span class="n">text</span><span class="p">[</span><span class="s2">"env"</span><span class="p">]</span> <span class="ow">or</span> <span class="s2">"</span><span class="si">{}</span><span class="s2">"</span><span class="p">,</span>
+                <span class="n">anon_id</span><span class="o">=</span><span class="n">text</span><span class="p">[</span><span class="s2">"anon_id"</span><span class="p">],</span>
             <span class="p">)</span>
-        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="n">HTTPException</span><span class="p">(</span>
-                <span class="n">status_code</span><span class="o">=</span><span class="mi">422</span><span class="p">,</span> <span class="n">detail</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;invalid submission: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span>
-            <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span>
+        <span class="k">except</span> <span class="n">ValidationError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">detail</span> <span class="o">=</span> <span class="n">_safe_errors</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="n">_fail</span><span class="p">(</span><span class="mi">422</span><span class="p">,</span> <span class="n">detail</span><span class="p">,</span> <span class="n">origin</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span>
+        <span class="k">except</span> <span class="p">(</span><span class="ne">ValueError</span><span class="p">,</span> <span class="ne">RecursionError</span><span class="p">)</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">_fail</span><span class="p">(</span><span class="mi">422</span><span class="p">,</span> <span class="s2">"invalid env: must be a JSON object"</span><span class="p">,</span> <span class="n">origin</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span>
 
-        <span class="n">shot</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bytes</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="k">if</span> <span class="n">screenshot</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">shot</span> <span class="o">=</span> <span class="k">await</span> <span class="n">screenshot</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+        <span class="n">shot</span> <span class="o">=</span> <span class="n">fields</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"screenshot"</span><span class="p">)</span> <span class="ow">or</span> <span class="kc">None</span>
+        <span class="n">shot_type</span> <span class="o">=</span> <span class="s2">"image/png"</span>
+        <span class="k">if</span> <span class="n">shot</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">shot</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">cfg</span><span class="o">.</span><span class="n">max_screenshot_bytes</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="n">HTTPException</span><span class="p">(</span><span class="n">status_code</span><span class="o">=</span><span class="mi">413</span><span class="p">,</span> <span class="n">detail</span><span class="o">=</span><span class="s2">&quot;screenshot too large&quot;</span><span class="p">)</span>
+                <span class="k">raise</span> <span class="n">_fail</span><span class="p">(</span><span class="mi">413</span><span class="p">,</span> <span class="s2">"screenshot too large"</span><span class="p">,</span> <span class="n">origin</span><span class="p">)</span>
+            <span class="n">shot_type</span> <span class="o">=</span> <span class="n">sniff_image_type</span><span class="p">(</span><span class="n">shot</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">shot_type</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">_fail</span><span class="p">(</span><span class="mi">415</span><span class="p">,</span> <span class="s2">"screenshot must be a PNG, JPEG or WebP image"</span><span class="p">,</span> <span class="n">origin</span><span class="p">)</span>
 
-        <span class="n">report</span><span class="p">,</span> <span class="n">result</span> <span class="o">=</span> <span class="n">process_submission</span><span class="p">(</span>
+        <span class="n">report</span><span class="p">,</span> <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">run_in_threadpool</span><span class="p">(</span>
+            <span class="n">process_submission</span><span class="p">,</span>
             <span class="n">submission</span><span class="p">,</span>
             <span class="n">sink</span><span class="p">,</span>
             <span class="n">origin</span><span class="o">=</span><span class="n">origin</span><span class="p">,</span>
             <span class="n">user</span><span class="o">=</span><span class="n">user</span><span class="p">,</span>
             <span class="n">screenshot</span><span class="o">=</span><span class="n">shot</span><span class="p">,</span>
+            <span class="n">screenshot_media_type</span><span class="o">=</span><span class="n">shot_type</span><span class="p">,</span>
             <span class="n">attachment_store</span><span class="o">=</span><span class="n">attachment_store</span><span class="p">,</span>
             <span class="n">config</span><span class="o">=</span><span class="n">cfg</span><span class="p">,</span>
         <span class="p">)</span>
-        <span class="k">return</span> <span class="p">{</span>
-            <span class="s2">&quot;id&quot;</span><span class="p">:</span> <span class="n">report</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
-            <span class="s2">&quot;ok&quot;</span><span class="p">:</span> <span class="n">result</span><span class="o">.</span><span class="n">ok</span><span class="p">,</span>
-            <span class="s2">&quot;ref&quot;</span><span class="p">:</span> <span class="n">result</span><span class="o">.</span><span class="n">external_ref</span><span class="p">,</span>
-            <span class="s2">&quot;url&quot;</span><span class="p">:</span> <span class="n">result</span><span class="o">.</span><span class="n">url</span><span class="p">,</span>
-        <span class="p">}</span>
+        <span class="k">return</span> <span class="n">JSONResponse</span><span class="p">(</span>
+            <span class="p">{</span>
+                <span class="s2">"id"</span><span class="p">:</span> <span class="n">report</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+                <span class="s2">"ok"</span><span class="p">:</span> <span class="n">result</span><span class="o">.</span><span class="n">ok</span><span class="p">,</span>
+                <span class="s2">"ref"</span><span class="p">:</span> <span class="n">result</span><span class="o">.</span><span class="n">external_ref</span><span class="p">,</span>
+                <span class="s2">"url"</span><span class="p">:</span> <span class="n">result</span><span class="o">.</span><span class="n">url</span><span class="p">,</span>
+            <span class="p">},</span>
+            <span class="n">headers</span><span class="o">=</span><span class="n">_cors</span><span class="p">(</span><span class="n">origin</span><span class="p">),</span>
+        <span class="p">)</span>
 
     <span class="k">return</span> <span class="n">router</span></div>
 
 
 
 <div class="viewcode-block" id="make_app">
-<a class="viewcode-back" href="../../module_docs/heed/ingest.html#heed.make_app">[docs]</a>
+<a class="viewcode-back" href="../../_autosummary/heed.ingest.html#heed.make_app">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">make_app</span><span class="p">(</span>
     <span class="n">sink</span><span class="p">:</span> <span class="n">Sink</span><span class="p">,</span>
     <span class="o">*</span><span class="p">,</span>
     <span class="n">config</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">HeedConfig</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">attachment_store</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">MutableMapping</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-    <span class="n">prefix</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;/heed&quot;</span><span class="p">,</span>
+    <span class="n">prefix</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"/heed"</span><span class="p">,</span>
     <span class="o">**</span><span class="n">router_kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">FastAPI</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;A standalone FastAPI app serving the heed router under ``prefix``.&quot;&quot;&quot;</span>
-    <span class="n">app</span> <span class="o">=</span> <span class="n">FastAPI</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="s2">&quot;heed&quot;</span><span class="p">)</span>
+<span class="w">    </span><span class="sd">"""A standalone FastAPI app serving the heed router under ``prefix``."""</span>
+    <span class="n">app</span> <span class="o">=</span> <span class="n">FastAPI</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="s2">"heed"</span><span class="p">)</span>
     <span class="n">app</span><span class="o">.</span><span class="n">include_router</span><span class="p">(</span>
         <span class="n">make_router</span><span class="p">(</span>
             <span class="n">sink</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="n">config</span><span class="p">,</span> <span class="n">attachment_store</span><span class="o">=</span><span class="n">attachment_store</span><span class="p">,</span> <span class="o">**</span><span class="n">router_kwargs</span>
@@ -303,31 +1194,53 @@
 
 </pre></div>
 
-           </div>
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+            
           </div>
-          <footer>
-
-  <hr/>
-
-  <div role="contentinfo">
-    <p></p>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
   </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../../_static/scripts/bootstrap.js?digest=18bd87630a240e9c25be"></script>
+<script defer src="../../_static/scripts/pydata-sphinx-theme.js?digest=18bd87630a240e9c25be"></script>
 
-  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
-    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
-    provided by <a href="https://readthedocs.org">Read the Docs</a>.
-   
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<p class="theme-version">
+  <!-- # L10n: Setting the PST URL as an argument as this does not need to be localized -->
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.23.0.
+</p></div>
+      
+    </div>
+  
+</div>
 
-</footer>
-        </div>
-      </div>
-    </section>
-  </div>
-  <script>
-      jQuery(function () {
-          SphinxRtdTheme.Navigation.enable(true);
-      });
-  </script> 
-
-</body>
+  </footer>
+  </body>
 </html>

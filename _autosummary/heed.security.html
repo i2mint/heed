@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+<link rel="alternate" type="text/markdown" href="heed.security.html.md">
+<link rel="describedby" href="../llms.txt" type="text/markdown">
+<link rel="alternate" type="text/markdown" href="heed.security.html.md">
+<link rel="describedby" href="llms.txt">
+    <title>heed.security &#8212; heed</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../_static/styles/theme.css?digest=18bd87630a240e9c25be" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=18bd87630a240e9c25be" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d75fae25" />
+    <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../_static/epythet.css?v=ef673b48" />
+  
+  <!-- So that users can add custom icons -->
+  <script defer src="../_static/scripts/fontawesome.js?digest=18bd87630a240e9c25be"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=18bd87630a240e9c25be" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=18bd87630a240e9c25be" />
+
+    <script src="../_static/documentation_options.js?v=d45e8c67"></script>
+    <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../_static/copybutton.js?v=fd10adb8"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = '_autosummary/heed.security';</script>
+    <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="heed.sinks" href="heed.sinks.html" />
+    <link rel="prev" title="heed.ingest" href="heed.ingest.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="color-scheme" content="light dark"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="0.0.1" />
+  
+    
+    <script src="../_static/searchtools.js"></script>
+    <script src="../_static/language_data.js"></script>
+    <script src="../searchindex.js"></script>
+  
+  </head>
+  <body data-default-mode="">
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+  
+  
+  
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header id="pst-header" class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button type="button" class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../index.html">
+  
+  
+  
+  
+  
+  
+    <p class="title logo__title">heed</p>
+  
+</a></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="../api.html">
+    API reference
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../ai-agents.html">
+    For AI agents
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button type="button" class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button type="button" class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg fa-fw" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg fa-fw" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg fa-fw" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button type="button" class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg fa-fw me-1"></i>System Settings</button></li>
+    <li><button type="button" class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg fa-fw me-1"></i>Light</button></li>
+    <li><button type="button" class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg fa-fw me-1"></i>Dark</button></li>
+  </ul>
+</div></div>
+      
+        <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/i2mint/heed" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i><span class="visually-hidden">GitHub</span></a>
+        </li>
+</ul></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button type="button" class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+    <button type="button" class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="../api.html">
+    API reference
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../ai-agents.html">
+    For AI agents
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button type="button" class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg fa-fw" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg fa-fw" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg fa-fw" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button type="button" class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg fa-fw me-1"></i>System Settings</button></li>
+    <li><button type="button" class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg fa-fw me-1"></i>Light</button></li>
+    <li><button type="button" class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg fa-fw me-1"></i>Dark</button></li>
+  </ul>
+</div></div>
+        
+          <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/i2mint/heed" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i><span class="visually-hidden">GitHub</span></a>
+        </li>
+</ul></div>
+        
+      </div>
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item pst-sidebar-collapse"><button type="button" id="pst-collapse-sidebar-button" aria-expanded="true" aria-controls="pst-primary-sidebar">
+  <svg class="pst-icon" role="img" aria-hidden="true" focusable="false" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+    <path fill="currentColor" d="M3 15.5C2.36232 15.5 1.74874 15.2564 1.28478 14.8189C0.820828 14.3815 0.541576 13.7832 0.504167 13.1467L0.5 13L0.5 3C0.499965 2.36232 0.743605 1.74874 1.18107 1.28478C1.61854 0.820828 2.21676 0.541576 2.85333 0.504167L3 0.5L13 0.5C13.6377 0.499965 14.2513 0.743605 14.7152 1.18107C15.1792 1.61854 15.4584 2.21676 15.4958 2.85333L15.5 3L15.5 13C15.5 13.6377 15.2564 14.2513 14.8189 14.7152C14.3815 15.1792 13.7832 15.4584 13.1467 15.4958L13 15.5L3 15.5ZM3 13.8333L10.5 13.8333L10.5 2.16667L3 2.16667C2.79589 2.16669 2.59889 2.24163 2.44636 2.37726C2.29383 2.5129 2.19638 2.69979 2.1725 2.9025L2.16667 3L2.16667 13C2.16669 13.2041 2.24163 13.4011 2.37726 13.5536C2.5129 13.7062 2.69979 13.8036 2.9025 13.8275L3 13.8333ZM6.65583 10.325L6.5775 10.2558L4.91083 8.58917C4.76735 8.44567 4.68116 8.25476 4.66843 8.05223C4.65569 7.84971 4.71729 7.6495 4.84167 7.48917L4.91083 7.41083L6.5775 5.74417C6.72747 5.59471 6.9287 5.50794 7.14032 5.50148C7.35194 5.49502 7.55809 5.56935 7.7169 5.70937C7.8757 5.8494 7.97525 6.04463 7.99533 6.25539C8.01541 6.46616 7.95451 6.67667 7.825 6.84417L7.75583 6.9225L6.67917 8L7.75583 9.0775C7.89931 9.22099 7.98551 9.41191 7.99824 9.61443C8.01097 9.81695 7.94938 10.0172 7.825 10.1775L7.75583 10.2558C7.61234 10.3993 7.42142 10.4855 7.2189 10.4982C7.01638 10.511 6.81617 10.4494 6.65583 10.325Z"/>
+  </svg>
+  <span class="pst-collapse-sidebar-label">Collapse Sidebar</span>
+  <span class="pst-expand-sidebar-label">Expand Sidebar</span>
+</button></div>
+        <div class="sidebar-primary-item">
+
+<nav class="bd-docs-nav bd-links"
+     aria-label="Section Navigation">
+  <p class="bd-links__title" role="heading" aria-level="1">Section Navigation</p>
+  <div class="bd-toc-item navbar-nav"><ul class="current nav bd-sidenav">
+<li class="toctree-l1 current active has-children"><a class="reference internal" href="heed.html">heed</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="heed.base.html">heed.base</a></li>
+<li class="toctree-l2"><a class="reference internal" href="heed.config.html">heed.config</a></li>
+<li class="toctree-l2"><a class="reference internal" href="heed.ingest.html">heed.ingest</a></li>
+<li class="toctree-l2 current active"><a aria-current="page" class="current reference internal" href="#">heed.security</a></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="heed.sinks.html">heed.sinks</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="heed.sinks.base.html">heed.sinks.base</a></li>
+<li class="toctree-l3"><a class="reference internal" href="heed.sinks.github.html">heed.sinks.github</a></li>
+<li class="toctree-l3"><a class="reference internal" href="heed.sinks.store.html">heed.sinks.store</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2"><a class="reference internal" href="heed.storage.html">heed.storage</a></li>
+</ul>
+</details></li>
+</ul>
+</div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="../api.html" class="nav-link">API reference</a></li>
+    
+    
+    <li class="breadcrumb-item"><a href="heed.html" class="nav-link">heed</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">heed.security</span></li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="module-heed.security">
+<span id="heed-security"></span><h1>heed.security<a class="headerlink" href="#module-heed.security" title="Link to this heading">#</a></h1>
+<p>Public-endpoint hardening (the ingest endpoint is unauthenticated and hostile).</p>
+<p>Everything here is a small function or a strategy behind a protocol, so the router
+composes them and deployments swap implementations without touching it:</p>
+<ul class="simple">
+<li><p><strong>Origins / CORS</strong>: <a class="reference internal" href="#heed.security.origin_allowed" title="heed.security.origin_allowed"><code class="xref py py-func docutils literal notranslate"><span class="pre">origin_allowed()</span></code></a>, <a class="reference internal" href="#heed.security.cors_headers" title="heed.security.cors_headers"><code class="xref py py-func docutils literal notranslate"><span class="pre">cors_headers()</span></code></a>,
+<a class="reference internal" href="#heed.security.preflight_headers" title="heed.security.preflight_headers"><code class="xref py py-func docutils literal notranslate"><span class="pre">preflight_headers()</span></code></a>.</p></li>
+<li><p><strong>Client identity for rate limiting</strong>: <a class="reference internal" href="#heed.security.client_ip" title="heed.security.client_ip"><code class="xref py py-func docutils literal notranslate"><span class="pre">client_ip()</span></code></a> (honours
+<code class="docutils literal notranslate"><span class="pre">X-Forwarded-For</span></code> only from trusted proxies).</p></li>
+<li><p><strong>Rate limiting</strong>: the <a class="reference internal" href="#heed.security.RateLimiter" title="heed.security.RateLimiter"><code class="xref py py-class docutils literal notranslate"><span class="pre">RateLimiter</span></code></a> protocol, an in-memory default
+(<a class="reference internal" href="#heed.security.InMemoryRateLimiter" title="heed.security.InMemoryRateLimiter"><code class="xref py py-class docutils literal notranslate"><span class="pre">InMemoryRateLimiter</span></code></a>, per process) and <a class="reference internal" href="#heed.security.RedisRateLimiter" title="heed.security.RedisRateLimiter"><code class="xref py py-class docutils literal notranslate"><span class="pre">RedisRateLimiter</span></code></a> (shared
+across workers), looked up by name via <a class="reference internal" href="#heed.security.make_rate_limiter" title="heed.security.make_rate_limiter"><code class="xref py py-func docutils literal notranslate"><span class="pre">make_rate_limiter()</span></code></a>.</p></li>
+<li><p><strong>Bot gate</strong>: the <a class="reference internal" href="#heed.security.BotVerifier" title="heed.security.BotVerifier"><code class="xref py py-class docutils literal notranslate"><span class="pre">BotVerifier</span></code></a> protocol and <a class="reference internal" href="#heed.security.SiteverifyBotVerifier" title="heed.security.SiteverifyBotVerifier"><code class="xref py py-class docutils literal notranslate"><span class="pre">SiteverifyBotVerifier</span></code></a>
+for Cloudflare Turnstile / hCaptcha, built by <a class="reference internal" href="#heed.security.make_bot_verifier" title="heed.security.make_bot_verifier"><code class="xref py py-func docutils literal notranslate"><span class="pre">make_bot_verifier()</span></code></a> only when a
+secret is configured (off otherwise).</p></li>
+<li><p><strong>Attachments</strong>: <a class="reference internal" href="#heed.security.sniff_image_type" title="heed.security.sniff_image_type"><code class="xref py py-func docutils literal notranslate"><span class="pre">sniff_image_type()</span></code></a> checks screenshot magic bytes.</p></li>
+</ul>
+<p class="rubric">Functions</p>
+<div class="pst-scrollable-table-container"><table class="autosummary longtable table">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#heed.security.client_ip" title="heed.security.client_ip"><code class="xref py py-obj docutils literal notranslate"><span class="pre">client_ip</span></code></a>(peer, forwarded_for, *[, ...])</p></td>
+<td><p>The client address to rate-limit on.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#heed.security.cors_headers" title="heed.security.cors_headers"><code class="xref py py-obj docutils literal notranslate"><span class="pre">cors_headers</span></code></a>(origin, allowed, *[, ...])</p></td>
+<td><p>CORS response headers for <code class="docutils literal notranslate"><span class="pre">origin</span></code>, or <code class="docutils literal notranslate"><span class="pre">{}</span></code> when it is not allowed.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#heed.security.make_bot_verifier" title="heed.security.make_bot_verifier"><code class="xref py py-obj docutils literal notranslate"><span class="pre">make_bot_verifier</span></code></a>(provider, secret, **kwargs)</p></td>
+<td><p>Return a verifier, or <code class="docutils literal notranslate"><span class="pre">None</span></code> (gate off) when no secret is configured.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#heed.security.make_rate_limiter" title="heed.security.make_rate_limiter"><code class="xref py py-obj docutils literal notranslate"><span class="pre">make_rate_limiter</span></code></a>([backend, window_seconds, ...])</p></td>
+<td><p>Build a limiter from the <code class="xref py py-data docutils literal notranslate"><span class="pre">rate_limiter_backends</span></code> registry by name.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#heed.security.normalize_origin" title="heed.security.normalize_origin"><code class="xref py py-obj docutils literal notranslate"><span class="pre">normalize_origin</span></code></a>(origin)</p></td>
+<td><p>Canonical form of an origin for comparison (lower-case, no trailing slash).</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#heed.security.origin_allowed" title="heed.security.origin_allowed"><code class="xref py py-obj docutils literal notranslate"><span class="pre">origin_allowed</span></code></a>(origin, allowed)</p></td>
+<td><p>True if origin is permitted; <code class="docutils literal notranslate"><span class="pre">allowed=None</span></code> allows any (the dev default).</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#heed.security.parse_networks" title="heed.security.parse_networks"><code class="xref py py-obj docutils literal notranslate"><span class="pre">parse_networks</span></code></a>(proxies)</p></td>
+<td><p>Parse IPs/CIDRs (strings or network objects) into networks; raises ValueError.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#heed.security.preflight_headers" title="heed.security.preflight_headers"><code class="xref py py-obj docutils literal notranslate"><span class="pre">preflight_headers</span></code></a>(origin, allowed, *[, ...])</p></td>
+<td><p>Headers answering a CORS preflight, or <code class="docutils literal notranslate"><span class="pre">{}</span></code> when the origin is not allowed.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#heed.security.rate_limit_key" title="heed.security.rate_limit_key"><code class="xref py py-obj docutils literal notranslate"><span class="pre">rate_limit_key</span></code></a>(ip, *[, ipv6_prefix])</p></td>
+<td><p>The bucket key for <code class="docutils literal notranslate"><span class="pre">ip</span></code>: IPv4 as-is, IPv6 grouped by its /<code class="docutils literal notranslate"><span class="pre">ipv6_prefix</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#heed.security.sniff_image_type" title="heed.security.sniff_image_type"><code class="xref py py-obj docutils literal notranslate"><span class="pre">sniff_image_type</span></code></a>(data)</p></td>
+<td><p>The media type of <code class="docutils literal notranslate"><span class="pre">data</span></code> from its magic bytes, or None if not an allowed image.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p class="rubric">Classes</p>
+<div class="pst-scrollable-table-container"><table class="autosummary longtable table">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#heed.security.BotVerifier" title="heed.security.BotVerifier"><code class="xref py py-obj docutils literal notranslate"><span class="pre">BotVerifier</span></code></a>(*args, **kwargs)</p></td>
+<td><p>Verify a human-challenge token server-side; True means &quot;looks human&quot;.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#heed.security.InMemoryRateLimiter" title="heed.security.InMemoryRateLimiter"><code class="xref py py-obj docutils literal notranslate"><span class="pre">InMemoryRateLimiter</span></code></a>(*[, max_per_window, ...])</p></td>
+<td><p>Sliding-window, in-memory limiter.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#heed.security.RateLimiter" title="heed.security.RateLimiter"><code class="xref py py-obj docutils literal notranslate"><span class="pre">RateLimiter</span></code></a>(*args, **kwargs)</p></td>
+<td><p>Decide whether a request keyed by <code class="docutils literal notranslate"><span class="pre">key</span></code> (e.g. client IP) is allowed now.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#heed.security.RedisRateLimiter" title="heed.security.RedisRateLimiter"><code class="xref py py-obj docutils literal notranslate"><span class="pre">RedisRateLimiter</span></code></a>(client, *[, ...])</p></td>
+<td><p>Fixed-window limiter in Redis — one count shared by every worker and host.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#heed.security.SiteverifyBotVerifier" title="heed.security.SiteverifyBotVerifier"><code class="xref py py-obj docutils literal notranslate"><span class="pre">SiteverifyBotVerifier</span></code></a>(secret, *[, ...])</p></td>
+<td><p>Turnstile / hCaptcha verification (both speak the same siteverify protocol).</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<dl class="py class">
+<dt class="sig sig-object py" id="heed.security.BotVerifier">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">heed.security.</span></span><span class="sig-name descname"><span class="pre">BotVerifier</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/security.html#BotVerifier"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.security.BotVerifier" title="Link to this definition">#</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Protocol" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Protocol</span></code></a></p>
+<p>Verify a human-challenge token server-side; True means “looks human”.</p>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="heed.security.InMemoryRateLimiter">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">heed.security.</span></span><span class="sig-name descname"><span class="pre">InMemoryRateLimiter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_per_window</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">30</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">window_seconds</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">60.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_keys</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">clock</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;built-in</span> <span class="pre">function</span> <span class="pre">monotonic&gt;</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/security.html#InMemoryRateLimiter"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.security.InMemoryRateLimiter" title="Link to this definition">#</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/builtins/functions.html#object" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>Sliding-window, in-memory limiter. Per process — NOT shared across workers.</p>
+<p>Fine for a single-worker deployment; with several workers each one counts alone,
+so the effective limit is multiplied. Use <a class="reference internal" href="#heed.security.RedisRateLimiter" title="heed.security.RedisRateLimiter"><code class="xref py py-class docutils literal notranslate"><span class="pre">RedisRateLimiter</span></code></a> there. The
+number of tracked keys is bounded (<code class="docutils literal notranslate"><span class="pre">max_keys</span></code>, least-recently-seen evicted) so a
+flood of distinct keys cannot exhaust memory.</p>
+<dl class="field-list simple">
+</dl>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="heed.security.RateLimiter">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">heed.security.</span></span><span class="sig-name descname"><span class="pre">RateLimiter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/security.html#RateLimiter"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.security.RateLimiter" title="Link to this definition">#</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Protocol" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Protocol</span></code></a></p>
+<p>Decide whether a request keyed by <code class="docutils literal notranslate"><span class="pre">key</span></code> (e.g. client IP) is allowed now.</p>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="heed.security.RedisRateLimiter">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">heed.security.</span></span><span class="sig-name descname"><span class="pre">RedisRateLimiter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">client</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_per_window</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">30</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">window_seconds</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">60.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">namespace</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'heed:rl'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fallback</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">clock</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;built-in</span> <span class="pre">function</span> <span class="pre">time&gt;</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/security.html#RedisRateLimiter"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.security.RedisRateLimiter" title="Link to this definition">#</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/builtins/functions.html#object" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>Fixed-window limiter in Redis — one count shared by every worker and host.</p>
+<p><code class="docutils literal notranslate"><span class="pre">client</span></code> is any redis-py compatible client (injected; tests use a fake). When
+Redis errors, the request is decided by <code class="docutils literal notranslate"><span class="pre">fallback</span></code> (a per-process in-memory
+limiter by default), so an outage degrades protection instead of either dropping
+all feedback or removing the limit.</p>
+<dl class="field-list simple">
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="heed.security.RedisRateLimiter.from_url">
+<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">from_url</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">url</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">socket_timeout</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.5</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/security.html#RedisRateLimiter.from_url"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.security.RedisRateLimiter.from_url" title="Link to this definition">#</a></dt>
+<dd><p>Build from a <code class="docutils literal notranslate"><span class="pre">redis://</span></code> URL (needs the <code class="docutils literal notranslate"><span class="pre">[redis]</span></code> extra).</p>
+<p><code class="docutils literal notranslate"><span class="pre">socket_timeout</span></code> bounds both connect and reads, so a hung Redis costs at most
+that long before the fallback limiter decides.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference internal" href="#heed.security.RedisRateLimiter" title="heed.security.RedisRateLimiter"><code class="xref py py-class docutils literal notranslate"><span class="pre">RedisRateLimiter</span></code></a></span></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="heed.security.SiteverifyBotVerifier">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">heed.security.</span></span><span class="sig-name descname"><span class="pre">SiteverifyBotVerifier</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">secret</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verify_url</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'https://challenges.cloudflare.com/turnstile/v0/siteverify'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">expected_hostnames</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timeout</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_token_chars</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">4096</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">http_post</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;function</span> <span class="pre">_urllib_post_form&gt;</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/security.html#SiteverifyBotVerifier"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.security.SiteverifyBotVerifier" title="Link to this definition">#</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/builtins/functions.html#object" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>Turnstile / hCaptcha verification (both speak the same siteverify protocol).</p>
+<p>Fails closed: a missing token, a network error, or a malformed answer all verify
+as False. <code class="docutils literal notranslate"><span class="pre">expected_hostnames</span></code>, when given, also rejects tokens solved on
+another site. <code class="docutils literal notranslate"><span class="pre">http_post</span></code> is injectable (tests never touch the network).</p>
+<dl class="field-list simple">
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="heed.security.client_ip">
+<span class="sig-prename descclassname"><span class="pre">heed.security.</span></span><span class="sig-name descname"><span class="pre">client_ip</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">peer</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">forwarded_for</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">trusted_proxies</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">()</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/security.html#client_ip"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.security.client_ip" title="Link to this definition">#</a></dt>
+<dd><p>The client address to rate-limit on.</p>
+<p><code class="docutils literal notranslate"><span class="pre">X-Forwarded-For</span></code> is attacker-controlled unless the direct peer is a trusted
+proxy, so it is only consulted then — and read right-to-left, skipping trusted
+hops, so a client cannot prepend a fake address.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></span></p>
+</dd>
+</dl>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">client_ip</span><span class="p">(</span><span class="s2">"10.0.0.1"</span><span class="p">,</span> <span class="s2">"6.6.6.6, 1.2.3.4"</span><span class="p">,</span> <span class="n">trusted_proxies</span><span class="o">=</span><span class="p">[</span><span class="s2">"10.0.0.0/8"</span><span class="p">])</span>
+<span class="go">'1.2.3.4'</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">client_ip</span><span class="p">(</span><span class="s2">"5.5.5.5"</span><span class="p">,</span> <span class="s2">"1.2.3.4"</span><span class="p">)</span>  <span class="c1"># untrusted peer: header ignored</span>
+<span class="go">'5.5.5.5'</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="heed.security.cors_headers">
+<span class="sig-prename descclassname"><span class="pre">heed.security.</span></span><span class="sig-name descname"><span class="pre">cors_headers</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">origin</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">allowed</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">allow_credentials</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/security.html#cors_headers"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.security.cors_headers" title="Link to this definition">#</a></dt>
+<dd><p>CORS response headers for <code class="docutils literal notranslate"><span class="pre">origin</span></code>, or <code class="docutils literal notranslate"><span class="pre">{}</span></code> when it is not allowed.</p>
+<p>The request’s own origin is echoed (never <code class="docutils literal notranslate"><span class="pre">*</span></code>) so the response is correct with
+or without credentials; <code class="docutils literal notranslate"><span class="pre">Vary:</span> <span class="pre">Origin</span></code> keeps shared caches honest.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#dict" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">dict</span></code></a>[<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>]</span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="heed.security.make_bot_verifier">
+<span class="sig-prename descclassname"><span class="pre">heed.security.</span></span><span class="sig-name descname"><span class="pre">make_bot_verifier</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">provider</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">secret</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/security.html#make_bot_verifier"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.security.make_bot_verifier" title="Link to this definition">#</a></dt>
+<dd><p>Return a verifier, or <code class="docutils literal notranslate"><span class="pre">None</span></code> (gate off) when no secret is configured.</p>
+<p><code class="docutils literal notranslate"><span class="pre">provider</span></code> defaults to <code class="docutils literal notranslate"><span class="pre">&quot;turnstile&quot;</span></code> when a secret is given.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference internal" href="#heed.security.BotVerifier" title="heed.security.BotVerifier"><code class="xref py py-class docutils literal notranslate"><span class="pre">BotVerifier</span></code></a> | <a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a></span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="heed.security.make_rate_limiter">
+<span class="sig-prename descclassname"><span class="pre">heed.security.</span></span><span class="sig-name descname"><span class="pre">make_rate_limiter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">backend</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'memory'</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_per_window</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">window_seconds</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">60.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">namespace</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'ip'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">redis_url</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/security.html#make_rate_limiter"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.security.make_rate_limiter" title="Link to this definition">#</a></dt>
+<dd><p>Build a limiter from the <code class="xref py py-data docutils literal notranslate"><span class="pre">rate_limiter_backends</span></code> registry by name.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference internal" href="#heed.security.RateLimiter" title="heed.security.RateLimiter"><code class="xref py py-class docutils literal notranslate"><span class="pre">RateLimiter</span></code></a></span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="heed.security.normalize_origin">
+<span class="sig-prename descclassname"><span class="pre">heed.security.</span></span><span class="sig-name descname"><span class="pre">normalize_origin</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">origin</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/security.html#normalize_origin"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.security.normalize_origin" title="Link to this definition">#</a></dt>
+<dd><p>Canonical form of an origin for comparison (lower-case, no trailing slash).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></span></p>
+</dd>
+</dl>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">normalize_origin</span><span class="p">(</span><span class="s2">"HTTPS://App.Example/"</span><span class="p">)</span>
+<span class="go">'https://app.example'</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="heed.security.origin_allowed">
+<span class="sig-prename descclassname"><span class="pre">heed.security.</span></span><span class="sig-name descname"><span class="pre">origin_allowed</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">origin</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">allowed</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/security.html#origin_allowed"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.security.origin_allowed" title="Link to this definition">#</a></dt>
+<dd><p>True if origin is permitted; <code class="docutils literal notranslate"><span class="pre">allowed=None</span></code> allows any (the dev default).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a></span></p>
+</dd>
+</dl>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">origin_allowed</span><span class="p">(</span><span class="s2">"https://a.example"</span><span class="p">,</span> <span class="p">[</span><span class="s2">"https://a.example"</span><span class="p">])</span>
+<span class="go">True</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">origin_allowed</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="p">[</span><span class="s2">"https://a.example"</span><span class="p">])</span>
+<span class="go">False</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="heed.security.parse_networks">
+<span class="sig-prename descclassname"><span class="pre">heed.security.</span></span><span class="sig-name descname"><span class="pre">parse_networks</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">proxies</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/security.html#parse_networks"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.security.parse_networks" title="Link to this definition">#</a></dt>
+<dd><p>Parse IPs/CIDRs (strings or network objects) into networks; raises ValueError.</p>
+<p>Call it once at startup so a typo fails loudly there, not on every request.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/ipaddress.html#ipaddress.IPv4Network" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">IPv4Network</span></code></a> | <a class="reference external" href="https://docs.python.org/3/library/ipaddress.html#ipaddress.IPv6Network" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">IPv6Network</span></code></a>]</span></p>
+</dd>
+</dl>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">parse_networks</span><span class="p">([</span><span class="s2">"127.0.0.1"</span><span class="p">,</span> <span class="s2">"10.0.0.0/8"</span><span class="p">])</span>
+<span class="go">[IPv4Network('127.0.0.1/32'), IPv4Network('10.0.0.0/8')]</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="heed.security.preflight_headers">
+<span class="sig-prename descclassname"><span class="pre">heed.security.</span></span><span class="sig-name descname"><span class="pre">preflight_headers</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">origin</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">allowed</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">allow_credentials</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_age_seconds</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">600</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">methods</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'POST,</span> <span class="pre">OPTIONS'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">request_headers</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/security.html#preflight_headers"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.security.preflight_headers" title="Link to this definition">#</a></dt>
+<dd><p>Headers answering a CORS preflight, or <code class="docutils literal notranslate"><span class="pre">{}</span></code> when the origin is not allowed.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#dict" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">dict</span></code></a>[<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>]</span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="heed.security.rate_limit_key">
+<span class="sig-prename descclassname"><span class="pre">heed.security.</span></span><span class="sig-name descname"><span class="pre">rate_limit_key</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ip</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">ipv6_prefix</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">64</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/security.html#rate_limit_key"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.security.rate_limit_key" title="Link to this definition">#</a></dt>
+<dd><p>The bucket key for <code class="docutils literal notranslate"><span class="pre">ip</span></code>: IPv4 as-is, IPv6 grouped by its /<code class="docutils literal notranslate"><span class="pre">ipv6_prefix</span></code>.</p>
+<p>One IPv6 host typically owns a whole /64, so per-address buckets are trivially
+dodged by rotating addresses.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></span></p>
+</dd>
+</dl>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">rate_limit_key</span><span class="p">(</span><span class="s2">"2001:db8::1"</span><span class="p">)</span> <span class="o">==</span> <span class="n">rate_limit_key</span><span class="p">(</span><span class="s2">"2001:db8::ffff"</span><span class="p">)</span>
+<span class="go">True</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">rate_limit_key</span><span class="p">(</span><span class="s2">"1.2.3.4"</span><span class="p">)</span>
+<span class="go">'1.2.3.4'</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="heed.security.sniff_image_type">
+<span class="sig-prename descclassname"><span class="pre">heed.security.</span></span><span class="sig-name descname"><span class="pre">sniff_image_type</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/security.html#sniff_image_type"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.security.sniff_image_type" title="Link to this definition">#</a></dt>
+<dd><p>The media type of <code class="docutils literal notranslate"><span class="pre">data</span></code> from its magic bytes, or None if not an allowed image.</p>
+<p>Never trust the client’s declared content type: an “image” might be HTML/SVG.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a> | <a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a></span></p>
+</dd>
+</dl>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">sniff_image_type</span><span class="p">(</span><span class="sa">b</span><span class="s2">"</span><span class="se">\x89</span><span class="s2">PNG</span><span class="se">\r\n\x1a\n</span><span class="s2">..."</span><span class="p">)</span>
+<span class="go">'image/png'</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">sniff_image_type</span><span class="p">(</span><span class="sa">b</span><span class="s2">"&lt;svg onload=alert(1)&gt;"</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span>
+<span class="go">True</span>
+</pre></div>
+</div>
+</dd></dl>
+
+</section>
+
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="heed.ingest.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">heed.ingest</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="heed.sinks.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">heed.sinks</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.security.BotVerifier"><code class="docutils literal notranslate"><span class="pre">BotVerifier</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.security.InMemoryRateLimiter"><code class="docutils literal notranslate"><span class="pre">InMemoryRateLimiter</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.security.RateLimiter"><code class="docutils literal notranslate"><span class="pre">RateLimiter</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.security.RedisRateLimiter"><code class="docutils literal notranslate"><span class="pre">RedisRateLimiter</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.security.RedisRateLimiter.from_url"><code class="docutils literal notranslate"><span class="pre">RedisRateLimiter.from_url()</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.security.SiteverifyBotVerifier"><code class="docutils literal notranslate"><span class="pre">SiteverifyBotVerifier</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.security.client_ip"><code class="docutils literal notranslate"><span class="pre">client_ip()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.security.cors_headers"><code class="docutils literal notranslate"><span class="pre">cors_headers()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.security.make_bot_verifier"><code class="docutils literal notranslate"><span class="pre">make_bot_verifier()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.security.make_rate_limiter"><code class="docutils literal notranslate"><span class="pre">make_rate_limiter()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.security.normalize_origin"><code class="docutils literal notranslate"><span class="pre">normalize_origin()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.security.origin_allowed"><code class="docutils literal notranslate"><span class="pre">origin_allowed()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.security.parse_networks"><code class="docutils literal notranslate"><span class="pre">parse_networks()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.security.preflight_headers"><code class="docutils literal notranslate"><span class="pre">preflight_headers()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.security.rate_limit_key"><code class="docutils literal notranslate"><span class="pre">rate_limit_key()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.security.sniff_image_type"><code class="docutils literal notranslate"><span class="pre">sniff_image_type()</span></code></a></li>
+</ul>
+  </nav></div>
+
+  <div class="sidebar-secondary-item">
+
+  <div class="tocsection sourcelink">
+    <a href="../_sources/_autosummary/heed.security.rst.txt">
+      <i class="fa-solid fa-file-lines"></i> Show Source
+    </a>
+  </div>
+</div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../_static/scripts/bootstrap.js?digest=18bd87630a240e9c25be"></script>
+<script defer src="../_static/scripts/pydata-sphinx-theme.js?digest=18bd87630a240e9c25be"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<p class="theme-version">
+  <!-- # L10n: Setting the PST URL as an argument as this does not need to be localized -->
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.23.0.
+</p></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>

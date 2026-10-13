@@ -1,0 +1,75 @@
+{
+  "schema_version": 1,
+  "built_at": "2026-10-13T04:15:28Z",
+  "package": {
+    "name": "heed",
+    "version": "0.0.1",
+    "display_name": "heed",
+    "source": "pyproject.toml"
+  },
+  "git": {
+    "available": true,
+    "commit": "ba1f2008fcf2962a10d7702b50c82b98d6d190cb",
+    "short_commit": "ba1f200",
+    "branch": "main",
+    "tags": [],
+    "dirty": false,
+    "remote_url": "https://github.com/i2mint/heed",
+    "commit_url": "https://github.com/i2mint/heed/commit/ba1f2008fcf2962a10d7702b50c82b98d6d190cb",
+    "error": null
+  },
+  "ci": {
+    "provider": "github",
+    "repository": "i2mint/heed",
+    "sha": "ba1f2008fcf2962a10d7702b50c82b98d6d190cb",
+    "sha_in_history": true,
+    "ref": "refs/heads/main",
+    "ref_name": "main",
+    "run_id": "38345441468",
+    "run_url": "https://github.com/i2mint/heed/actions/runs/38345441468",
+    "server_url": "https://github.com"
+  },
+  "tools": {
+    "epythet": "0.2.13",
+    "sphinx": "9.1.0",
+    "docutils": "0.22.4",
+    "python": "3.12.15"
+  },
+  "config": {
+    "theme": "auto",
+    "html_theme": "pydata_sphinx_theme",
+    "accent": "#006d48",
+    "mode": "auto",
+    "api_generator": "autosummary",
+    "ignore": [
+      "tests/",
+      "scrap/",
+      "examples/"
+    ],
+    "agent_outputs": true,
+    "aggregates": [
+      "md"
+    ],
+    "ai_artifacts": true,
+    "provenance": true,
+    "docs_dir": "docsrc"
+  },
+  "site": {
+    "modules_documented": 10,
+    "objects_documented": 114
+  },
+  "pypi": {
+    "checked": true,
+    "latest": "0.1.0",
+    "relation": "behind",
+    "error": null
+  },
+  "reproduce": "git clone https://github.com/i2mint/heed && cd heed\ngit checkout ba1f2008fcf2962a10d7702b50c82b98d6d190cb\npip install \"epythet==0.2.13\"\nepythet quickstart . --ignore tests/ scrap/ examples/",
+  "warnings": [],
+  "alignment": {
+    "aligned": false,
+    "notes": [
+      "The documented version (0.0.1) is behind the latest release on PyPI (0.1.0): `pip install heed` gives newer code than these docs describe."
+    ]
+  }
+}

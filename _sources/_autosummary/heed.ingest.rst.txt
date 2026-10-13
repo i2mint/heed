@@ -1,0 +1,15 @@
+heed.ingest
+===========
+
+.. automodule:: heed.ingest
+
+   
+   .. rubric:: Functions
+
+   .. autosummary::
+   
+      make_app
+      make_router
+      process_submission
+      read_capped_body
+   

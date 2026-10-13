@@ -1,0 +1,34 @@
+heed.sinks
+==========
+
+.. automodule:: heed.sinks
+
+   
+   .. rubric:: Functions
+
+   .. autosummary::
+   
+      github_sink_from_token
+      render_issue_body
+      get_sink_class
+   
+   .. rubric:: Classes
+
+   .. autosummary::
+   
+      Sink
+      BaseSink
+      SinkResult
+      DupCandidate
+      StoreSink
+      GitHubIssuesSink
+   
+.. rubric:: Modules
+
+.. autosummary::
+   :toctree:
+   :recursive:
+
+   base
+   github
+   store

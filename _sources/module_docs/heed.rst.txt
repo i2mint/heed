@@ -1,4 +1,0 @@
-heed
-====
-.. automodule:: heed
-   :members:

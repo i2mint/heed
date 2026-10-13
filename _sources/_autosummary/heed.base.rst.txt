@@ -1,0 +1,28 @@
+heed.base
+=========
+
+.. automodule:: heed.base
+
+   
+   .. rubric:: Functions
+
+   .. autosummary::
+   
+      new_report_id
+      strip_control_chars
+      utcnow
+   
+   .. rubric:: Classes
+
+   .. autosummary::
+   
+      Attachment
+      Category
+      Environment
+      Identity
+      LogEntry
+      NetEntry
+      Report
+      ReportSubmission
+      Status
+   

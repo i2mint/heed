@@ -1,4 +1,0 @@
-heed.sinks.github
-=================
-.. automodule:: heed.sinks.github
-   :members:

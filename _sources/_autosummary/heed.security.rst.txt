@@ -1,0 +1,31 @@
+heed.security
+=============
+
+.. automodule:: heed.security
+
+   
+   .. rubric:: Functions
+
+   .. autosummary::
+   
+      client_ip
+      cors_headers
+      make_bot_verifier
+      make_rate_limiter
+      normalize_origin
+      origin_allowed
+      parse_networks
+      preflight_headers
+      rate_limit_key
+      sniff_image_type
+   
+   .. rubric:: Classes
+
+   .. autosummary::
+   
+      BotVerifier
+      InMemoryRateLimiter
+      RateLimiter
+      RedisRateLimiter
+      SiteverifyBotVerifier
+   

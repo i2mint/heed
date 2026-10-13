@@ -1,0 +1,12 @@
+heed.config
+===========
+
+.. automodule:: heed.config
+
+   
+   .. rubric:: Classes
+
+   .. autosummary::
+   
+      HeedConfig
+   

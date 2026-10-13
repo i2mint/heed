@@ -1,230 +1,517 @@
-
-
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" data-content_root="./">
-<head>
-  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Welcome to heed’s documentation! &mdash; heed 0.0.1 documentation</title>
-      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
-      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
-      <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
-      <link rel="stylesheet" type="text/css" href="_static/graphviz.css?v=4ae1632d" />
 
+<html lang="en" data-content_root="./" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+<link rel="alternate" type="text/markdown" href="index.html.md">
+<link rel="describedby" href="llms.txt" type="text/markdown">
+<link rel="alternate" type="text/markdown" href="index.html.md">
+<link rel="describedby" href="llms.txt">
+    <title>heed &#8212; heed</title>
   
-      <script src="_static/jquery.js?v=5d32c60e"></script>
-      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="_static/documentation_options.js?v=d45e8c67"></script>
-      <script src="_static/doctools.js?v=fd6eb6e6"></script>
-      <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
-      <script src="_static/toggleprompt.js?v=d7ede5d2"></script>
-      <script src="_static/clipboard.min.js?v=a7894cd8"></script>
-      <script src="_static/copybutton.js?v=f281be69"></script>
-    <script src="_static/js/theme.js"></script>
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="_static/styles/theme.css?digest=18bd87630a240e9c25be" rel="stylesheet" />
+<link href="_static/styles/pydata-sphinx-theme.css?digest=18bd87630a240e9c25be" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=d75fae25" />
+    <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="_static/epythet.css?v=ef673b48" />
+  
+  <!-- So that users can add custom icons -->
+  <script defer src="_static/scripts/fontawesome.js?digest=18bd87630a240e9c25be"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="_static/scripts/bootstrap.js?digest=18bd87630a240e9c25be" />
+<link rel="preload" as="script" href="_static/scripts/pydata-sphinx-theme.js?digest=18bd87630a240e9c25be" />
+
+    <script src="_static/documentation_options.js?v=d45e8c67"></script>
+    <script src="_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="_static/copybutton.js?v=fd10adb8"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'index';</script>
+    <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="heed" href="module_docs/heed.html" /> 
-</head>
+    <link rel="next" title="API reference" href="api.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="color-scheme" content="light dark"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="0.0.1" />
+  
+    
+    <script src="_static/searchtools.js"></script>
+    <script src="_static/language_data.js"></script>
+    <script src="searchindex.js"></script>
+  
+  </head>
+  <body data-default-mode="">
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
 
-<body class="wy-body-for-nav"> 
-  <div class="wy-grid-for-nav">
-    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
-      <div class="wy-side-scroll">
-        <div class="wy-side-nav-search" >
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+  
+  
+  
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
 
-          
-          
-          <a href="#" class="icon icon-home">
-            heed
-          </a>
-<div role="search">
-  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
-    <input type="hidden" name="check_keywords" value="yes" />
-    <input type="hidden" name="area" value="default" />
-  </form>
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
 </div>
-        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
-              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="module_docs/heed.html">heed</a></li>
-<li class="toctree-l1"><a class="reference internal" href="module_docs/heed/__main__.html">heed.__main__</a></li>
-<li class="toctree-l1"><a class="reference internal" href="module_docs/heed/base.html">heed.base</a></li>
-<li class="toctree-l1"><a class="reference internal" href="module_docs/heed/config.html">heed.config</a></li>
-<li class="toctree-l1"><a class="reference internal" href="module_docs/heed/ingest.html">heed.ingest</a></li>
-<li class="toctree-l1"><a class="reference internal" href="module_docs/heed/security.html">heed.security</a></li>
-<li class="toctree-l1"><a class="reference internal" href="module_docs/heed/sinks.html">heed.sinks</a></li>
-<li class="toctree-l1"><a class="reference internal" href="module_docs/heed/sinks/base.html">heed.sinks.base</a></li>
-<li class="toctree-l1"><a class="reference internal" href="module_docs/heed/sinks/github.html">heed.sinks.github</a></li>
-<li class="toctree-l1"><a class="reference internal" href="module_docs/heed/sinks/store.html">heed.sinks.store</a></li>
-<li class="toctree-l1"><a class="reference internal" href="module_docs/heed/storage.html">heed.storage</a></li>
-</ul>
 
-        </div>
-      </div>
-    </nav>
+  
+    <header id="pst-header" class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button type="button" class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
 
-    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
-          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
-          <a href="#">heed</a>
-      </nav>
+  
+    
+  
 
-      <div class="wy-nav-content">
-        <div class="rst-content">
-          <div role="navigation" aria-label="Page navigation">
-  <ul class="wy-breadcrumbs">
-      <li><a href="#" class="icon icon-home" aria-label="Home"></a></li>
-      <li class="breadcrumb-item active">Welcome to heed’s documentation!</li>
-      <li class="wy-breadcrumbs-aside">
-            <a href="_sources/index.rst.txt" rel="nofollow"> View page source</a>
-      </li>
+<a class="navbar-brand logo" href="#">
+  
+  
+  
+  
+  
+  
+    <p class="title logo__title">heed</p>
+  
+</a></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="api.html">
+    API reference
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="ai-agents.html">
+    For AI agents
+  </a>
+</li>
+
   </ul>
-  <hr/>
-</div>
-          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
-           <div itemprop="articleBody">
-             
-  <section id="welcome-to-heed-s-documentation">
-<h1>Welcome to heed’s documentation!<a class="headerlink" href="#welcome-to-heed-s-documentation" title="Link to this heading"></a></h1>
-<div class="toctree-wrapper compound">
-<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="module_docs/heed.html">heed</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="module_docs/heed.html#heed.Attachment"><code class="docutils literal notranslate"><span class="pre">Attachment</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="module_docs/heed.html#heed.BaseSink"><code class="docutils literal notranslate"><span class="pre">BaseSink</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="module_docs/heed.html#heed.Category"><code class="docutils literal notranslate"><span class="pre">Category</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="module_docs/heed.html#heed.Environment"><code class="docutils literal notranslate"><span class="pre">Environment</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="module_docs/heed.html#heed.GitHubIssuesSink"><code class="docutils literal notranslate"><span class="pre">GitHubIssuesSink</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="module_docs/heed.html#heed.HeedConfig"><code class="docutils literal notranslate"><span class="pre">HeedConfig</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="module_docs/heed.html#heed.Identity"><code class="docutils literal notranslate"><span class="pre">Identity</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="module_docs/heed.html#heed.LogEntry"><code class="docutils literal notranslate"><span class="pre">LogEntry</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="module_docs/heed.html#heed.NetEntry"><code class="docutils literal notranslate"><span class="pre">NetEntry</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="module_docs/heed.html#heed.Report"><code class="docutils literal notranslate"><span class="pre">Report</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="module_docs/heed.html#heed.ReportSubmission"><code class="docutils literal notranslate"><span class="pre">ReportSubmission</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="module_docs/heed.html#heed.Sink"><code class="docutils literal notranslate"><span class="pre">Sink</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="module_docs/heed.html#heed.SinkResult"><code class="docutils literal notranslate"><span class="pre">SinkResult</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="module_docs/heed.html#heed.Status"><code class="docutils literal notranslate"><span class="pre">Status</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="module_docs/heed.html#heed.StoreSink"><code class="docutils literal notranslate"><span class="pre">StoreSink</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="module_docs/heed.html#heed.github_sink_from_token"><code class="docutils literal notranslate"><span class="pre">github_sink_from_token()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="module_docs/heed.html#heed.make_app"><code class="docutils literal notranslate"><span class="pre">make_app()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="module_docs/heed.html#heed.make_attachment_store"><code class="docutils literal notranslate"><span class="pre">make_attachment_store()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="module_docs/heed.html#heed.make_report_store"><code class="docutils literal notranslate"><span class="pre">make_report_store()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="module_docs/heed.html#heed.make_router"><code class="docutils literal notranslate"><span class="pre">make_router()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="module_docs/heed.html#heed.new_report_id"><code class="docutils literal notranslate"><span class="pre">new_report_id()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="module_docs/heed.html#heed.process_submission"><code class="docutils literal notranslate"><span class="pre">process_submission()</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="module_docs/heed/__main__.html">heed.__main__</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="module_docs/heed/__main__.html#heed.__main__.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="module_docs/heed/base.html">heed.base</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="module_docs/heed/base.html#heed.base.Attachment"><code class="docutils literal notranslate"><span class="pre">Attachment</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="module_docs/heed/base.html#heed.base.Category"><code class="docutils literal notranslate"><span class="pre">Category</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="module_docs/heed/base.html#heed.base.Environment"><code class="docutils literal notranslate"><span class="pre">Environment</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="module_docs/heed/base.html#heed.base.Identity"><code class="docutils literal notranslate"><span class="pre">Identity</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="module_docs/heed/base.html#heed.base.LogEntry"><code class="docutils literal notranslate"><span class="pre">LogEntry</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="module_docs/heed/base.html#heed.base.NetEntry"><code class="docutils literal notranslate"><span class="pre">NetEntry</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="module_docs/heed/base.html#heed.base.Report"><code class="docutils literal notranslate"><span class="pre">Report</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="module_docs/heed/base.html#heed.base.ReportSubmission"><code class="docutils literal notranslate"><span class="pre">ReportSubmission</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="module_docs/heed/base.html#heed.base.Status"><code class="docutils literal notranslate"><span class="pre">Status</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="module_docs/heed/base.html#heed.base.new_report_id"><code class="docutils literal notranslate"><span class="pre">new_report_id()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="module_docs/heed/base.html#heed.base.utcnow"><code class="docutils literal notranslate"><span class="pre">utcnow()</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="module_docs/heed/config.html">heed.config</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="module_docs/heed/config.html#heed.config.HeedConfig"><code class="docutils literal notranslate"><span class="pre">HeedConfig</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="module_docs/heed/ingest.html">heed.ingest</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="module_docs/heed/ingest.html#heed.ingest.make_app"><code class="docutils literal notranslate"><span class="pre">make_app()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="module_docs/heed/ingest.html#heed.ingest.make_router"><code class="docutils literal notranslate"><span class="pre">make_router()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="module_docs/heed/ingest.html#heed.ingest.process_submission"><code class="docutils literal notranslate"><span class="pre">process_submission()</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="module_docs/heed/security.html">heed.security</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="module_docs/heed/security.html#heed.security.InMemoryRateLimiter"><code class="docutils literal notranslate"><span class="pre">InMemoryRateLimiter</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="module_docs/heed/security.html#heed.security.RateLimiter"><code class="docutils literal notranslate"><span class="pre">RateLimiter</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="module_docs/heed/security.html#heed.security.origin_allowed"><code class="docutils literal notranslate"><span class="pre">origin_allowed()</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="module_docs/heed/sinks.html">heed.sinks</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="module_docs/heed/sinks.html#heed.sinks.BaseSink"><code class="docutils literal notranslate"><span class="pre">BaseSink</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="module_docs/heed/sinks.html#heed.sinks.DupCandidate"><code class="docutils literal notranslate"><span class="pre">DupCandidate</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="module_docs/heed/sinks.html#heed.sinks.GitHubIssuesSink"><code class="docutils literal notranslate"><span class="pre">GitHubIssuesSink</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="module_docs/heed/sinks.html#heed.sinks.Sink"><code class="docutils literal notranslate"><span class="pre">Sink</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="module_docs/heed/sinks.html#heed.sinks.SinkResult"><code class="docutils literal notranslate"><span class="pre">SinkResult</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="module_docs/heed/sinks.html#heed.sinks.StoreSink"><code class="docutils literal notranslate"><span class="pre">StoreSink</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="module_docs/heed/sinks.html#heed.sinks.get_sink_class"><code class="docutils literal notranslate"><span class="pre">get_sink_class()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="module_docs/heed/sinks.html#heed.sinks.github_sink_from_token"><code class="docutils literal notranslate"><span class="pre">github_sink_from_token()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="module_docs/heed/sinks.html#heed.sinks.render_issue_body"><code class="docutils literal notranslate"><span class="pre">render_issue_body()</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="module_docs/heed/sinks/base.html">heed.sinks.base</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="module_docs/heed/sinks/base.html#heed.sinks.base.BaseSink"><code class="docutils literal notranslate"><span class="pre">BaseSink</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="module_docs/heed/sinks/base.html#heed.sinks.base.DupCandidate"><code class="docutils literal notranslate"><span class="pre">DupCandidate</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="module_docs/heed/sinks/base.html#heed.sinks.base.Sink"><code class="docutils literal notranslate"><span class="pre">Sink</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="module_docs/heed/sinks/base.html#heed.sinks.base.SinkResult"><code class="docutils literal notranslate"><span class="pre">SinkResult</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="module_docs/heed/sinks/github.html">heed.sinks.github</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="module_docs/heed/sinks/github.html#heed.sinks.github.GitHubIssuesSink"><code class="docutils literal notranslate"><span class="pre">GitHubIssuesSink</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="module_docs/heed/sinks/github.html#heed.sinks.github.github_sink_from_token"><code class="docutils literal notranslate"><span class="pre">github_sink_from_token()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="module_docs/heed/sinks/github.html#heed.sinks.github.render_issue_body"><code class="docutils literal notranslate"><span class="pre">render_issue_body()</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="module_docs/heed/sinks/store.html">heed.sinks.store</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="module_docs/heed/sinks/store.html#heed.sinks.store.StoreSink"><code class="docutils literal notranslate"><span class="pre">StoreSink</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="module_docs/heed/storage.html">heed.storage</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="module_docs/heed/storage.html#heed.storage.make_attachment_store"><code class="docutils literal notranslate"><span class="pre">make_attachment_store()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="module_docs/heed/storage.html#heed.storage.make_report_store"><code class="docutils literal notranslate"><span class="pre">make_report_store()</span></code></a></li>
-</ul>
-</li>
-</ul>
-</div>
-</section>
-<section id="indices-and-tables">
-<h1>Indices and tables<a class="headerlink" href="#indices-and-tables" title="Link to this heading"></a></h1>
-<ul class="simple">
-<li><p><a class="reference internal" href="genindex.html"><span class="std std-ref">Index</span></a></p></li>
-<li><p><a class="reference internal" href="py-modindex.html"><span class="std std-ref">Module Index</span></a></p></li>
-<li><p><a class="reference internal" href="search.html"><span class="std std-ref">Search Page</span></a></p></li>
-</ul>
-<p>Release: 0.0.1</p>
-<p>Last change: Aug 04, 2026</p>
-</section>
-
-
-           </div>
-          </div>
-          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="module_docs/heed.html" class="btn btn-neutral float-right" title="heed" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+</nav></div>
+      
     </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
 
-  <hr/>
-
-  <div role="contentinfo">
-    <p></p>
-  </div>
-
-  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
-    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
-    provided by <a href="https://readthedocs.org">Read the Docs</a>.
-   
-
-</footer>
+<button type="button" class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
         </div>
-      </div>
-    </section>
-  </div>
-  <script>
-      jQuery(function () {
-          SphinxRtdTheme.Navigation.enable(true);
-      });
-  </script> 
+      
+      
+        <div class="navbar-item">
 
-</body>
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button type="button" class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg fa-fw" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg fa-fw" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg fa-fw" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button type="button" class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg fa-fw me-1"></i>System Settings</button></li>
+    <li><button type="button" class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg fa-fw me-1"></i>Light</button></li>
+    <li><button type="button" class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg fa-fw me-1"></i>Dark</button></li>
+  </ul>
+</div></div>
+      
+        <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/i2mint/heed" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i><span class="visually-hidden">GitHub</span></a>
+        </li>
+</ul></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button type="button" class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+    <button type="button" class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+        
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar hide-on-wide">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="api.html">
+    API reference
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="ai-agents.html">
+    For AI agents
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button type="button" class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg fa-fw" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg fa-fw" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg fa-fw" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button type="button" class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg fa-fw me-1"></i>System Settings</button></li>
+    <li><button type="button" class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg fa-fw me-1"></i>Light</button></li>
+    <li><button type="button" class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg fa-fw me-1"></i>Dark</button></li>
+  </ul>
+</div></div>
+        
+          <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/i2mint/heed" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i><span class="visually-hidden">GitHub</span></a>
+        </li>
+</ul></div>
+        
+      </div>
+    
+  </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none"></div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <!-- generated by epythet -->
+<section id="heed">
+<h1>heed<a class="headerlink" href="#heed" title="Link to this heading">#</a></h1>
+<p><strong>Embeddable, no-install, framework-agnostic end-user feedback</strong> — a drop-in widget
+that lets <em>any visitor</em> of your deployed web app report a bug or request a feature,
+with useful context gathered automatically, routed to a pluggable backend (GitHub
+Issues first). Works standalone; integrates cleanly with
+<a class="reference external" href="https://github.com/i2mint/enlace"><code class="docutils literal notranslate"><span class="pre">enlace</span></code></a> as an optional add-on, but does <strong>not</strong>
+depend on it.</p>
+<blockquote>
+<div><p><strong>Status: design phase.</strong> The competitive landscape, the design rationale, and the
+roadmap live in <a class="reference internal" href="#misc/docs/"><span class="xref myst"><code class="docutils literal notranslate"><span class="pre">misc/docs/</span></code></span></a>. Work is tracked in GitHub
+<a class="reference external" href="https://github.com/i2mint/heed/issues">issues</a>; design decisions in GitHub
+<a class="reference external" href="https://github.com/i2mint/heed/discussions">discussions</a>.</p>
+</div></blockquote>
+<section id="why">
+<h2>Why<a class="headerlink" href="#why" title="Link to this heading">#</a></h2>
+<p>Developer-side tools (browser extensions, Chrome DevTools MCP, Jam, …) only help
+<em>you</em>. They can never serve an ordinary end user reporting a problem on your live
+site, or asking for a feature. <code class="docutils literal notranslate"><span class="pre">heed</span></code> is the missing piece: a <strong>public, zero-install</strong>
+capture-and-report widget plus a small self-hostable backend that <em>you</em> own and that
+routes wherever you want.</p>
+</section>
+<section id="the-shape-planned">
+<h2>The shape (planned)<a class="headerlink" href="#the-shape-planned" title="Link to this heading">#</a></h2>
+<ul class="simple">
+<li><p><strong>Widget</strong> — one <code class="docutils literal notranslate"><span class="pre">&lt;script&gt;</span></code> tag injects a Shadow-DOM-isolated custom element; drops
+into React, plain HTML, or server-rendered pages alike. Captures a screenshot, page
+URL, and environment by default; console/network capture is <em>opt-in</em> (privacy).</p></li>
+<li><p><strong>Backend</strong> — a mountable FastAPI router (run on its own, or mounted into <code class="docutils literal notranslate"><span class="pre">enlace</span></code>)
+that validates, stores attachments (via <code class="docutils literal notranslate"><span class="pre">dol</span></code>), and dispatches to a <strong>pluggable
+sink</strong>.</p></li>
+<li><p><strong>Sinks</strong> (strategy pattern) — GitHub Issues / Discussions first; email, Slack, a
+built-in board, or a database later.</p></li>
+<li><p><strong>Agent hand-off</strong> — an optional MCP server (<code class="docutils literal notranslate"><span class="pre">py2mcp</span></code>) so Claude Code can pull the
+feedback queue and act on reports.</p></li>
+</ul>
+</section>
+<section id="design-principles">
+<h2>Design principles<a class="headerlink" href="#design-principles" title="Link to this heading">#</a></h2>
+<ul class="simple">
+<li><p><strong>Standalone first.</strong> No hard <code class="docutils literal notranslate"><span class="pre">enlace</span></code> dependency; enlace integration is an optional
+<code class="docutils literal notranslate"><span class="pre">[enlace]</span></code> extra with lazy imports.</p></li>
+<li><p><strong>Privacy by default.</strong> Heavy capture (console, network, session replay) is opt-in;
+PII masking is designed in, not bolted on.</p></li>
+<li><p><strong>Public endpoint = hostile input.</strong> Rate limiting, origin checks, payload caps, and
+bot protection are first-class — the ingest endpoint is unauthenticated by nature.</p></li>
+<li><p><strong>Progressive disclosure.</strong> One script tag works out of the box; everything is
+parametrizable via keyword-only options with smart defaults.</p></li>
+</ul>
+</section>
+<section id="install">
+<h2>Install<a class="headerlink" href="#install" title="Link to this heading">#</a></h2>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>heed<span class="w">                 </span><span class="c1"># core (backend + models)</span>
+pip<span class="w"> </span>install<span class="w"> </span><span class="s2">"heed[github]"</span><span class="w">       </span><span class="c1"># + GitHub sink</span>
+pip<span class="w"> </span>install<span class="w"> </span><span class="s2">"heed[enlace,mcp]"</span><span class="w">   </span><span class="c1"># + enlace mount + MCP feedback queue</span>
+pip<span class="w"> </span>install<span class="w"> </span><span class="s2">"heed[redis]"</span><span class="w">        </span><span class="c1"># + rate limits shared across workers</span>
+</pre></div>
+</div>
+</section>
+<section id="running-the-ingest-endpoint-safely">
+<h2>Running the ingest endpoint safely<a class="headerlink" href="#running-the-ingest-endpoint-safely" title="Link to this heading">#</a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/report</span></code> endpoint is public, so it ships hardened: origin allow-list with CORS, streamed body/field/screenshot caps, strict input validation, per-IP and per-origin rate limits, a honeypot field, and an optional Turnstile/hCaptcha gate. Configure it in code or from <code class="docutils literal notranslate"><span class="pre">HEED_*</span></code> environment variables:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">heed</span><span class="w"> </span><span class="kn">import</span> <span class="n">HeedConfig</span><span class="p">,</span> <span class="n">StoreSink</span><span class="p">,</span> <span class="n">make_app</span>
+
+<span class="n">config</span> <span class="o">=</span> <span class="n">HeedConfig</span><span class="o">.</span><span class="n">from_env</span><span class="p">()</span>   <span class="c1"># e.g. HEED_ALLOWED_ORIGINS=https://myapp.example</span>
+<span class="n">app</span> <span class="o">=</span> <span class="n">make_app</span><span class="p">(</span><span class="n">StoreSink</span><span class="p">({}),</span> <span class="n">config</span><span class="o">=</span><span class="n">config</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>For production, set <code class="docutils literal notranslate"><span class="pre">allowed_origins</span></code>, <code class="docutils literal notranslate"><span class="pre">trusted_proxies</span></code> (behind a reverse proxy), <code class="docutils literal notranslate"><span class="pre">rate_limit_backend=&quot;redis&quot;</span></code> with <code class="docutils literal notranslate"><span class="pre">redis_url</span></code> (several workers), and <code class="docutils literal notranslate"><span class="pre">bot_secret</span></code> to turn the bot gate on. Embedders also need a Content-Security-Policy that allows the widget: see <a class="reference internal" href="#misc/docs/embedding-security.md"><span class="xref myst"><code class="docutils literal notranslate"><span class="pre">misc/docs/embedding-security.md</span></code></span></a>.</p>
+</section>
+<section id="documents">
+<h2>Documents<a class="headerlink" href="#documents" title="Link to this heading">#</a></h2>
+<ul class="simple">
+<li><p><a class="reference internal" href="#misc/docs/research-report.md"><span class="xref myst"><code class="docutils literal notranslate"><span class="pre">misc/docs/research-report.md</span></code></span></a> — the competitive
+landscape: what to reuse / steal / avoid, design patterns, and gotchas (deep
+research with adversarial verification).</p></li>
+<li><p><a class="reference internal" href="#misc/docs/design.md"><span class="xref myst"><code class="docutils literal notranslate"><span class="pre">misc/docs/design.md</span></code></span></a> — architecture, the data model, the
+sink interface, and the spectrum of approaches with pros/cons.</p></li>
+<li><p><a class="reference internal" href="#misc/docs/embedding-security.md"><span class="xref myst"><code class="docutils literal notranslate"><span class="pre">misc/docs/embedding-security.md</span></code></span></a> — hardening knobs for operators and CSP guidance for sites that embed the widget.</p></li>
+</ul>
+<hr class="docutils" />
+<p><em>Author: Thor Whalen. License: Apache-2.0.</em></p>
+<p class="epythet-aggregates">This documentation as a single file: <a href="heed.md">heed.md</a> (Markdown, for agents).</p>
+<div class="toctree-wrapper compound">
+</div>
+</section>
+</section>
+
+<p class="epythet-provenance" style="font-size:.8em;opacity:.65;margin-top:2.5em;text-align:right">built 2026-10-13 04:15 UTC from <a href="https://github.com/i2mint/heed/commit/ba1f2008fcf2962a10d7702b50c82b98d6d190cb">ba1f200</a> (main) · heed 0.0.1 · <a href="about-this-build.html">about this build</a></p>
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="right-next"
+       href="api.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">API reference</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#why">Why</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-shape-planned">The shape (planned)</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#design-principles">Design principles</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#install">Install</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#running-the-ingest-endpoint-safely">Running the ingest endpoint safely</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#documents">Documents</a></li>
+</ul>
+  </nav></div>
+
+  <div class="sidebar-secondary-item">
+
+  <div class="tocsection sourcelink">
+    <a href="_sources/index.md.txt">
+      <i class="fa-solid fa-file-lines"></i> Show Source
+    </a>
+  </div>
+</div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="_static/scripts/bootstrap.js?digest=18bd87630a240e9c25be"></script>
+<script defer src="_static/scripts/pydata-sphinx-theme.js?digest=18bd87630a240e9c25be"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<p class="theme-version">
+  <!-- # L10n: Setting the PST URL as an argument as this does not need to be localized -->
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.23.0.
+</p></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
 </html>

@@ -1,0 +1,15 @@
+heed.sinks.base
+===============
+
+.. automodule:: heed.sinks.base
+
+   
+   .. rubric:: Classes
+
+   .. autosummary::
+   
+      BaseSink
+      DupCandidate
+      Sink
+      SinkResult
+   

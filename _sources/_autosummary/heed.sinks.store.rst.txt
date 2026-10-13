@@ -1,0 +1,12 @@
+heed.sinks.store
+================
+
+.. automodule:: heed.sinks.store
+
+   
+   .. rubric:: Classes
+
+   .. autosummary::
+   
+      StoreSink
+   
