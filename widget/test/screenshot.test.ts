@@ -51,6 +51,7 @@ describe("screenshot", () => {
       maxNodes: 5000,
       maxBytes: MAX_SCREENSHOT_BYTES,
       maxPixels: CONTRACT.limits.screenshot_pixels,
+      signal: expect.any(AbortSignal),
     });
     expect(MAX_SCREENSHOT_BYTES).toBeLessThan(CONTRACT.limits.screenshot_bytes);
     await send(el);
@@ -162,5 +163,31 @@ describe("screenshot", () => {
     await previewShown(el);
     await send(el);
     expect($<HTMLImageElement>(el, ".preview").hidden).toBe(true);
+  });
+});
+
+describe("captureWithin tells a slow rasterizer to stop", () => {
+  const opts = { maskInputs: true, maskSelector: "", maxNodes: 5000 };
+
+  it("aborts the signal when the deadline passes, without a warning", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    let signal!: AbortSignal;
+    const slow = (_w: Window, o: { signal?: AbortSignal }) =>
+      new Promise<Blob | null>((_resolve, reject) => {
+        signal = o.signal!;
+        signal.addEventListener("abort", () => reject(new Error("cancelled")));
+      });
+    expect(await captureWithin(slow, window, opts, 20)).toBeNull();
+    expect(signal.aborted).toBe(true);
+    await tick();
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
+  it("still warns about a rasterizer that fails on its own", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    expect(await captureWithin(async () => Promise.reject(new Error("boom")), window, opts, 1000)).toBeNull();
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
   });
 });

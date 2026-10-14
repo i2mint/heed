@@ -1035,3 +1035,53 @@ def test_messages_override_single_texts_from_heed_init(browser):
         tab.get_by_role("button", name="Abschicken").wait_for()
         tab.get_by_role("button", name="Abbrechen").wait_for()
         assert problems == []
+
+
+_BIG = "".join(f"<div><span>row {i}</span></div>" for i in range(1800))
+_COUNT_TIMER_TICKS = (
+    "window.__ticks = 0; setInterval(() => { window.__ticks++; }, 5);"
+)
+# The longest stretch the page's own 5 ms timer was kept from running.
+_TRACK_TIMER_GAP = (
+    "window.__gap = 0; window.__last = performance.now();"
+    "if (!window.__tracking) { window.__tracking = setInterval(() => {"
+    " const now = performance.now();"
+    " window.__gap = Math.max(window.__gap, now - window.__last);"
+    " window.__last = now; }, 5); }"
+)
+
+
+def test_a_screenshot_of_a_big_page_does_not_freeze_it(browser):
+    """heed#38: the capture is made in slices, so the page's own timers keep running."""
+    with _site(browser, page=lambda b: _shot_page(b, extra=_BIG)) as (tab, _p, _s, _o):
+        tab.evaluate(_TRACK_TIMER_GAP)
+        started = time.monotonic()
+        tab.get_by_role("button", name="Feedback").click()
+        tab.get_by_role("img", name="Screenshot to be sent").wait_for(timeout=60_000)
+        total = time.monotonic() - started
+        if total < 1.0:
+            pytest.skip("this machine captures the page too fast to tell")
+        # Frozen for the whole clone, the longest gap is most of the capture.
+        assert tab.evaluate("window.__gap") / 1000 < 0.5 * total
+
+
+def test_a_timed_out_screenshot_stops_working_and_cleans_up(browser):
+    """heed#38: the timeout fires during the clone; the work stops at the next slice."""
+    with _site(
+        browser,
+        page=lambda b: _shot_page(
+            b, extra=_BIG, loader_attrs='data-screenshot-timeout-ms="300"'
+        ),
+    ) as (tab, _problems, _store, _origin):
+        tab.evaluate(_COUNT_TIMER_TICKS)
+        started = time.monotonic()
+        tab.get_by_role("button", name="Feedback").click()
+        tab.get_by_text("No screenshot could be taken").wait_for(timeout=60_000)
+        # A frozen page showed this only once the whole capture had ended (seconds).
+        assert time.monotonic() - started < 2.5
+        tab.wait_for_timeout(1000)
+        frames = "document.querySelectorAll('iframe[id^=__SANDBOX__]').length"
+        assert tab.evaluate(frames) == 0
+        ticks = tab.evaluate("window.__ticks")
+        tab.wait_for_timeout(500)
+        assert tab.evaluate("window.__ticks") > ticks  # and the thread is free again

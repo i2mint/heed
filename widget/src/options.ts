@@ -18,10 +18,10 @@ export type PageUrlMode = "path" | "full";
 
 /** Supplies a bot-gate token (Turnstile, hCaptcha…) at submit time; the seam for heed#5's gate. */
 export type BotTokenProvider = () => string | null | undefined | Promise<string | null | undefined>;
-/** Takes the screenshot; replaces the built-in rasterizer (tests, or apps that bundle heed). */
+/** Takes the screenshot; replaces the built-in rasterizer (tests, or apps that bundle heed). `options.signal` fires when nobody is waiting for it any more (the timeout, or the report was sent): stop then. */
 export type ScreenshotTaker = (
   win: Window,
-  options: { maskInputs: boolean; maskSelector: string; maxNodes: number; maxBytes: number; maxPixels: number },
+  options: { maskInputs: boolean; maskSelector: string; maxNodes: number; maxBytes: number; maxPixels: number; signal?: AbortSignal },
 ) => Promise<Blob | null>;
 /** Extra environment facts to attach (app version, feature flags…), string → string. */
 export type ExtraProvider = () => Record<string, string>;

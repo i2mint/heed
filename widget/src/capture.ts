@@ -76,18 +76,22 @@ export const MAX_SCREENSHOT_BYTES = Math.floor(CONTRACT.limits.screenshot_bytes 
 export async function captureWithin(
   take: ScreenshotTaker,
   win: Window,
-  options: Omit<CaptureOptions, "maxBytes" | "maxPixels">,
+  options: Omit<CaptureOptions, "maxBytes" | "maxPixels" | "signal">,
   timeoutMs: number,
 ): Promise<Blob | null> {
   let timer: ReturnType<typeof setTimeout> | undefined;
+  // Fired when the capture ends either way, so a rasterizer that yields (raster.ts)
+  // stops working for a screenshot nobody is waiting for any more.
+  const stop = new AbortController();
   const deadline = new Promise<null>((resolve) => (timer = setTimeout(() => resolve(null), timeoutMs)));
   try {
     const shot = take(win, {
       ...options,
       maxBytes: MAX_SCREENSHOT_BYTES,
       maxPixels: CONTRACT.limits.screenshot_pixels,
+      signal: stop.signal,
     }).catch((e) => {
-      console.warn("heed: no screenshot", e);
+      if (!stop.signal.aborted) console.warn("heed: no screenshot", e);
       return null;
     });
     const blob = await Promise.race([shot, deadline]);
@@ -97,5 +101,6 @@ export async function captureWithin(
     return null;
   } finally {
     clearTimeout(timer);
+    stop.abort();
   }
 }
