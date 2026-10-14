@@ -67,6 +67,8 @@ interface Shot {
   shown: boolean;
   /** Ends the wait on `settled` (the capture was cleared; an image without a `src` fires no event). */
   release: () => void;
+  /** Stops the capture, if it is still running: nobody is waiting for it any more. */
+  cancel: () => void;
 }
 
 interface Ui {
@@ -534,7 +536,8 @@ export class HeedFeedbackElement extends Base {
     const win = this.ownerDocument.defaultView ?? window;
     let release = () => {};
     const released = new Promise<void>((r) => (release = r));
-    const shot: Shot = { settled: Promise.resolve(), blob: null, url: null, shown: false, release };
+    const cancelling = new AbortController();
+    const shot: Shot = { settled: Promise.resolve(), blob: null, url: null, shown: false, release, cancel: () => cancelling.abort() };
     const fail = (message: string) => {
       ui.shotBox.checked = false;
       ui.shotBox.disabled = true;
@@ -549,6 +552,7 @@ export class HeedFeedbackElement extends Base {
           win,
           { maskInputs: o.maskInputs, maskSelector: o.maskSelector, maxNodes: o.screenshotMaxNodes },
           o.screenshotTimeoutMs,
+          cancelling.signal,
         ),
       )
       .then(
@@ -584,6 +588,7 @@ export class HeedFeedbackElement extends Base {
   #clearScreenshot(): void {
     if (this.#shot?.url) URL.revokeObjectURL(this.#shot.url);
     this.#shot?.release();
+    this.#shot?.cancel();
     this.#shot = null;
     if (!this.#ui) return;
     this.#ui.preview.hidden = true;

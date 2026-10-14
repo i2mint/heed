@@ -157,12 +157,30 @@ describe("screenshot", () => {
     const take = vi.fn(async () => png());
     const el = mount(take);
     el.open();
+    await previewShown(el);
     el.close();
     el.open();
     await vi.waitFor(() => expect(take).toHaveBeenCalledTimes(2));
     await previewShown(el);
     await send(el);
     expect($<HTMLImageElement>(el, ".preview").hidden).toBe(true);
+  });
+
+  it("tells a capture still running that a newer one replaced it", async () => {
+    vi.stubGlobal("fetch", ok());
+    const signals: AbortSignal[] = [];
+    const take = vi.fn(async (_w: Window, o: { signal?: AbortSignal }) => {
+      signals.push(o.signal!);
+      return signals.length === 1 ? new Promise<Blob | null>(() => {}) : png();
+    });
+    const el = mount(take);
+    el.open();
+    await vi.waitFor(() => expect(signals).toHaveLength(1));
+    expect(signals[0].aborted).toBe(false);
+    el.close();
+    el.open(); // a newer capture replaces the one still running
+    await vi.waitFor(() => expect(signals[0].aborted).toBe(true));
+    await previewShown(el);
   });
 });
 

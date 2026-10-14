@@ -32,10 +32,12 @@
  * (a 4000-element page took seconds on a slow machine). So it runs in slices of a
  * few milliseconds with a yield to the event loop between them (the clone is made
  * node by node, which is where the slices fall), the dialog stays responsive, and
- * the capture's `signal` (the timeout, or the visitor leaving) can end it at the
- * next yield instead of after it has finished. Because the page can change while
- * the capture yields, what to mask is decided when the live node is first seen, and
- * the black boxes are measured both before and after the render.
+ * the capture's `signal` (the timeout, or the capture being cleared or replaced) can
+ * end it at the next yield instead of after it has finished. Because the page can
+ * change while the capture yields (a node can even be moved into a masked element
+ * mid-walk), what to mask is decided when the live node is first seen and again when
+ * its clone is done, nothing inside a masked element is ever cloned, and the black
+ * boxes are measured both before and after the render.
  */
 import { createContext, destroyContext, domToCanvas } from "modern-screenshot";
 
@@ -220,6 +222,16 @@ function pairs(original: Element, clone: Element): boolean {
   return a === b || (a === "iframe" && b === "html") || ((a === "canvas" || a === "video") && (b === "img" || b === "canvas"));
 }
 
+/** The node a page's own tree puts above `n`: its slot, its shadow host, or the frame holding its document. */
+function parentOf(n: Node): Node | null {
+  const slotted = (n as Element).assignedSlot;
+  if (slotted) return slotted;
+  if (n.parentNode) return n.parentNode;
+  if (n.nodeType === 11) return (n as ShadowRoot).host ?? null;
+  if (n.nodeType === 9) return (n as Document).defaultView?.frameElement ?? null;
+  return null;
+}
+
 /**
  * Pairs clones with their originals as modern-screenshot clones (see layer 1 above),
  * and blanks the clones of masked originals.
@@ -228,6 +240,14 @@ function pairingScrubber(o: CaptureOptions, slice: () => Promise<void>) {
   // Whether to mask is decided when the live element is first seen (`filter`), not when
   // its clone is finished: the page may change in between, now that capture yields.
   const pending: { original: Element; mask: boolean }[] = [];
+  const masked = new WeakSet<Element>();
+  // Whether something above `node` is masked, now or when it was first seen.
+  const insideMasked = (node: Node): boolean => {
+    for (let up = parentOf(node); up; up = parentOf(up)) {
+      if (isEl(up) && (masked.has(up) || shouldMask(up, o))) return true;
+    }
+    return false;
+  };
   let last: Node | null = null;
   let broken = false;
   return {
@@ -235,7 +255,12 @@ function pairingScrubber(o: CaptureOptions, slice: () => Promise<void>) {
       if (!rendered(node)) return false;
       if (!isEl(node)) return true;
       if (excluded(node)) return false;
-      pending.push({ original: node, mask: shouldMask(node, o) });
+      // The walk steps from sibling to sibling after every yield: a node the page moved
+      // into a masked element meanwhile must not be cloned under the unmasked parent.
+      if (insideMasked(node)) return false;
+      const mask = shouldMask(node, o);
+      if (mask) masked.add(node);
+      pending.push({ original: node, mask });
       return true;
     },
     async onCloneEachNode(clone: Node): Promise<void> {
@@ -245,7 +270,7 @@ function pairingScrubber(o: CaptureOptions, slice: () => Promise<void>) {
         const entry = pending.pop();
         if (entry) {
           if (!pairs(entry.original, clone)) broken = true;
-          else if (entry.mask) blank(clone, entry.original);
+          else if (entry.mask || shouldMask(entry.original, o)) blank(clone, entry.original);
         } // else: the root
       }
       await slice();
@@ -308,23 +333,27 @@ function slicer(signal?: AbortSignal) {
  * yields before the first read; we do yield, so we hand it one that has loaded.
  */
 async function loadedSandbox(doc: Document, signal?: AbortSignal): Promise<HTMLIFrameElement> {
+  if (signal?.aborted) throw cancelled();
   const frame = doc.createElement("iframe");
   frame.width = frame.height = "0";
   frame.style.visibility = "hidden";
   frame.style.position = "fixed";
-  const loaded = new Promise<boolean>((resolve) => {
-    frame.addEventListener("load", () => resolve(true), { once: true });
-    setTimeout(() => resolve(false), 2000);
-  });
-  frame.srcdoc = '<!DOCTYPE html><meta charset="UTF-8"><title></title><body>';
-  doc.body.appendChild(frame);
-  const ready = await loaded;
-  if (signal?.aborted) throw cancelled();
-  if (!ready || !frame.contentDocument?.body) {
-    frame.remove();
-    throw new Error("heed: the screenshot's style frame did not load; no screenshot");
+  let handedOver = false;
+  try {
+    const loaded = new Promise<boolean>((resolve) => {
+      frame.addEventListener("load", () => resolve(true), { once: true });
+      setTimeout(() => resolve(false), 2000);
+    });
+    frame.srcdoc = '<!DOCTYPE html><meta charset="UTF-8"><title></title><body>';
+    doc.body.appendChild(frame);
+    const ready = await loaded;
+    if (signal?.aborted) throw cancelled();
+    if (!ready || !frame.contentDocument?.body) throw new Error("heed: the screenshot's style frame did not load; no screenshot");
+    handedOver = true;
+    return frame;
+  } finally {
+    if (!handedOver) frame.remove(); // cancelled or failed: never left behind in the page
   }
-  return frame;
 }
 
 const toBlob = (canvas: HTMLCanvasElement, type: string, quality?: number) =>
