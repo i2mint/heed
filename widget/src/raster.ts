@@ -243,6 +243,12 @@ function pairingScrubber(o: CaptureOptions, slice: () => Promise<void>) {
   const masked = new WeakSet<Element>();
   // Whether something above `node` is masked, now or when it was first seen.
   const insideMasked = (node: Node): boolean => {
+    // Usual case, in constant time: the node sits right under the element being cloned, which
+    // was itself checked when first seen (and is checked again when its clone is done).
+    const top = pending[pending.length - 1];
+    if (top && node.parentNode === top.original && !(node as Element | Text).assignedSlot) {
+      return top.mask || shouldMask(top.original, o);
+    }
     for (let up = parentOf(node); up; up = parentOf(up)) {
       if (isEl(up) && (masked.has(up) || shouldMask(up, o))) return true;
     }
@@ -253,11 +259,12 @@ function pairingScrubber(o: CaptureOptions, slice: () => Promise<void>) {
   return {
     filter(node: Node): boolean {
       if (!rendered(node)) return false;
+      // The walk steps from sibling to sibling after every yield: a node (text included)
+      // the page moved into a masked element meanwhile, or one slotted into a masked
+      // slot, must not be cloned under the unmasked parent.
+      if (insideMasked(node)) return false;
       if (!isEl(node)) return true;
       if (excluded(node)) return false;
-      // The walk steps from sibling to sibling after every yield: a node the page moved
-      // into a masked element meanwhile must not be cloned under the unmasked parent.
-      if (insideMasked(node)) return false;
       const mask = shouldMask(node, o);
       if (mask) masked.add(node);
       pending.push({ original: node, mask });

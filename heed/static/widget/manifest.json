@@ -1,18 +1,18 @@
 {
   "version": "0.9.1",
   "entries": {
-    "raster": "heed-raster-fa907def8b.js",
+    "raster": "heed-raster-98648ba451.js",
     "locales": "heed-locales-5f50c17e7f.js",
-    "widget": "heed-widget-e5dc334fe8.js",
-    "loader": "heed-688ba4bb56.js"
+    "widget": "heed-widget-d571f92297.js",
+    "loader": "heed-921649bfc8.js"
   },
   "files": {
-    "heed-raster-fa907def8b.js": {
-      "integrity": "sha384-7BQmiuPL3BdYKzb42njazkNvjYY1uZB5Jsw5oNJGf2aTXbjZBNIug6ygik2bkpgJ",
+    "heed-raster-98648ba451.js": {
+      "integrity": "sha384-2gTShE/Dp3QTdVUa9FHUfGCDHREkQms/+DZYi2JFZ25xh9FMjdzwT2kN8TeV8zKv",
       "immutable": true,
       "version": "0.9.1",
-      "bytes": 30251,
-      "gzip_bytes": 12035
+      "bytes": 30351,
+      "gzip_bytes": 12068
     },
     "heed-locales-5f50c17e7f.js": {
       "integrity": "sha384-iqknyADTU5Tx7VRo48vBhH4EzlcSAuc7oVSwXkRuAXwv0+LpJ5zx9d4gT8g4EhsN",
@@ -21,29 +21,29 @@
       "bytes": 10569,
       "gzip_bytes": 3793
     },
-    "heed-widget-e5dc334fe8.js": {
-      "integrity": "sha384-DJ+1/Xqv1EcLv9ajSh2hVjgBluWUUwSUT0fDIqAav5PHcorl77kLQ6jbZS23BV1t",
+    "heed-widget-d571f92297.js": {
+      "integrity": "sha384-qyqfIBG1R9c0yxD28kSRjw0ms8+lI96aGGiEdS7pEvgzqwOE+kem5av687ralIdX",
       "immutable": true,
       "version": "0.9.1",
       "bytes": 33194,
-      "gzip_bytes": 12583
+      "gzip_bytes": 12587
     },
     "heed-widget.js": {
       "immutable": false,
       "bytes": 33194,
-      "gzip_bytes": 12583
+      "gzip_bytes": 12587
     },
-    "heed-688ba4bb56.js": {
-      "integrity": "sha384-Y7PVUav0djo1h6amq4MjAFbl3D9G4eTJSzfrTG1Wuqrl3xRWQv0VGmJeQZvj64/H",
+    "heed-921649bfc8.js": {
+      "integrity": "sha384-Nycc4RK8+/SpzIXsgPrhK8aUZM1cdfBs0YNVGYrOPTZtN40UBUrfKxU21zf4wXvJ",
       "immutable": true,
       "version": "0.9.1",
       "bytes": 2030,
-      "gzip_bytes": 1201
+      "gzip_bytes": 1199
     },
     "heed.js": {
       "immutable": false,
       "bytes": 2030,
-      "gzip_bytes": 1201
+      "gzip_bytes": 1199
     },
     "heed-widget-9d0917cddf.js": {
       "integrity": "sha384-JRdLtdWb8BFqhwME4eoz7r+HFdiaDPFTcsxOUs7mkJW46G7PbkThMk9wI+QQ6n4Y",

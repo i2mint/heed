@@ -1141,3 +1141,50 @@ new MutationObserver((recs) => {{ for (const r of recs) for (const n of r.addedN
 
     png, _problems = _shot_report(browser, page, scroll_to=0)
     assert _red_pixels(png) == 0
+
+
+def test_text_moved_or_slotted_into_a_masked_element_is_not_drawn(browser):
+    """heed#38 review: text nodes are held to the same masked-ancestor rule as elements."""
+    pytest.importorskip("PIL")
+    items = "<i></i>" * 2500
+
+    def moved(backend):
+        csp = (
+            f"default-src 'none'; script-src {backend} 'nonce-{NONCE}'; "
+            f"connect-src {backend}; style-src 'unsafe-inline'; img-src data: blob:"
+        )
+        return f"""<!doctype html><html><head><meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="{csp}"><title>p</title>
+<style>body{{margin:0;font:16px sans-serif;background:#fff}}
+#P{{position:absolute;top:0;left:0;width:1000px;height:300px}}
+#M{{position:absolute;top:450px;left:0;width:600px;height:120px;
+color:#f00;font-size:60px}}</style></head><body>
+<div id="P"><div id="c">{items}</div></div>
+<div id="M" data-heed-mask>SECRET</div>
+<script nonce="{NONCE}">
+new MutationObserver((recs) => {{ for (const r of recs) for (const n of r.addedNodes)
+  if (n.localName === 'iframe' && !window.__moved) {{ window.__moved = 'armed';
+    setTimeout(() => {{ document.getElementById('M').prepend(document.getElementById('c'));
+      window.__moved = 'done'; }}, 40); }}
+}}).observe(document.body, {{childList: true}});
+</script>
+<script async src="{backend}/heed/widget/heed.js"></script></body></html>"""
+
+    def slotted(backend):
+        csp = (
+            f"default-src 'none'; script-src {backend} 'nonce-{NONCE}'; "
+            f"connect-src {backend}; style-src 'unsafe-inline'; img-src data: blob:"
+        )
+        return f"""<!doctype html><html><head><meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="{csp}"><title>p</title>
+<style>body{{margin:0;font:60px sans-serif;color:#f00;background:#fff}}</style></head>
+<body><x-host id="h">SECRET</x-host>
+<script nonce="{NONCE}">
+document.getElementById('h').attachShadow({{mode: 'open'}})
+  .innerHTML = '<div><slot data-heed-mask></slot></div>';
+</script>
+<script async src="{backend}/heed/widget/heed.js"></script></body></html>"""
+
+    for page in (moved, slotted):
+        png, _problems = _shot_report(browser, page, scroll_to=0)
+        assert _red_pixels(png) == 0, page.__name__
