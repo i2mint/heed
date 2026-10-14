@@ -27,8 +27,19 @@
  * default) every field a visitor types into, selects, editable regions and every
  * iframe/embed; and whatever `maskSelector` matches (`[data-heed-mask]`). The widget
  * itself and `[data-heed-ignore]` are left out.
+ *
+ * Time: cloning and styling the DOM is main-thread work, and it grows with the page
+ * (a 4000-element page took seconds on a slow machine). So it runs in slices of a
+ * few milliseconds with a yield to the event loop between them (the clone is made
+ * node by node, which is where the slices fall), the dialog stays responsive, and
+ * the capture's `signal` (the timeout, or the capture being cleared or replaced) can
+ * end it at the next yield instead of after it has finished. Because the page can
+ * change while the capture yields (a node can even be moved into a masked element
+ * mid-walk), what to mask is decided when the live node is first seen and again when
+ * its clone is done, nothing inside a masked element is ever cloned, and the black
+ * boxes are measured both before and after the render.
  */
-import { domToCanvas } from "modern-screenshot";
+import { createContext, destroyContext, domToCanvas } from "modern-screenshot";
 
 export interface CaptureOptions {
   maskInputs: boolean;
@@ -39,6 +50,8 @@ export interface CaptureOptions {
   maxPixels: number;
   /** Skip pages with more elements than this: cloning them would freeze the page. */
   maxNodes: number;
+  /** Ends the capture at its next yield; it then rejects. */
+  signal?: AbortSignal;
 }
 
 export interface Raster {
@@ -209,30 +222,65 @@ function pairs(original: Element, clone: Element): boolean {
   return a === b || (a === "iframe" && b === "html") || ((a === "canvas" || a === "video") && (b === "img" || b === "canvas"));
 }
 
+/** The node a page's own tree puts above `n`: its slot, its shadow host, or the frame holding its document. */
+function parentOf(n: Node): Node | null {
+  const slotted = (n as Element).assignedSlot;
+  if (slotted) return slotted;
+  if (n.parentNode) return n.parentNode;
+  if (n.nodeType === 11) return (n as ShadowRoot).host ?? null;
+  if (n.nodeType === 9) return (n as Document).defaultView?.frameElement ?? null;
+  return null;
+}
+
 /**
  * Pairs clones with their originals as modern-screenshot clones (see layer 1 above),
  * and blanks the clones of masked originals.
  */
-function pairingScrubber(o: CaptureOptions) {
-  const pending: Element[] = [];
+function pairingScrubber(o: CaptureOptions, slice: () => Promise<void>) {
+  // Whether to mask is decided when the live element is first seen (`filter`), not when
+  // its clone is finished: the page may change in between, now that capture yields.
+  const pending: { original: Element; mask: boolean }[] = [];
+  const masked = new WeakSet<Element>();
+  // Whether something above `node` is masked, now or when it was first seen.
+  const insideMasked = (node: Node): boolean => {
+    // Usual case, in constant time: the node sits right under the element being cloned, which
+    // was itself checked when first seen (and is checked again when its clone is done).
+    const top = pending[pending.length - 1];
+    if (top && node.parentNode === top.original && !(node as Element | Text).assignedSlot) {
+      return top.mask || shouldMask(top.original, o);
+    }
+    for (let up = parentOf(node); up; up = parentOf(up)) {
+      if (isEl(up) && (masked.has(up) || shouldMask(up, o))) return true;
+    }
+    return false;
+  };
   let last: Node | null = null;
   let broken = false;
   return {
     filter(node: Node): boolean {
       if (!rendered(node)) return false;
+      // The walk steps from sibling to sibling after every yield: a node (text included)
+      // the page moved into a masked element meanwhile, or one slotted into a masked
+      // slot, must not be cloned under the unmasked parent.
+      if (insideMasked(node)) return false;
       if (!isEl(node)) return true;
       if (excluded(node)) return false;
-      pending.push(node);
+      const mask = shouldMask(node, o);
+      if (mask) masked.add(node);
+      pending.push({ original: node, mask });
       return true;
     },
-    onCloneEachNode(clone: Node): void {
+    async onCloneEachNode(clone: Node): Promise<void> {
       // A same-origin iframe is cloned as its document: that clone is reported twice.
-      if (!isEl(clone) || clone === last) return;
-      last = clone;
-      const original = pending.pop();
-      if (!original) return; // the root
-      if (!pairs(original, clone)) broken = true;
-      else if (shouldMask(original, o)) blank(clone, original);
+      if (isEl(clone) && clone !== last) {
+        last = clone;
+        const entry = pending.pop();
+        if (entry) {
+          if (!pairs(entry.original, clone)) broken = true;
+          else if (entry.mask || shouldMask(entry.original, o)) blank(clone, entry.original);
+        } // else: the root
+      }
+      await slice();
     },
     get broken() {
       return broken || pending.length > 0;
@@ -247,6 +295,71 @@ function pinFixed(root: Element, scroll: { x: number; y: number }): void {
       const t = el.style.transform;
       el.style.transform = `translate(${scroll.x}px, ${scroll.y}px)${t && t !== "none" ? ` ${t}` : ""}`;
     }
+  }
+}
+
+/** Longest stretch of capture work before the page gets the thread back. */
+const SLICE_MS = 12;
+
+/**
+ * Give the thread back to the page: its input, timers and paints run before we go on.
+ * A message, not `scheduler.yield()` (its continuation runs ahead of rendering, which
+ * measured at one frame in ten) and not `setTimeout` (clamped to 4 ms, so 25% slower).
+ */
+function yieldToPage(): Promise<void> {
+  return new Promise((resolve) => {
+    const { port1, port2 } = new MessageChannel();
+    port1.onmessage = () => {
+      port1.close();
+      resolve();
+    };
+    port2.postMessage(null);
+  });
+}
+
+const cancelled = () => new Error("heed: screenshot cancelled");
+
+/**
+ * `slice()` yields to the page once the current slice has run for SLICE_MS (`slice(true)`:
+ * now); either way it throws once `signal` has fired.
+ */
+function slicer(signal?: AbortSignal) {
+  let started = performance.now();
+  return async (force = false): Promise<void> => {
+    if (signal?.aborted) throw cancelled();
+    if (!force && performance.now() - started < SLICE_MS) return;
+    await yieldToPage();
+    if (signal?.aborted) throw cancelled();
+    started = performance.now();
+  };
+}
+
+/**
+ * The hidden frame modern-screenshot reads the browsers' default styles from. It makes
+ * one on first use and reads its document at once, which only works because nothing
+ * yields before the first read; we do yield, so we hand it one that has loaded.
+ */
+async function loadedSandbox(doc: Document, signal?: AbortSignal): Promise<HTMLIFrameElement> {
+  if (signal?.aborted) throw cancelled();
+  const frame = doc.createElement("iframe");
+  frame.width = frame.height = "0";
+  frame.style.visibility = "hidden";
+  frame.style.position = "fixed";
+  let handedOver = false;
+  try {
+    const loaded = new Promise<boolean>((resolve) => {
+      frame.addEventListener("load", () => resolve(true), { once: true });
+      setTimeout(() => resolve(false), 2000);
+    });
+    frame.srcdoc = '<!DOCTYPE html><meta charset="UTF-8"><title></title><body>';
+    doc.body.appendChild(frame);
+    const ready = await loaded;
+    if (signal?.aborted) throw cancelled();
+    if (!ready || !frame.contentDocument?.body) throw new Error("heed: the screenshot's style frame did not load; no screenshot");
+    handedOver = true;
+    return frame;
+  } finally {
+    if (!handedOver) frame.remove(); // cancelled or failed: never left behind in the page
   }
 }
 
@@ -268,6 +381,7 @@ function isBlank(canvas: HTMLCanvasElement): boolean {
 /** Render the visible page, masked, as a PNG or JPEG under `o.maxBytes` (null if none can be taken). */
 export async function capture(win: Window, o: CaptureOptions): Promise<Blob | null> {
   const doc = win.document;
+  const slice = slicer(o.signal);
   let count = 0;
   for (const _ of allElements(doc)) {
     if (++count > o.maxNodes) {
@@ -279,32 +393,46 @@ export async function capture(win: Window, o: CaptureOptions): Promise<Blob | nu
   const height = win.innerHeight;
   const scroll = { x: win.scrollX, y: win.scrollY };
   const scale = Math.min(win.devicePixelRatio || 1, 2, Math.sqrt(Math.min(o.maxPixels, 8_000_000) / (width * height)));
-  const rects = maskRects(doc, o, width, height);
+  const before = maskRects(doc, o, width, height);
   // The page's own background (set on body or html), so dark pages stay readable.
   const background =
     [doc.body, doc.documentElement]
       .map((el) => (el ? win.getComputedStyle(el).backgroundColor : ""))
       .find((c) => c && c !== "transparent" && !/rgba\([^)]*,\s*0\)$/.test(c)) ?? "#fff";
-  const scrubber = pairingScrubber(o);
-  const canvas = await domToCanvas(doc.documentElement, {
+  const scrubber = pairingScrubber(o, slice);
+  const context = await createContext(doc.documentElement, {
     width,
     height,
     scale,
     backgroundColor: background,
     filter: (node) => scrubber.filter(node),
     onCloneEachNode: (clone) => scrubber.onCloneEachNode(clone),
-    onCloneNode: (root) => {
+    onCloneNode: async (root) => {
       if (scrubber.broken) throw new Error("heed: lost track of the page while masking; no screenshot");
       if (isEl(root)) pinFixed(root, scroll);
+      await slice(true);
     },
+    // After the fonts and images are embedded, before the (single, synchronous) serialization.
+    onEmbedNode: () => slice(true),
     timeout: 5000,
     // Draw scrolled containers (the document included) as scrolled, so the visible
     // part is drawn and layer 2's boxes land where they should.
     features: { restoreScrollPosition: true },
+    autoDestruct: true,
   });
+  let canvas: HTMLCanvasElement;
+  try {
+    context.sandbox = await loadedSandbox(doc, o.signal);
+    canvas = await domToCanvas(context);
+  } finally {
+    destroyContext(context); // also when cancelled or failed: it removes the style frame from the page
+  }
+  await slice(true);
   const ctx = canvas.getContext("2d");
   if (!ctx || isBlank(canvas)) return null; // nothing drawn (e.g. a CSP without img-src data:)
-  // Layer 2: black boxes where the live page has masked content.
+  // Layer 2: black boxes where the live page has masked content: where it was when the
+  // capture began and where it is now, since the page may have moved while we yielded.
+  const rects = [...before, ...maskRects(doc, o, width, height)];
   const k = canvas.width / width;
   ctx.fillStyle = "#000";
   for (const r of rects) ctx.fillRect(r.x * k, r.y * k, r.w * k, r.h * k);

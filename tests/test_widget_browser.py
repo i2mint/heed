@@ -1035,3 +1035,156 @@ def test_messages_override_single_texts_from_heed_init(browser):
         tab.get_by_role("button", name="Abschicken").wait_for()
         tab.get_by_role("button", name="Abbrechen").wait_for()
         assert problems == []
+
+
+_BIG = "".join(f"<div><span>row {i}</span></div>" for i in range(1800))
+_COUNT_TIMER_TICKS = "window.__ticks = 0; setInterval(() => { window.__ticks++; }, 5);"
+# The longest stretch the page's own 5 ms timer was kept from running.
+_TRACK_TIMER_GAP = (
+    "window.__gap = 0; window.__last = performance.now();"
+    "if (!window.__tracking) { window.__tracking = setInterval(() => {"
+    " const now = performance.now();"
+    " window.__gap = Math.max(window.__gap, now - window.__last);"
+    " window.__last = now; }, 5); }"
+)
+
+
+def test_a_screenshot_of_a_big_page_does_not_freeze_it(browser):
+    """heed#38: the capture is made in slices, so the page's own timers keep running."""
+    page = lambda b: _shot_page(  # noqa: E731
+        b, extra=_BIG, loader_attrs='data-screenshot-timeout-ms="60000"'
+    )
+    with _site(browser, page=page) as (tab, _p, _s, _o):
+        tab.evaluate(_TRACK_TIMER_GAP)
+        started = time.monotonic()
+        tab.get_by_role("button", name="Feedback").click()
+        tab.get_by_role("img", name="Screenshot to be sent").wait_for(timeout=60_000)
+        total = time.monotonic() - started
+        if total < 1.0:
+            pytest.skip("this machine captures the page too fast to tell")
+        # Frozen for the whole clone, the longest gap is most of the capture.
+        assert tab.evaluate("window.__gap") / 1000 < 0.5 * total
+
+
+def test_a_timed_out_screenshot_stops_working_and_cleans_up(browser):
+    """heed#38: the timeout fires during the clone; the work stops at the next slice."""
+    with _site(
+        browser,
+        page=lambda b: _shot_page(
+            b, extra=_BIG, loader_attrs='data-screenshot-timeout-ms="300"'
+        ),
+    ) as (tab, _problems, _store, _origin):
+        tab.evaluate(_COUNT_TIMER_TICKS)
+        started = time.monotonic()
+        tab.get_by_role("button", name="Feedback").click()
+        tab.get_by_text("No screenshot could be taken").wait_for(timeout=60_000)
+        # A frozen page showed this only once the whole capture had ended (seconds).
+        assert time.monotonic() - started < 2.5
+        tab.wait_for_timeout(1000)
+        frames = "document.querySelectorAll('iframe[srcdoc]').length"
+        assert tab.evaluate(frames) == 0
+        ticks = tab.evaluate("window.__ticks")
+        tab.wait_for_timeout(500)
+        assert tab.evaluate("window.__ticks") > ticks  # and the thread is free again
+
+
+def test_a_cancelled_screenshot_leaves_no_style_frame_in_the_page(browser):
+    """heed#38 review: a timeout while the rasterizer waits must not leak its helper frame."""
+
+    def page(backend):
+        csp = (
+            f"default-src 'none'; script-src {backend} 'nonce-{NONCE}'; "
+            f"connect-src {backend}; style-src 'unsafe-inline'; img-src 'self' data: blob:"
+        )
+        return f"""<!doctype html><html><head><meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="{csp}"><title>p</title></head><body>
+<p>top</p><img loading="lazy" src="/below-the-fold.png" alt=""
+ style="display:block;margin-top:9000px">
+<script async src="{backend}/heed/widget/heed.js" data-screenshot-timeout-ms="800"></script>
+</body></html>"""
+
+    with _site(browser, page=page) as (tab, _problems, _store, _origin):
+        for _ in range(2):
+            tab.get_by_role("button", name="Feedback").click()
+            tab.get_by_text("No screenshot could be taken").wait_for(timeout=30_000)
+            tab.wait_for_timeout(1500)
+            assert tab.evaluate("document.querySelectorAll('iframe').length") == 0
+            tab.keyboard.press("Escape")
+
+
+def test_a_node_moved_into_a_masked_element_mid_capture_is_not_drawn(browser):
+    """heed#38 review: the clone walk resumes after every yield; moved nodes must not leak."""
+    pytest.importorskip("PIL")
+    items = "<i></i>" * 2500
+
+    def page(backend):
+        csp = (
+            f"default-src 'none'; script-src {backend} 'nonce-{NONCE}'; "
+            f"connect-src {backend}; style-src 'unsafe-inline'; img-src data: blob:"
+        )
+        return f"""<!doctype html><html><head><meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="{csp}"><title>p</title>
+<style>body{{margin:0;font:16px sans-serif;background:#fff}}
+#P{{position:absolute;top:0;left:0;width:1000px;height:300px}}
+#M{{position:absolute;top:450px;left:0;width:600px;height:120px}}
+.s{{color:#f00;font-size:60px}}</style></head><body>
+<div id="P"><div id="c">{items}</div><div>after-c</div></div>
+<div id="M" data-heed-mask><span class="s">SECRET</span></div>
+<script nonce="{NONCE}">
+new MutationObserver((recs) => {{ for (const r of recs) for (const n of r.addedNodes)
+  if (n.localName === 'iframe' && !window.__moved) {{ window.__moved = 'armed';
+    setTimeout(() => {{ document.getElementById('M').prepend(document.getElementById('c'));
+      window.__moved = 'done'; }}, 40); }}
+}}).observe(document.body, {{childList: true}});
+</script>
+<script async src="{backend}/heed/widget/heed.js"></script></body></html>"""
+
+    png, _problems = _shot_report(browser, page, scroll_to=0)
+    assert _red_pixels(png) == 0
+
+
+def test_text_moved_or_slotted_into_a_masked_element_is_not_drawn(browser):
+    """heed#38 review: text nodes are held to the same masked-ancestor rule as elements."""
+    pytest.importorskip("PIL")
+    items = "<i></i>" * 2500
+
+    def moved(backend):
+        csp = (
+            f"default-src 'none'; script-src {backend} 'nonce-{NONCE}'; "
+            f"connect-src {backend}; style-src 'unsafe-inline'; img-src data: blob:"
+        )
+        return f"""<!doctype html><html><head><meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="{csp}"><title>p</title>
+<style>body{{margin:0;font:16px sans-serif;background:#fff}}
+#P{{position:absolute;top:0;left:0;width:1000px;height:300px}}
+#M{{position:absolute;top:450px;left:0;width:600px;height:120px;
+color:#f00;font-size:60px}}</style></head><body>
+<div id="P"><div id="c">{items}</div></div>
+<div id="M" data-heed-mask>SECRET</div>
+<script nonce="{NONCE}">
+new MutationObserver((recs) => {{ for (const r of recs) for (const n of r.addedNodes)
+  if (n.localName === 'iframe' && !window.__moved) {{ window.__moved = 'armed';
+    setTimeout(() => {{ document.getElementById('M').prepend(document.getElementById('c'));
+      window.__moved = 'done'; }}, 40); }}
+}}).observe(document.body, {{childList: true}});
+</script>
+<script async src="{backend}/heed/widget/heed.js"></script></body></html>"""
+
+    def slotted(backend):
+        csp = (
+            f"default-src 'none'; script-src {backend} 'nonce-{NONCE}'; "
+            f"connect-src {backend}; style-src 'unsafe-inline'; img-src data: blob:"
+        )
+        return f"""<!doctype html><html><head><meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="{csp}"><title>p</title>
+<style>body{{margin:0;font:60px sans-serif;color:#f00;background:#fff}}</style></head>
+<body><x-host id="h">SECRET</x-host>
+<script nonce="{NONCE}">
+document.getElementById('h').attachShadow({{mode: 'open'}})
+  .innerHTML = '<div><slot data-heed-mask></slot></div>';
+</script>
+<script async src="{backend}/heed/widget/heed.js"></script></body></html>"""
+
+    for page in (moved, slotted):
+        png, _problems = _shot_report(browser, page, scroll_to=0)
+        assert _red_pixels(png) == 0, page.__name__
