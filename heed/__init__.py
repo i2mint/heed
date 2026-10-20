@@ -34,7 +34,9 @@ Public API (Phase 1):
     Review    ReviewPage, publish_review, review_url, make_review_app (media + a
               thread under it, behind a capability link; CLI ``heed review``)
     Triage    triage, Triage, Severity (a proposal per report: injected LLM,
-              fenced and whitelisted, or keyword rules without one)
+              fenced and whitelisted, or keyword rules without one);
+              find_duplicates, mark_duplicate (retrieval + optional confirmation;
+              marking is explicit, never a silent merge)
 
 Example:
     >>> from heed import StoreSink, ReportSubmission, process_submission
@@ -113,6 +115,7 @@ from heed.threads import (
     make_thread_router,
     token_moderator,
 )
+from heed.dedup import find_duplicates, mark_duplicate
 from heed.triage import Severity, Triage, triage
 from heed.widget import make_widget_router, widget_contract
 
@@ -202,4 +205,6 @@ __all__ = [
     "triage",
     "Triage",
     "Severity",
+    "find_duplicates",
+    "mark_duplicate",
 ]
