@@ -99,8 +99,10 @@ class GitHubIssuesSink(BaseSink):
         list_issues: ListIssues | None = None,
         public_label: str = DEFAULT_PUBLIC_LABEL,
         status_labels: Mapping[str, Status] | None = None,
+        allowed_report_labels: Iterable[str] = (),
     ):
         self._create_issue = create_issue
+        self._allowed_report_labels = frozenset(_fold(x) for x in allowed_report_labels)
         self._screenshot_url = screenshot_url
         # ``label_map`` is the labels-only spelling and, as before, replaces the whole
         # label table (a category it omits gets no label).
@@ -122,6 +124,10 @@ class GitHubIssuesSink(BaseSink):
         self._status_labels = dict(
             DEFAULT_STATUS_LABELS if status_labels is None else status_labels
         )
+        # Never let a reporter apply the board's gate or a maintainer status label.
+        self._reserved_labels = {
+            _fold(x) for x in (self._public_label, *self._status_labels)
+        }
 
     def treatment(self, category: Category) -> CategoryTreatment:
         """The treatment applied to reports of ``category``."""
@@ -129,7 +135,12 @@ class GitHubIssuesSink(BaseSink):
 
     def submit(self, report: Report) -> SinkResult:
         treatment = self.treatment(report.category)
-        labels = list(treatment.labels) + list(report.labels)
+        labels = list(treatment.labels) + [
+            label
+            for label in report.labels
+            if _fold(label) in self._allowed_report_labels
+            and _fold(label) not in self._reserved_labels
+        ]
         light = treatment.detail == "light"
         # A screenshot the server kept is always linked, even in a light issue: kept
         # data that nothing references would be retained for no reason.
@@ -233,6 +244,11 @@ def _resolve(
     )
 
 
+def _fold(label: str) -> str:
+    """GitHub label names are case-insensitive; compare them folded."""
+    return str(label).strip().casefold()
+
+
 def _label_name(label: Any) -> str:
     return str(label.get("name", "")) if isinstance(label, Mapping) else str(label)
 
@@ -244,16 +260,21 @@ def _votes(issue: Mapping[str, Any]) -> int:
 
 
 _REF_CHARS = re.compile(r"(?<![\w`])([@#])(?=\w)")
+# Bare issue/PR URLs and commit SHAs (7-40 hex chars) are auto-linked by GitHub too.
+_GH_URL = re.compile(r"(?i)(github)\.com/(?=[\w.-]+/[\w.-]+/(?:issues|pull)/\d)")
+_SHA = re.compile(r"\b(?=[0-9a-f]*\d)(?=[0-9a-f]*[a-f])[0-9a-f]{7,40}\b", re.I)
 
 
 def neutralise_refs(text: str) -> str:
-    """Defuse GitHub ``@mention`` and ``#123`` references in untrusted text.
+    """Defuse GitHub ``@mention``, ``#123``, issue-URL and SHA references.
 
     A zero-width joiner after ``@``/``#`` stops GitHub notifying a user or cross-linking
     an issue from the tracker's account. Only the rendered issue is changed; the stored
     report keeps the original text.
     """
-    return _REF_CHARS.sub("\\1\u200d", text)
+    text = _REF_CHARS.sub("\\1\u200d", text)
+    text = _GH_URL.sub("\\1\u200d.com/", text)
+    return _SHA.sub(lambda m: m.group(0)[:3] + "\u200d" + m.group(0)[3:], text)
 
 
 def render_issue_body(
