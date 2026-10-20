@@ -732,17 +732,19 @@ window.runMermaid = runMermaid;</script>
 <span class="sd">imported at module level.</span>
 <span class="sd">"""</span>
 
+<span class="kn">import</span><span class="w"> </span><span class="nn">functools</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">MutableMapping</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Optional</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">urllib.parse</span><span class="w"> </span><span class="kn">import</span> <span class="n">urlsplit</span>
 
+<span class="kn">import</span><span class="w"> </span><span class="nn">anyio</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">anyio.to_thread</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fastapi</span><span class="w"> </span><span class="kn">import</span> <span class="n">APIRouter</span><span class="p">,</span> <span class="n">Depends</span><span class="p">,</span> <span class="n">FastAPI</span><span class="p">,</span> <span class="n">HTTPException</span><span class="p">,</span> <span class="n">Request</span><span class="p">,</span> <span class="n">Response</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fastapi.responses</span><span class="w"> </span><span class="kn">import</span> <span class="n">JSONResponse</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">pydantic</span><span class="w"> </span><span class="kn">import</span> <span class="n">ValidationError</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">python_multipart.exceptions</span><span class="w"> </span><span class="kn">import</span> <span class="n">MultipartParseError</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">starlette.concurrency</span><span class="w"> </span><span class="kn">import</span> <span class="n">run_in_threadpool</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">starlette.datastructures</span><span class="w"> </span><span class="kn">import</span> <span class="n">UploadFile</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">starlette.exceptions</span><span class="w"> </span><span class="kn">import</span> <span class="n">HTTPException</span> <span class="k">as</span> <span class="n">StarletteHTTPException</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">starlette.formparsers</span><span class="w"> </span><span class="kn">import</span> <span class="n">MultiPartException</span>
@@ -1077,6 +1079,66 @@ window.runMermaid = runMermaid;</script>
 <span class="p">}</span>
 
 
+<span class="c1">#: Kinds of blocking call the router runs off the event loop, each in its own pool</span>
+<span class="c1">#: sized by ``HeedConfig.&lt;kind&gt;_threads``.</span>
+<span class="n">THREAD_POOL_KINDS</span> <span class="o">=</span> <span class="p">(</span><span class="s2">"limiter"</span><span class="p">,</span> <span class="s2">"bot_verify"</span><span class="p">,</span> <span class="s2">"reencode"</span><span class="p">,</span> <span class="s2">"delivery"</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_thread_pools</span><span class="p">(</span><span class="n">cfg</span><span class="p">:</span> <span class="n">HeedConfig</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">anyio</span><span class="o">.</span><span class="n">CapacityLimiter</span><span class="p">]:</span>
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="n">kind</span><span class="p">:</span> <span class="n">anyio</span><span class="o">.</span><span class="n">CapacityLimiter</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">cfg</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">kind</span><span class="si">}</span><span class="s2">_threads"</span><span class="p">))</span>
+        <span class="k">for</span> <span class="n">kind</span> <span class="ow">in</span> <span class="n">THREAD_POOL_KINDS</span>
+    <span class="p">}</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_receipt</span><span class="p">(</span>
+    <span class="n">report_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">status</span><span class="p">:</span> <span class="n">Status</span> <span class="o">=</span> <span class="n">Status</span><span class="o">.</span><span class="n">received</span><span class="p">,</span>
+    <span class="n">ok</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="n">ref</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">url</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">"""The body of a 200 answer, the same for a delivered, held or dropped report."""</span>
+    <span class="k">return</span> <span class="p">{</span><span class="s2">"id"</span><span class="p">:</span> <span class="n">report_id</span><span class="p">,</span> <span class="s2">"ok"</span><span class="p">:</span> <span class="n">ok</span><span class="p">,</span> <span class="s2">"ref"</span><span class="p">:</span> <span class="n">ref</span><span class="p">,</span> <span class="s2">"url"</span><span class="p">:</span> <span class="n">url</span><span class="p">,</span> <span class="s2">"status"</span><span class="p">:</span> <span class="n">status</span><span class="o">.</span><span class="n">value</span><span class="p">}</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">_Unprocessable</span><span class="p">(</span><span class="ne">ValueError</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""A submission's text fields do not make a valid report (answered with 422)."""</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">detail</span><span class="p">:</span> <span class="n">Any</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">detail</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">detail</span> <span class="o">=</span> <span class="n">detail</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_submission_from_fields</span><span class="p">(</span>
+    <span class="n">fields</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">cfg</span><span class="p">:</span> <span class="n">HeedConfig</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ReportSubmission</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Validate the text fields of a parsed form into a :class:`ReportSubmission`."""</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">fields</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"title"</span><span class="p">),</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="n">_Unprocessable</span><span class="p">(</span><span class="s2">"title is required"</span><span class="p">)</span>
+    <span class="n">text</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">fields</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">k</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">_TEXT_FIELDS</span><span class="p">}</span>
+    <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">v</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">text</span><span class="o">.</span><span class="n">values</span><span class="p">()):</span>
+        <span class="k">raise</span> <span class="n">_Unprocessable</span><span class="p">(</span><span class="s2">"unexpected file in a text field"</span><span class="p">)</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">_build_submission</span><span class="p">(</span>
+            <span class="n">title</span><span class="o">=</span><span class="n">text</span><span class="p">[</span><span class="s2">"title"</span><span class="p">],</span>
+            <span class="n">body</span><span class="o">=</span><span class="n">text</span><span class="p">[</span><span class="s2">"body"</span><span class="p">]</span> <span class="ow">or</span> <span class="s2">""</span><span class="p">,</span>
+            <span class="n">category</span><span class="o">=</span><span class="n">text</span><span class="p">[</span><span class="s2">"category"</span><span class="p">]</span> <span class="ow">or</span> <span class="s2">"bug"</span><span class="p">,</span>
+            <span class="n">page_url</span><span class="o">=</span><span class="n">text</span><span class="p">[</span><span class="s2">"page_url"</span><span class="p">]</span> <span class="ow">or</span> <span class="s2">""</span><span class="p">,</span>
+            <span class="n">env</span><span class="o">=</span><span class="n">text</span><span class="p">[</span><span class="s2">"env"</span><span class="p">]</span> <span class="ow">or</span> <span class="s2">"</span><span class="si">{}</span><span class="s2">"</span><span class="p">,</span>
+            <span class="n">anon_id</span><span class="o">=</span><span class="n">text</span><span class="p">[</span><span class="s2">"anon_id"</span><span class="p">],</span>
+            <span class="n">console</span><span class="o">=</span><span class="n">text</span><span class="p">[</span><span class="s2">"console"</span><span class="p">]</span> <span class="k">if</span> <span class="n">cfg</span><span class="o">.</span><span class="n">accept_console</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">network</span><span class="o">=</span><span class="n">text</span><span class="p">[</span><span class="s2">"network"</span><span class="p">]</span> <span class="k">if</span> <span class="n">cfg</span><span class="o">.</span><span class="n">accept_network</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="k">except</span> <span class="n">ValidationError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">_Unprocessable</span><span class="p">(</span><span class="n">_safe_errors</span><span class="p">(</span><span class="n">e</span><span class="p">))</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span>
+    <span class="k">except</span> <span class="n">_BadJsonField</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">_Unprocessable</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">))</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span>
+    <span class="k">except</span> <span class="ne">RecursionError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>  <span class="c1"># nesting too deep for the validator</span>
+        <span class="k">raise</span> <span class="n">_Unprocessable</span><span class="p">(</span><span class="s2">"invalid form data: nested too deeply"</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span>
+
+
 <div class="viewcode-block" id="make_router">
 <a class="viewcode-back" href="../../_autosummary/heed.ingest.html#heed.make_router">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">make_router</span><span class="p">(</span>
@@ -1172,7 +1234,13 @@ window.runMermaid = runMermaid;</script>
             <span class="s2">"Set HeedConfig(allowed_origins=[...]) in production."</span>
         <span class="p">)</span>
     <span class="n">retry_after</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">rate_limit_window_seconds</span><span class="p">))</span>
+    <span class="n">pools</span> <span class="o">=</span> <span class="n">_thread_pools</span><span class="p">(</span><span class="n">cfg</span><span class="p">)</span>
     <span class="n">router</span> <span class="o">=</span> <span class="n">APIRouter</span><span class="p">()</span>
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_off_loop</span><span class="p">(</span><span class="n">kind</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">fn</span><span class="p">:</span> <span class="n">Callable</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Run a blocking ``fn`` in the ``kind`` pool (limiters may hit Redis, etc.)."""</span>
+        <span class="n">call</span> <span class="o">=</span> <span class="n">functools</span><span class="o">.</span><span class="n">partial</span><span class="p">(</span><span class="n">fn</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">return</span> <span class="k">await</span> <span class="n">anyio</span><span class="o">.</span><span class="n">to_thread</span><span class="o">.</span><span class="n">run_sync</span><span class="p">(</span><span class="n">call</span><span class="p">,</span> <span class="n">limiter</span><span class="o">=</span><span class="n">pools</span><span class="p">[</span><span class="n">kind</span><span class="p">])</span>
 
     <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_no_user</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
         <span class="k">return</span> <span class="kc">None</span>
@@ -1270,7 +1338,7 @@ window.runMermaid = runMermaid;</script>
         <span class="p">)</span>
         <span class="c1"># Limiters may do network I/O (Redis): keep it off the event loop.</span>
         <span class="n">bucket</span> <span class="o">=</span> <span class="n">rate_limit_key</span><span class="p">(</span><span class="n">ip</span><span class="p">,</span> <span class="n">ipv6_prefix</span><span class="o">=</span><span class="n">cfg</span><span class="o">.</span><span class="n">ipv6_rate_limit_prefix</span><span class="p">)</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="k">await</span> <span class="n">run_in_threadpool</span><span class="p">(</span><span class="n">ip_limiter</span><span class="o">.</span><span class="n">allow</span><span class="p">,</span> <span class="n">bucket</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="k">await</span> <span class="n">_off_loop</span><span class="p">(</span><span class="s2">"limiter"</span><span class="p">,</span> <span class="n">ip_limiter</span><span class="o">.</span><span class="n">allow</span><span class="p">,</span> <span class="n">bucket</span><span class="p">):</span>
             <span class="k">raise</span> <span class="n">_fail</span><span class="p">(</span>
                 <span class="mi">429</span><span class="p">,</span> <span class="s2">"rate limit exceeded"</span><span class="p">,</span> <span class="n">origin</span><span class="p">,</span> <span class="o">**</span><span class="p">{</span><span class="s2">"Retry-After"</span><span class="p">:</span> <span class="n">retry_after</span><span class="p">}</span>
             <span class="p">)</span>
@@ -1284,6 +1352,34 @@ window.runMermaid = runMermaid;</script>
         <span class="n">request</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">heed_origin</span> <span class="o">=</span> <span class="n">origin</span>
         <span class="n">request</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">heed_ip</span> <span class="o">=</span> <span class="n">ip</span>
         <span class="n">request</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">heed_sink</span> <span class="o">=</span> <span class="n">site_sink</span>
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_clean_screenshot</span><span class="p">(</span>
+        <span class="n">shot</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bytes</span><span class="p">],</span> <span class="n">category</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">origin</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Optional</span><span class="p">[</span><span class="nb">bytes</span><span class="p">],</span> <span class="nb">str</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">"""The screenshot to store (sniffed, sanitized, size-checked) and its type."""</span>
+        <span class="k">if</span> <span class="n">shot</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">category</span> <span class="ow">in</span> <span class="n">cfg</span><span class="o">.</span><span class="n">light_categories</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span><span class="p">,</span> <span class="s2">"image/png"</span>  <span class="c1"># a light report never keeps one: no 415, no work</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">shot</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">cfg</span><span class="o">.</span><span class="n">max_screenshot_bytes</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">_fail</span><span class="p">(</span><span class="mi">413</span><span class="p">,</span> <span class="s2">"screenshot too large"</span><span class="p">,</span> <span class="n">origin</span><span class="p">)</span>
+        <span class="n">shot_type</span> <span class="o">=</span> <span class="n">sniff_image_type</span><span class="p">(</span><span class="n">shot</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">shot_type</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">_fail</span><span class="p">(</span><span class="mi">415</span><span class="p">,</span> <span class="s2">"screenshot must be a PNG, JPEG or WebP image"</span><span class="p">,</span> <span class="n">origin</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">shot</span> <span class="o">=</span> <span class="k">await</span> <span class="n">_off_loop</span><span class="p">(</span><span class="s2">"reencode"</span><span class="p">,</span> <span class="n">sanitize_image</span><span class="p">,</span> <span class="n">shot</span><span class="p">,</span> <span class="n">shot_type</span><span class="p">)</span>
+        <span class="k">except</span> <span class="n">SanitizerBusy</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">_fail</span><span class="p">(</span>
+                <span class="mi">503</span><span class="p">,</span>
+                <span class="s2">"busy, retry shortly"</span><span class="p">,</span>
+                <span class="n">origin</span><span class="p">,</span>
+                <span class="o">**</span><span class="p">{</span><span class="s2">"Retry-After"</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">reencode_retry_after_seconds</span><span class="p">)},</span>
+            <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span>
+        <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">_fail</span><span class="p">(</span>
+                <span class="mi">415</span><span class="p">,</span> <span class="s2">"screenshot is not a well-formed PNG, JPEG or WebP image"</span><span class="p">,</span> <span class="n">origin</span>
+            <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">shot</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">cfg</span><span class="o">.</span><span class="n">max_screenshot_bytes</span><span class="p">:</span>  <span class="c1"># a re-encode can grow the file</span>
+            <span class="k">raise</span> <span class="n">_fail</span><span class="p">(</span><span class="mi">413</span><span class="p">,</span> <span class="s2">"screenshot too large"</span><span class="p">,</span> <span class="n">origin</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">shot</span><span class="p">,</span> <span class="n">shot_type</span>
 
     <span class="nd">@router</span><span class="o">.</span><span class="n">post</span><span class="p">(</span>
         <span class="s2">"/report"</span><span class="p">,</span>
@@ -1299,22 +1395,12 @@ window.runMermaid = runMermaid;</script>
 
         <span class="k">if</span> <span class="n">cfg</span><span class="o">.</span><span class="n">honeypot_field</span> <span class="ow">and</span> <span class="n">fields</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">honeypot_field</span><span class="p">):</span>
             <span class="c1"># Look like success so the bot learns nothing; route nowhere.</span>
-            <span class="k">return</span> <span class="n">JSONResponse</span><span class="p">(</span>
-                <span class="p">{</span>
-                    <span class="s2">"id"</span><span class="p">:</span> <span class="n">new_report_id</span><span class="p">(),</span>
-                    <span class="s2">"ok"</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
-                    <span class="s2">"ref"</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
-                    <span class="s2">"url"</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
-                    <span class="s2">"status"</span><span class="p">:</span> <span class="n">Status</span><span class="o">.</span><span class="n">received</span><span class="o">.</span><span class="n">value</span><span class="p">,</span>
-                <span class="p">},</span>
-                <span class="n">headers</span><span class="o">=</span><span class="n">_cors</span><span class="p">(</span><span class="n">origin</span><span class="p">),</span>
-            <span class="p">)</span>
+            <span class="k">return</span> <span class="n">JSONResponse</span><span class="p">(</span><span class="n">_receipt</span><span class="p">(</span><span class="n">new_report_id</span><span class="p">()),</span> <span class="n">headers</span><span class="o">=</span><span class="n">_cors</span><span class="p">(</span><span class="n">origin</span><span class="p">))</span>
 
         <span class="k">if</span> <span class="n">verifier</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">token</span> <span class="o">=</span> <span class="n">fields</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">bot_token_field</span><span class="p">)</span>
             <span class="n">token</span> <span class="o">=</span> <span class="n">token</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">token</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="k">else</span> <span class="kc">None</span>
-            <span class="n">human</span> <span class="o">=</span> <span class="k">await</span> <span class="n">run_in_threadpool</span><span class="p">(</span><span class="n">verifier</span><span class="o">.</span><span class="n">verify</span><span class="p">,</span> <span class="n">token</span><span class="p">,</span> <span class="n">remote_ip</span><span class="o">=</span><span class="n">ip</span><span class="p">)</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="n">human</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="k">await</span> <span class="n">_off_loop</span><span class="p">(</span><span class="s2">"bot_verify"</span><span class="p">,</span> <span class="n">verifier</span><span class="o">.</span><span class="n">verify</span><span class="p">,</span> <span class="n">token</span><span class="p">,</span> <span class="n">remote_ip</span><span class="o">=</span><span class="n">ip</span><span class="p">):</span>
                 <span class="k">raise</span> <span class="n">_fail</span><span class="p">(</span><span class="mi">403</span><span class="p">,</span> <span class="s2">"bot verification failed"</span><span class="p">,</span> <span class="n">origin</span><span class="p">)</span>
 
         <span class="c1"># Per-origin limit only counts submissions that passed the honeypot and the</span>
@@ -1322,66 +1408,22 @@ window.runMermaid = runMermaid;</script>
         <span class="c1"># cheaply. (Origin is a client-set header; see embedding-security.md.)</span>
         <span class="k">if</span> <span class="n">origin_rate_limiter</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">origin_key</span> <span class="o">=</span> <span class="n">normalize_origin</span><span class="p">(</span><span class="n">origin</span><span class="p">)</span> <span class="k">if</span> <span class="n">origin</span> <span class="k">else</span> <span class="s2">"-"</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="k">await</span> <span class="n">run_in_threadpool</span><span class="p">(</span><span class="n">origin_rate_limiter</span><span class="o">.</span><span class="n">allow</span><span class="p">,</span> <span class="n">origin_key</span><span class="p">):</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="k">await</span> <span class="n">_off_loop</span><span class="p">(</span><span class="s2">"limiter"</span><span class="p">,</span> <span class="n">origin_rate_limiter</span><span class="o">.</span><span class="n">allow</span><span class="p">,</span> <span class="n">origin_key</span><span class="p">):</span>
                 <span class="k">raise</span> <span class="n">_fail</span><span class="p">(</span>
                     <span class="mi">429</span><span class="p">,</span> <span class="s2">"rate limit exceeded"</span><span class="p">,</span> <span class="n">origin</span><span class="p">,</span> <span class="o">**</span><span class="p">{</span><span class="s2">"Retry-After"</span><span class="p">:</span> <span class="n">retry_after</span><span class="p">}</span>
                 <span class="p">)</span>
 
-        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">fields</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"title"</span><span class="p">),</span> <span class="nb">str</span><span class="p">):</span>
-            <span class="k">raise</span> <span class="n">_fail</span><span class="p">(</span><span class="mi">422</span><span class="p">,</span> <span class="s2">"title is required"</span><span class="p">,</span> <span class="n">origin</span><span class="p">)</span>
-        <span class="n">text</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">fields</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">k</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">_TEXT_FIELDS</span><span class="p">}</span>
-        <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">v</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">text</span><span class="o">.</span><span class="n">values</span><span class="p">()):</span>
-            <span class="k">raise</span> <span class="n">_fail</span><span class="p">(</span><span class="mi">422</span><span class="p">,</span> <span class="s2">"unexpected file in a text field"</span><span class="p">,</span> <span class="n">origin</span><span class="p">)</span>
         <span class="k">try</span><span class="p">:</span>
-            <span class="n">submission</span> <span class="o">=</span> <span class="n">_build_submission</span><span class="p">(</span>
-                <span class="n">title</span><span class="o">=</span><span class="n">text</span><span class="p">[</span><span class="s2">"title"</span><span class="p">],</span>
-                <span class="n">body</span><span class="o">=</span><span class="n">text</span><span class="p">[</span><span class="s2">"body"</span><span class="p">]</span> <span class="ow">or</span> <span class="s2">""</span><span class="p">,</span>
-                <span class="n">category</span><span class="o">=</span><span class="n">text</span><span class="p">[</span><span class="s2">"category"</span><span class="p">]</span> <span class="ow">or</span> <span class="s2">"bug"</span><span class="p">,</span>
-                <span class="n">page_url</span><span class="o">=</span><span class="n">text</span><span class="p">[</span><span class="s2">"page_url"</span><span class="p">]</span> <span class="ow">or</span> <span class="s2">""</span><span class="p">,</span>
-                <span class="n">env</span><span class="o">=</span><span class="n">text</span><span class="p">[</span><span class="s2">"env"</span><span class="p">]</span> <span class="ow">or</span> <span class="s2">"</span><span class="si">{}</span><span class="s2">"</span><span class="p">,</span>
-                <span class="n">anon_id</span><span class="o">=</span><span class="n">text</span><span class="p">[</span><span class="s2">"anon_id"</span><span class="p">],</span>
-                <span class="n">console</span><span class="o">=</span><span class="n">text</span><span class="p">[</span><span class="s2">"console"</span><span class="p">]</span> <span class="k">if</span> <span class="n">cfg</span><span class="o">.</span><span class="n">accept_console</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
-                <span class="n">network</span><span class="o">=</span><span class="n">text</span><span class="p">[</span><span class="s2">"network"</span><span class="p">]</span> <span class="k">if</span> <span class="n">cfg</span><span class="o">.</span><span class="n">accept_network</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
-            <span class="p">)</span>
-        <span class="k">except</span> <span class="n">ValidationError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-            <span class="n">detail</span> <span class="o">=</span> <span class="n">_safe_errors</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
-            <span class="k">raise</span> <span class="n">_fail</span><span class="p">(</span><span class="mi">422</span><span class="p">,</span> <span class="n">detail</span><span class="p">,</span> <span class="n">origin</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span>
-        <span class="k">except</span> <span class="n">_BadJsonField</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="n">_fail</span><span class="p">(</span><span class="mi">422</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">),</span> <span class="n">origin</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span>
-        <span class="k">except</span> <span class="ne">RecursionError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>  <span class="c1"># nesting too deep for the validator</span>
-            <span class="k">raise</span> <span class="n">_fail</span><span class="p">(</span><span class="mi">422</span><span class="p">,</span> <span class="s2">"invalid form data: nested too deeply"</span><span class="p">,</span> <span class="n">origin</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span>
-
-        <span class="n">shot</span> <span class="o">=</span> <span class="n">fields</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"screenshot"</span><span class="p">)</span> <span class="ow">or</span> <span class="kc">None</span>
-        <span class="n">shot_type</span> <span class="o">=</span> <span class="s2">"image/png"</span>
-        <span class="k">if</span> <span class="n">shot</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">submission</span><span class="o">.</span><span class="n">category</span><span class="o">.</span><span class="n">value</span> <span class="ow">in</span> <span class="n">cfg</span><span class="o">.</span><span class="n">light_categories</span><span class="p">:</span>
-            <span class="c1"># a light report never keeps one: drop it before a 415 or a re-encode</span>
-            <span class="n">shot</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="k">if</span> <span class="n">shot</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">shot</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">cfg</span><span class="o">.</span><span class="n">max_screenshot_bytes</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="n">_fail</span><span class="p">(</span><span class="mi">413</span><span class="p">,</span> <span class="s2">"screenshot too large"</span><span class="p">,</span> <span class="n">origin</span><span class="p">)</span>
-            <span class="n">shot_type</span> <span class="o">=</span> <span class="n">sniff_image_type</span><span class="p">(</span><span class="n">shot</span><span class="p">)</span>
-            <span class="k">if</span> <span class="n">shot_type</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="n">_fail</span><span class="p">(</span><span class="mi">415</span><span class="p">,</span> <span class="s2">"screenshot must be a PNG, JPEG or WebP image"</span><span class="p">,</span> <span class="n">origin</span><span class="p">)</span>
-            <span class="k">try</span><span class="p">:</span>
-                <span class="n">shot</span> <span class="o">=</span> <span class="k">await</span> <span class="n">run_in_threadpool</span><span class="p">(</span><span class="n">sanitize_image</span><span class="p">,</span> <span class="n">shot</span><span class="p">,</span> <span class="n">shot_type</span><span class="p">)</span>
-            <span class="k">except</span> <span class="n">SanitizerBusy</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="n">_fail</span><span class="p">(</span>
-                    <span class="mi">503</span><span class="p">,</span>
-                    <span class="s2">"busy, retry shortly"</span><span class="p">,</span>
-                    <span class="n">origin</span><span class="p">,</span>
-                    <span class="o">**</span><span class="p">{</span><span class="s2">"Retry-After"</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">reencode_retry_after_seconds</span><span class="p">)},</span>
-                <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span>
-            <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="n">_fail</span><span class="p">(</span>
-                    <span class="mi">415</span><span class="p">,</span>
-                    <span class="s2">"screenshot is not a well-formed PNG, JPEG or WebP image"</span><span class="p">,</span>
-                    <span class="n">origin</span><span class="p">,</span>
-                <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span>
-            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">shot</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">cfg</span><span class="o">.</span><span class="n">max_screenshot_bytes</span><span class="p">:</span>  <span class="c1"># a re-encode can grow the file</span>
-                <span class="k">raise</span> <span class="n">_fail</span><span class="p">(</span><span class="mi">413</span><span class="p">,</span> <span class="s2">"screenshot too large"</span><span class="p">,</span> <span class="n">origin</span><span class="p">)</span>
+            <span class="n">submission</span> <span class="o">=</span> <span class="n">_submission_from_fields</span><span class="p">(</span><span class="n">fields</span><span class="p">,</span> <span class="n">cfg</span><span class="p">)</span>
+        <span class="k">except</span> <span class="n">_Unprocessable</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">_fail</span><span class="p">(</span><span class="mi">422</span><span class="p">,</span> <span class="n">e</span><span class="o">.</span><span class="n">detail</span><span class="p">,</span> <span class="n">origin</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span>
+        <span class="n">shot</span><span class="p">,</span> <span class="n">shot_type</span> <span class="o">=</span> <span class="k">await</span> <span class="n">_clean_screenshot</span><span class="p">(</span>
+            <span class="n">fields</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"screenshot"</span><span class="p">)</span> <span class="ow">or</span> <span class="kc">None</span><span class="p">,</span> <span class="n">submission</span><span class="o">.</span><span class="n">category</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="n">origin</span>
+        <span class="p">)</span>
 
         <span class="k">try</span><span class="p">:</span>
-            <span class="n">report</span><span class="p">,</span> <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">run_in_threadpool</span><span class="p">(</span>
+            <span class="n">report</span><span class="p">,</span> <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">_off_loop</span><span class="p">(</span>
+                <span class="s2">"delivery"</span><span class="p">,</span>
                 <span class="n">process_submission</span><span class="p">,</span>
                 <span class="n">submission</span><span class="p">,</span>
                 <span class="n">request</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">heed_sink</span><span class="p">,</span>
@@ -1400,17 +1442,13 @@ window.runMermaid = runMermaid;</script>
             <span class="k">raise</span> <span class="n">_fail</span><span class="p">(</span><span class="mi">502</span><span class="p">,</span> <span class="s2">"the report could not be delivered"</span><span class="p">,</span> <span class="n">origin</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span>
         <span class="c1"># A rejected report looks received, like a honeypot hit; a held one says so,</span>
         <span class="c1"># so the widget can tell a real visitor their report awaits review.</span>
-        <span class="n">held</span> <span class="o">=</span> <span class="n">report</span><span class="o">.</span><span class="n">status</span> <span class="ow">is</span> <span class="n">Status</span><span class="o">.</span><span class="n">held</span>
-        <span class="k">return</span> <span class="n">JSONResponse</span><span class="p">(</span>
-            <span class="p">{</span>
-                <span class="s2">"id"</span><span class="p">:</span> <span class="n">report</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
-                <span class="s2">"ok"</span><span class="p">:</span> <span class="n">result</span><span class="o">.</span><span class="n">ok</span><span class="p">,</span>
-                <span class="s2">"ref"</span><span class="p">:</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">held</span> <span class="k">else</span> <span class="n">result</span><span class="o">.</span><span class="n">external_ref</span><span class="p">,</span>
-                <span class="s2">"url"</span><span class="p">:</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">held</span> <span class="k">else</span> <span class="n">result</span><span class="o">.</span><span class="n">url</span><span class="p">,</span>
-                <span class="s2">"status"</span><span class="p">:</span> <span class="n">Status</span><span class="o">.</span><span class="n">held</span><span class="o">.</span><span class="n">value</span> <span class="k">if</span> <span class="n">held</span> <span class="k">else</span> <span class="n">Status</span><span class="o">.</span><span class="n">received</span><span class="o">.</span><span class="n">value</span><span class="p">,</span>
-            <span class="p">},</span>
-            <span class="n">headers</span><span class="o">=</span><span class="n">_cors</span><span class="p">(</span><span class="n">origin</span><span class="p">),</span>
-        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">report</span><span class="o">.</span><span class="n">status</span> <span class="ow">is</span> <span class="n">Status</span><span class="o">.</span><span class="n">held</span><span class="p">:</span>
+            <span class="n">body</span> <span class="o">=</span> <span class="n">_receipt</span><span class="p">(</span><span class="n">report</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">status</span><span class="o">=</span><span class="n">Status</span><span class="o">.</span><span class="n">held</span><span class="p">,</span> <span class="n">ok</span><span class="o">=</span><span class="n">result</span><span class="o">.</span><span class="n">ok</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">body</span> <span class="o">=</span> <span class="n">_receipt</span><span class="p">(</span>
+                <span class="n">report</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">ok</span><span class="o">=</span><span class="n">result</span><span class="o">.</span><span class="n">ok</span><span class="p">,</span> <span class="n">ref</span><span class="o">=</span><span class="n">result</span><span class="o">.</span><span class="n">external_ref</span><span class="p">,</span> <span class="n">url</span><span class="o">=</span><span class="n">result</span><span class="o">.</span><span class="n">url</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">JSONResponse</span><span class="p">(</span><span class="n">body</span><span class="p">,</span> <span class="n">headers</span><span class="o">=</span><span class="n">_cors</span><span class="p">(</span><span class="n">origin</span><span class="p">))</span>
 
     <span class="k">return</span> <span class="n">router</span></div>
 

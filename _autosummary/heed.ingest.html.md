@@ -20,6 +20,11 @@ this module does not `from __future__ import annotations` — FastAPI resolves
 route-handler annotations against module globals, so the request/response types are
 imported at module level.
 
+### Module Attributes
+
+| [`THREAD_POOL_KINDS`](#heed.ingest.THREAD_POOL_KINDS)   | Kinds of blocking call the router runs off the event loop, each in its own pool sized by `HeedConfig.<kind>_threads`.   |
+|----------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------|
+
 ### Functions
 
 | [`make_app`](#heed.ingest.make_app)(sink, \*[, config, ...])               | A standalone FastAPI app serving the heed router under `prefix`.              |
@@ -27,6 +32,11 @@ imported at module level.
 | [`make_router`](#heed.ingest.make_router)(sink, \*[, config, ...])            | Build a FastAPI APIRouter exposing `POST /report` (and its CORS preflight).   |
 | [`process_submission`](#heed.ingest.process_submission)(submission, sink, \*[, ...]) | Enrich `submission` into a Report, store any screenshot, and route to `sink`. |
 | [`read_capped_body`](#heed.ingest.read_capped_body)(request, \*, max_bytes)        | Read the request body, or return None as soon as it exceeds `max_bytes`.      |
+
+### heed.ingest.THREAD_POOL_KINDS *= ('limiter', 'bot_verify', 'reencode', 'delivery')*
+
+Kinds of blocking call the router runs off the event loop, each in its own pool
+sized by `HeedConfig.<kind>_threads`.
 
 ### heed.ingest.make_app(sink, , config=None, attachment_store=None, prefix='/heed', serve_widget=True, \*\*router_kwargs)
 

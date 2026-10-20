@@ -4,6 +4,12 @@ heed.ingest
 .. automodule:: heed.ingest
 
    
+   .. rubric:: Module Attributes
+
+   .. autosummary::
+   
+      THREAD_POOL_KINDS
+   
    .. rubric:: Functions
 
    .. autosummary::

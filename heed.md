@@ -1,4 +1,4 @@
-> built 2026-10-20 13:58 UTC from b9af554 (main) · heed 0.0.1. Details: build_info.json
+> built 2026-10-20 14:05 UTC from 9700c9d (main) · heed 0.0.1. Details: build_info.json
 
 # index.html.md
 
@@ -396,7 +396,7 @@ infrastructure (the Redis URL) belong.
 | [`HeedConfig`](_autosummary/heed.config.html.md#heed.config.HeedConfig)(\*[, allowed_origins, ...])   | Knobs for the ingest endpoint.   |
 |-------------------------------------------------------------------------------------------|----------------------------------|
 
-### *class* heed.config.HeedConfig(\*, allowed_origins=None, handle_cors=True, cors_allow_credentials=False, cors_max_age_seconds=600, max_body_bytes=6000000, max_screenshot_bytes=5000000, screenshot_sanitizer='auto', max_screenshot_pixels=8500000, max_concurrent_reencodes=2, reencode_busy_wait_seconds=2.0, reencode_retry_after_seconds=5, max_field_bytes=100000, max_form_fields=16, rate_limit_per_minute=30, origin_rate_limit_per_minute=600, rate_limit_window_seconds=60.0, rate_limit_backend='memory', redis_url=None, redis_socket_timeout_seconds=0.5, rate_limit_max_keys=100000, trusted_proxies=list(), ipv6_rate_limit_prefix=64, bot_gate=None, bot_secret=None, bot_expected_hostnames=None, bot_token_field='bot_token', honeypot_field='hp_website', attachment_signing_key=None, attachment_url_ttl_seconds=None, attachment_previous_keys=list(), attachment_hosts=None, attachment_cache_control=None, accept_console=False, accept_network=False, mask_page_url=True, light_categories=<factory>)
+### *class* heed.config.HeedConfig(\*, allowed_origins=None, handle_cors=True, cors_allow_credentials=False, cors_max_age_seconds=600, max_body_bytes=6000000, max_screenshot_bytes=5000000, screenshot_sanitizer='auto', max_screenshot_pixels=8500000, max_concurrent_reencodes=2, reencode_busy_wait_seconds=2.0, reencode_retry_after_seconds=5, max_field_bytes=100000, max_form_fields=16, rate_limit_per_minute=30, origin_rate_limit_per_minute=600, rate_limit_window_seconds=60.0, rate_limit_backend='memory', redis_url=None, redis_socket_timeout_seconds=0.5, rate_limit_max_keys=100000, trusted_proxies=list(), ipv6_rate_limit_prefix=64, limiter_threads=16, bot_verify_threads=8, reencode_threads=4, delivery_threads=8, bot_gate=None, bot_secret=None, bot_expected_hostnames=None, bot_token_field='bot_token', honeypot_field='hp_website', attachment_signing_key=None, attachment_url_ttl_seconds=None, attachment_previous_keys=list(), attachment_hosts=None, attachment_cache_control=None, accept_console=False, accept_network=False, mask_page_url=True, light_categories=<factory>)
 
 Bases: [`object`](https://docs.python.org/3/builtins/functions.html#object)
 
@@ -786,7 +786,7 @@ The treatment applied to reports of `category`.
 * **Return type:**
   [`CategoryTreatment`](_autosummary/heed.sinks.github.html.md#heed.sinks.github.CategoryTreatment)
 
-### *class* heed.HeedConfig(\*, allowed_origins=None, handle_cors=True, cors_allow_credentials=False, cors_max_age_seconds=600, max_body_bytes=6000000, max_screenshot_bytes=5000000, screenshot_sanitizer='auto', max_screenshot_pixels=8500000, max_concurrent_reencodes=2, reencode_busy_wait_seconds=2.0, reencode_retry_after_seconds=5, max_field_bytes=100000, max_form_fields=16, rate_limit_per_minute=30, origin_rate_limit_per_minute=600, rate_limit_window_seconds=60.0, rate_limit_backend='memory', redis_url=None, redis_socket_timeout_seconds=0.5, rate_limit_max_keys=100000, trusted_proxies=list(), ipv6_rate_limit_prefix=64, bot_gate=None, bot_secret=None, bot_expected_hostnames=None, bot_token_field='bot_token', honeypot_field='hp_website', attachment_signing_key=None, attachment_url_ttl_seconds=None, attachment_previous_keys=list(), attachment_hosts=None, attachment_cache_control=None, accept_console=False, accept_network=False, mask_page_url=True, light_categories=<factory>)
+### *class* heed.HeedConfig(\*, allowed_origins=None, handle_cors=True, cors_allow_credentials=False, cors_max_age_seconds=600, max_body_bytes=6000000, max_screenshot_bytes=5000000, screenshot_sanitizer='auto', max_screenshot_pixels=8500000, max_concurrent_reencodes=2, reencode_busy_wait_seconds=2.0, reencode_retry_after_seconds=5, max_field_bytes=100000, max_form_fields=16, rate_limit_per_minute=30, origin_rate_limit_per_minute=600, rate_limit_window_seconds=60.0, rate_limit_backend='memory', redis_url=None, redis_socket_timeout_seconds=0.5, rate_limit_max_keys=100000, trusted_proxies=list(), ipv6_rate_limit_prefix=64, limiter_threads=16, bot_verify_threads=8, reencode_threads=4, delivery_threads=8, bot_gate=None, bot_secret=None, bot_expected_hostnames=None, bot_token_field='bot_token', honeypot_field='hp_website', attachment_signing_key=None, attachment_url_ttl_seconds=None, attachment_previous_keys=list(), attachment_hosts=None, attachment_cache_control=None, accept_console=False, accept_network=False, mask_page_url=True, light_categories=<factory>)
 
 Bases: [`object`](https://docs.python.org/3/builtins/functions.html#object)
 
@@ -1711,6 +1711,11 @@ this module does not `from __future__ import annotations` — FastAPI resolves
 route-handler annotations against module globals, so the request/response types are
 imported at module level.
 
+### Module Attributes
+
+| [`THREAD_POOL_KINDS`](_autosummary/heed.ingest.html.md#heed.ingest.THREAD_POOL_KINDS)   | Kinds of blocking call the router runs off the event loop, each in its own pool sized by `HeedConfig.<kind>_threads`.   |
+|----------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------|
+
 ### Functions
 
 | [`make_app`](_autosummary/heed.ingest.html.md#heed.ingest.make_app)(sink, \*[, config, ...])               | A standalone FastAPI app serving the heed router under `prefix`.              |
@@ -1718,6 +1723,11 @@ imported at module level.
 | [`make_router`](_autosummary/heed.ingest.html.md#heed.ingest.make_router)(sink, \*[, config, ...])            | Build a FastAPI APIRouter exposing `POST /report` (and its CORS preflight).   |
 | [`process_submission`](_autosummary/heed.ingest.html.md#heed.ingest.process_submission)(submission, sink, \*[, ...]) | Enrich `submission` into a Report, store any screenshot, and route to `sink`. |
 | [`read_capped_body`](_autosummary/heed.ingest.html.md#heed.ingest.read_capped_body)(request, \*, max_bytes)        | Read the request body, or return None as soon as it exceeds `max_bytes`.      |
+
+### heed.ingest.THREAD_POOL_KINDS *= ('limiter', 'bot_verify', 'reencode', 'delivery')*
+
+Kinds of blocking call the router runs off the event loop, each in its own pool
+sized by `HeedConfig.<kind>_threads`.
 
 ### heed.ingest.make_app(sink, , config=None, attachment_store=None, prefix='/heed', serve_widget=True, \*\*router_kwargs)
 
@@ -3744,7 +3754,7 @@ overrides them.
 
 # About this build
 
-This documentation was built on **2026-10-20 13:58 UTC** from commit <a href="https://github.com/i2mint/heed/commit/b9af554f578214210c26a0bd676d32f01f2694df"><code>b9af554</code></a> on branch <code>main</code>, for **heed 0.0.1** (from <code>pyproject.toml</code>).
+This documentation was built on **2026-10-20 14:05 UTC** from commit <a href="https://github.com/i2mint/heed/commit/9700c9d9af6be0b308f84e42c580d6cf87da1b28"><code>9700c9d</code></a> on branch <code>main</code>, for **heed 0.0.1** (from <code>pyproject.toml</code>).
 
 #### WARNING
 The documentation and the package may be misaligned:
@@ -3755,7 +3765,7 @@ The documentation and the package may be misaligned:
 
 |                     |                                                                                                                                                    |
 |---------------------|----------------------------------------------------------------------------------------------------------------------------------------------------|
-| Commit              | <a href="https://github.com/i2mint/heed/commit/b9af554f578214210c26a0bd676d32f01f2694df"><code>b9af554f578214210c26a0bd676d32f01f2694df</code></a> |
+| Commit              | <a href="https://github.com/i2mint/heed/commit/9700c9d9af6be0b308f84e42c580d6cf87da1b28"><code>9700c9d9af6be0b308f84e42c580d6cf87da1b28</code></a> |
 | Branch              | <code>main</code>                                                                                                                                  |
 | Tags at this commit | none                                                                                                                                               |
 | Working tree        | clean                                                                                                                                              |
@@ -3766,9 +3776,9 @@ The documentation and the package may be misaligned:
 |              |                                                                                            |
 |--------------|--------------------------------------------------------------------------------------------|
 | Repository   | <code>i2mint/heed</code>                                                                   |
-| Run          | <a href="https://github.com/i2mint/heed/actions/runs/39434859217">39434859217</a>          |
+| Run          | <a href="https://github.com/i2mint/heed/actions/runs/39435904558">39435904558</a>          |
 | Ref          | <code>refs/heads/main</code>                                                               |
-| Event commit | <code>b9af554f578214210c26a0bd676d32f01f2694df</code> (in the history of the built commit) |
+| Event commit | <code>9700c9d9af6be0b308f84e42c580d6cf87da1b28</code> (in the history of the built commit) |
 
 ## Tools
 
@@ -3799,7 +3809,7 @@ Latest release: <a href="https://pypi.org/project/heed/0.1.0/">0.1.0</a>, newer 
 
 ```bash
 git clone https://github.com/i2mint/heed && cd heed
-git checkout b9af554f578214210c26a0bd676d32f01f2694df
+git checkout 9700c9d9af6be0b308f84e42c580d6cf87da1b28
 pip install "epythet==0.2.20"
 epythet quickstart . --ignore tests/ scrap/ examples/
 ```
