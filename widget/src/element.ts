@@ -276,6 +276,7 @@ export class HeedFeedbackElement extends Base {
     category.addEventListener("change", () => this.#syncCapture());
     dialog.addEventListener("close", () => {
       this.#cancelToken();
+      logsBox.checked = false; // consent is per report: closing without sending withdraws it
       this.#emit("heed:close", {});
     });
     form.addEventListener("submit", (event) => {

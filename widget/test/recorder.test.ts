@@ -23,7 +23,7 @@ describe("startRecorder", () => {
     const { console: logs } = r.snapshot({ console: true, network: false });
     expect(logs).toHaveLength(1);
     expect(logs![0].level).toBe("warn");
-    expect(logs![0].message).toBe("login for [email] {token: [redacted]}");
+    expect(logs![0].message).toBe('login for [email] {"token": "[redacted]"}');
     expect(logs![0].message).not.toContain("abc123");
   });
 
@@ -89,8 +89,42 @@ describe("startRecorder", () => {
 });
 
 describe("helpers", () => {
+  it("masks spaced and nested secrets whole", () => {
+    const r = start(window);
+    r.enable({ console: true, network: false });
+    console.log({ password: "correct horse battery staple" }, { auth: { token: "SECRETVALUE123" } });
+    console.log("back from https://app.example/cb?code=4/0AbCdEf&state=xyz");
+    const [one, two] = r.snapshot({ console: true, network: false }).console!.map((e) => e.message);
+    expect(one).not.toMatch(/horse|staple|SECRETVALUE/);
+    expect(two).toBe("back from https://app.example/cb?code=[redacted]&state=[redacted]");
+  });
+
+  it("never breaks or stalls the page's console call", () => {
+    const r = start(window);
+    r.enable({ console: true, network: false });
+    const { proxy, revoke } = Proxy.revocable({}, {});
+    revoke();
+    const odd = new Error("x");
+    Object.defineProperty(odd, "stack", { value: 42 });
+    let reads = 0;
+    const lazy = {
+      get heavy() {
+        reads++;
+        console.log("inside a getter");
+        return 1;
+      },
+    };
+    const start_ = performance.now();
+    expect(() => console.log(proxy, odd, new Uint8Array(5_000_000), lazy)).not.toThrow();
+    expect(performance.now() - start_).toBeLessThan(200);
+    expect(reads).toBe(0); // accessors are never called
+    const last = r.snapshot({ console: true, network: false }).console!.at(-1)!.message;
+    expect(last).toContain("[Uint8Array(5000000)]");
+    expect(last).toContain('"heavy": [getter]');
+  });
+
   it("describes arguments within bounds", () => {
-    expect(describeArg({ a: [1, 2], b: { c: { d: { e: 1 } } } })).toBe("{a: [1, 2], b: {c: {d: {…}}}}");
+    expect(describeArg({ a: [1, "x"], b: { c: { d: { e: 1 } } } })).toBe('{"a": [1, "x"], "b": {"c": {"d": {…}}}}');
     const cyclic: Record<string, unknown> = {};
     cyclic.self = cyclic;
     expect(describeArg(cyclic).length).toBeLessThan(100);

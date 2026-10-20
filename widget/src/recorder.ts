@@ -15,7 +15,7 @@
  * promise / return value is passed through untouched.
  */
 import { CONTRACT } from "./contract.gen.js";
-import { maskText, maskUrl } from "./mask.js";
+import { REDACTED, isSensitiveKey, maskText, maskUrl } from "./mask.js";
 
 const L = CONTRACT.limits;
 
@@ -47,7 +47,7 @@ export interface RecordKinds {
 }
 
 export interface RecorderOptions {
-  /** Requests to leave out (heed's own POST of the report). */
+  /** Requests to leave out, given their absolute URL without query or fragment (heed's own POST of the report). */
   ignore?: (url: string) => boolean;
   /** Entries kept per buffer; the oldest go first. */
   maxEntries?: number;
@@ -77,42 +77,57 @@ export function canMask(): boolean {
   }
 }
 
-/** A bounded description of a console argument (no deep or huge serialisation on the page's hot path). */
+/** `s` cut to `n` characters, dropping a run cut in half (no partial secret under a rule's length threshold). */
+const cut = (s: string, n: number) => (s.length > n ? s.slice(0, n).replace(/\S*$/, "…") : s);
+
+/**
+ * A bounded, JSON-like description of a console argument: strings quoted (so the
+ * masking rules see a whole value), values under a sensitive key replaced outright,
+ * at most `MAX_KEYS` own data properties read (accessors are never called), typed
+ * arrays and other big containers summarised. Top-level strings stay as they are.
+ */
 export function describe(value: unknown, budget = L.log_message_chars * 2, depth = 0): string {
-  if (typeof value === "string") return value.slice(0, budget);
+  try {
+    return describeValue(value, budget, depth);
+  } catch {
+    return "[unreadable]"; // a revoked proxy, a throwing trap
+  }
+}
+
+function describeValue(value: unknown, budget: number, depth: number): string {
+  if (typeof value === "string") return depth ? JSON.stringify(cut(value, budget)) : cut(value, budget);
   if (value === null || value === undefined || typeof value !== "object") {
     return typeof value === "function" ? `[function ${(value as { name?: string }).name || "anonymous"}]` : String(value);
   }
   if (value instanceof Error) {
-    const stack = (value.stack ?? "").split("\n").slice(1, 1 + MAX_STACK_LINES).join("\n");
-    return `${value.name}: ${value.message}${stack ? `\n${stack}` : ""}`.slice(0, budget);
+    const stack = String(value.stack ?? "").split("\n").slice(1, 1 + MAX_STACK_LINES).join("\n");
+    return cut(`${value.name}: ${value.message}${stack ? `\n${stack}` : ""}`, budget);
   }
   const tag = (value as { nodeName?: unknown }).nodeName;
   if (typeof tag === "string") return `<${tag.toLowerCase()}>`;
-  if (depth >= MAX_DEPTH) return Array.isArray(value) ? "[…]" : "{…}";
-  let out = "";
-  const add = (part: string) => {
-    out += part;
-    return out.length < budget;
-  };
-  try {
-    if (Array.isArray(value)) {
-      add("[");
-      for (let i = 0; i < value.length && i < MAX_KEYS; i++) if (!add((i ? ", " : "") + describe(value[i], budget - out.length, depth + 1))) break;
-      add(value.length > MAX_KEYS ? ", …]" : "]");
-    } else {
-      const keys = Object.keys(value);
-      add("{");
-      for (let i = 0; i < keys.length && i < MAX_KEYS; i++) {
-        const v = (value as Record<string, unknown>)[keys[i]];
-        if (!add(`${i ? ", " : ""}${keys[i]}: ${describe(v, budget - out.length, depth + 1)}`)) break;
-      }
-      add(keys.length > MAX_KEYS ? ", …}" : "}");
-    }
-  } catch {
-    return "[unreadable]"; // a getter that throws, a revoked proxy
+  if (ArrayBuffer.isView(value) || value instanceof ArrayBuffer || value instanceof Map || value instanceof Set) {
+    const size = (value as { length?: number; byteLength?: number; size?: number });
+    return `[${value.constructor?.name ?? "object"}(${size.length ?? size.size ?? size.byteLength})]`;
   }
-  return out.slice(0, budget);
+  if (depth >= MAX_DEPTH) return Array.isArray(value) ? "[…]" : "{…}";
+  const array = Array.isArray(value);
+  const parts: string[] = [];
+  let used = 2;
+  let more = false;
+  for (const key in value) {
+    if (parts.length >= MAX_KEYS || used >= budget) {
+      more = true;
+      break;
+    }
+    const own = Object.getOwnPropertyDescriptor(value, key);
+    if (!own) continue; // inherited
+    const shown = !("value" in own) ? "[getter]" : isSensitiveKey(key) ? JSON.stringify(REDACTED) : describe(own.value, budget - used, depth + 1);
+    const part = array ? shown : `${JSON.stringify(key)}: ${shown}`;
+    parts.push(part);
+    used += part.length + 2;
+  }
+  if (more) parts.push("…");
+  return array ? `[${parts.join(", ")}]` : `{${parts.join(", ")}}`;
 }
 
 /**
@@ -121,9 +136,7 @@ export function describe(value: unknown, budget = L.log_message_chars * 2, depth
  * under a rule's length threshold.
  */
 export function maskMessage(raw: string, limit = L.log_message_chars): string {
-  const bound = limit * 4;
-  const bounded = raw.length > bound ? raw.slice(0, bound).replace(/\S*$/, "…") : raw;
-  return maskText(bounded).slice(0, limit);
+  return maskText(cut(raw, limit * 4)).slice(0, limit);
 }
 
 function ring<T>(max: number) {
@@ -151,21 +164,25 @@ export function startRecorder(win: Window, options: RecorderOptions = {}): Recor
   const base = win.location?.href;
   const now = () => win.performance?.now?.() ?? Date.now();
 
-  /** `source` is already masked. */
-  const log = (level: string, raw: string, source?: string) => {
-    if (!active) return;
+  /** `source` is already masked; `raw` builds the message (inside the guard: describing an argument can throw). */
+  let busy = false; // a getter or a masking rule that logs must not recurse into the recorder
+  const log = (level: string, raw: () => string, source?: string) => {
+    if (!active || busy) return;
+    busy = true;
     try {
-      const entry: LogEntryPayload = { level, message: maskMessage(raw), at: new Date().toISOString() };
+      const entry: LogEntryPayload = { level, message: maskMessage(raw()), at: new Date().toISOString() };
       if (source) entry.source = source.slice(0, L.short_chars);
       logs.push(entry);
     } catch {
       // recording must never break the page
+    } finally {
+      busy = false;
     }
   };
   const request = (method: string, url: string, started: number, status: number | null, ok: boolean | null) => {
     if (!active) return;
     try {
-      if (ignore(new URL(url, base).href)) return;
+      if (ignore(new URL(url, base).href.split(/[?#]/)[0])) return;
       requests.push({
         method: maskText(method.toUpperCase()).slice(0, L.short_chars),
         url: maskUrl(url, base).slice(0, L.url_chars),
@@ -194,7 +211,7 @@ export function startRecorder(win: Window, options: RecorderOptions = {}): Recor
     for (const level of LEVELS) {
       patch(c, level, (orig) =>
         function (this: unknown, ...args: unknown[]) {
-          if (active) log(level, args.map((a) => describe(a)).join(" "));
+          log(level, () => args.map((a) => describe(a)).join(" "));
           return orig.apply(this, args);
         },
       );
@@ -202,9 +219,9 @@ export function startRecorder(win: Window, options: RecorderOptions = {}): Recor
     const onError = (e: Event) => {
       if (!(e instanceof (win as unknown as { ErrorEvent: typeof ErrorEvent }).ErrorEvent)) return; // a resource that failed: the network buffer has it
       const at = e.filename ? `${maskUrl(e.filename, base)}:${e.lineno}:${e.colno}` : undefined;
-      log("error", e.error instanceof Error ? describe(e.error) : e.message, at);
+      log("error", () => (e.error instanceof Error ? describe(e.error) : String(e.message)), at);
     };
-    const onRejection = (e: PromiseRejectionEvent) => log("error", `Unhandled rejection: ${describe(e.reason)}`);
+    const onRejection = (e: PromiseRejectionEvent) => log("error", () => `Unhandled rejection: ${describe(e.reason)}`);
     win.addEventListener("error", onError);
     win.addEventListener("unhandledrejection", onRejection as EventListener);
     restore.push(() => {
@@ -248,11 +265,10 @@ export function startRecorder(win: Window, options: RecorderOptions = {}): Recor
       patch(XHR.prototype, "send", (orig) =>
         function (this: XMLHttpRequest, body?: Document | XMLHttpRequestBodyInit | null) {
           const meta = opened.get(this);
-          if (meta) {
-            const started = now();
-            this.addEventListener("loadend", () => request(meta.method, meta.url, started, this.status || null, this.status ? this.status < 400 : false), { once: true });
-          }
-          return orig.call(this, body);
+          const started = now();
+          const result = orig.call(this, body); // a send that throws (sent twice) leaves no listener behind
+          if (meta) this.addEventListener("loadend", () => request(meta.method, meta.url, started, this.status || null, this.status ? this.status < 400 : false), { once: true });
+          return result;
         },
       );
     }

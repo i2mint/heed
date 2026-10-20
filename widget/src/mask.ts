@@ -14,7 +14,9 @@ export const REDACTED = "[redacted]";
 const LONG_KEYS =
   "secret|token|passw|pwd|api[_-]?key|apikey|auth|session|cookie|csrf|xsrf" +
   "|credential|private[_-]?key|card[_-]?number|credit[_-]?card";
-const SENSITIVE_KEY = new RegExp(`^(?:[A-Za-z0-9_-]*(?:${LONG_KEYS})[A-Za-z0-9_-]*|pass|pin|sid|otp|ssn|cvv|cvc)$`, "i");
+/** Is `key` one whose value is a secret (`password`, `client_secret`, `x-auth-token`…)? */
+export const isSensitiveKey = (key: string): boolean => SENSITIVE_KEY.test(key);
+const SENSITIVE_KEY = new RegExp(`^(?:[A-Za-z0-9_-]*(?:${LONG_KEYS})[A-Za-z0-9_-]*|pass|pin|sid|otp|ssn|cvv|cvc|sig|signature)$`, "i");
 const W = "A-Za-z0-9_-";
 const HEX = "0-9A-Fa-f";
 
@@ -47,7 +49,7 @@ const RULES: [RegExp, Replacement][] = [
     "[key]",
   ],
   [/\b(bearer|basic|digest|token)(\s+)(?!\[)[A-Za-z0-9._~+/=-]{3,}/gi, `$1$2${REDACTED}`],
-  [new RegExp(`(?<![${W}])([${W}]+)(["']?\\s*[:=]\\s*)("[^"\\n]*"|'[^'\\n]*'|[^\\s"'&,;}]+)`, "g"), secretValue as Replacement],
+  [new RegExp(`(?<![${W}])([${W}]+)(["']?\\s*[:=]\\s*)("[^"\\n]*"|'[^'\\n]*'|[^\\s"'&,;}{\\[]+)`, "g"), secretValue as Replacement],
   [/(?<![A-Za-z0-9._%+-])[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g, "[email]"],
   [/(?<![A-Za-z0-9/+=])[A-Za-z0-9/+]{40}(?![A-Za-z0-9/+=])/g, ifMixed("[key]")],
   [new RegExp(`(?<![${W}])[${W}]{32,}`, "g"), ifMixed("[id]")],
@@ -62,6 +64,8 @@ const RULES: [RegExp, Replacement][] = [
   [/(\/home\/|\/Users\/|\b[A-Za-z]:\\Users\\)[^/\\\s"']+/g, "$1[user]"],
 ];
 
+/** URLs inside text are masked like request URLs (`maskUrl`), before the other rules. */
+const URL_IN_TEXT = /\bhttps?:\/\/[^\s"'<>`]+/g;
 const CARD_CANDIDATE = /\b\d(?:[ -]?\d){12,18}\b/g;
 
 function luhnOk(digits: string): boolean {
@@ -76,6 +80,7 @@ function luhnOk(digits: string): boolean {
 
 /** `text` with personal data and secrets replaced by placeholders. */
 export function maskText(text: string): string {
+  text = text.replace(URL_IN_TEXT, (url) => maskUrl(url));
   for (const [pattern, replacement] of RULES) text = text.replace(pattern, replacement as string);
   return text.replace(CARD_CANDIDATE, (m) => (luhnOk(m.replace(/\D/g, "")) ? "[card]" : m));
 }

@@ -220,6 +220,12 @@ describe("<heed-feedback> opt-in capture (heed#7)", () => {
     expect(logs.at(-1)).toMatchObject({ level: "error", message: "failed for [email]" });
     expect(sent(fetch).get("network")).toBeNull(); // heed's own POST is never recorded
     expect(box.checked).toBe(false); // consent is per report
+
+    el.open();
+    box.checked = true;
+    el.close(); // closing without sending withdraws it
+    el.open();
+    expect(box.checked).toBe(false);
   });
 
   it("hides the box for light categories and sends nothing then", async () => {

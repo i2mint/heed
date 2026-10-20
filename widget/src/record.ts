@@ -45,7 +45,7 @@ export function ensureRecording(win: Window, kinds: RecordKinds, endpoint: strin
     pages.set(win, fresh);
     loadRecorder(win).then(
       (m) => {
-        fresh.recorder = m.startRecorder(win, { ignore: (url) => [...fresh.ignored].some((e) => url.startsWith(e)) });
+        fresh.recorder = m.startRecorder(win, { ignore: (url) => fresh.ignored.has(url) });
         fresh.recorder.enable(fresh.wanted);
       },
       (e) => console.warn("heed: console/network capture is unavailable", e),

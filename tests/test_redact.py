@@ -95,3 +95,10 @@ def test_redact_text_is_linear_on_hostile_input(hostile):
     for _ in range(50):
         redact_text(hostile)
     assert time.perf_counter() - start < 1.0
+
+
+def test_redact_text_masks_urls_and_nested_values():
+    out = redact_text("cb https://app.example/cb?code=4/0AbC&sig=abc12 then")
+    assert out == "cb https://app.example/cb?code=[redacted]&sig=[redacted] then"
+    nested = redact_text('{"auth": {"token": "SECRETVALUE123"}, "sig": "x"}')
+    assert "SECRETVALUE123" not in nested and '"sig": "[redacted]"' in nested
