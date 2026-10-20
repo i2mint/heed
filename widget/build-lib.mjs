@@ -6,6 +6,7 @@ import { build } from "esbuild";
 import { execFileSync } from "node:child_process";
 import { readFileSync, rmSync } from "node:fs";
 import { licence } from "./licence.mjs";
+import { minifyCss } from "./minify-css.mjs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -24,6 +25,7 @@ await build({
   chunkNames: "chunks/[name]-[hash]",
   external: ["react", "react-dom"],
   minify: true,
+  plugins: [minifyCss],
   legalComments: "inline",
   // The rasterizer chunk includes modern-screenshot (MIT), whose licence travels in
   // every file; "use client" lets React Server Components import the entries.

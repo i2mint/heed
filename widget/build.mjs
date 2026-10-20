@@ -17,6 +17,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { gzipSync } from "node:zlib";
 import { licence } from "./licence.mjs";
+import { minifyCss } from "./minify-css.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const OUT_DIR = join(here, "..", "heed", "static", "widget");
@@ -73,6 +74,7 @@ async function bundle(src, define, banner) {
     legalComments: "none",
     write: false,
     charset: "utf8",
+    plugins: [minifyCss],
   });
   return result.outputFiles[0].contents;
 }
