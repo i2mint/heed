@@ -75,6 +75,9 @@ class HeedConfig:
     # --- Capture policy -------------------------------------------------------------
     accept_console: bool = False  # opt-in heavy capture (privacy by default)
     accept_network: bool = False
+    # Mask id-like path segments, handles, query values and the fragment of the page URL
+    # ("/reset/<token>", "/users/12345", "/@ana"); False keeps it as the widget sent it.
+    mask_page_url: bool = True
     # Categories taken as a light intake (a wish, a question): the screenshot, console,
     # network and browser details are dropped on the server, whatever the client sent.
     # Keep the GitHub sink's per-category `detail` in step with it.
