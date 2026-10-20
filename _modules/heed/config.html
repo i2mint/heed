@@ -791,6 +791,9 @@ window.runMermaid = runMermaid;</script>
     <span class="c1"># --- Capture policy -------------------------------------------------------------</span>
     <span class="n">accept_console</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>  <span class="c1"># opt-in heavy capture (privacy by default)</span>
     <span class="n">accept_network</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="c1"># Mask id-like path segments, handles, query values and the fragment of the page URL</span>
+    <span class="c1"># ("/reset/&lt;token&gt;", "/users/12345", "/@ana"); False keeps it as the widget sent it.</span>
+    <span class="n">mask_page_url</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
     <span class="c1"># Categories taken as a light intake (a wish, a question): the screenshot, console,</span>
     <span class="c1"># network and browser details are dropped on the server, whatever the client sent.</span>
     <span class="c1"># Keep the GitHub sink's per-category `detail` in step with it.</span>

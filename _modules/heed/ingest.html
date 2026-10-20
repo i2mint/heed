@@ -736,6 +736,7 @@ window.runMermaid = runMermaid;</script>
 <span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">MutableMapping</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Optional</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">urllib.parse</span><span class="w"> </span><span class="kn">import</span> <span class="n">urlsplit</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">fastapi</span><span class="w"> </span><span class="kn">import</span> <span class="n">APIRouter</span><span class="p">,</span> <span class="n">Depends</span><span class="p">,</span> <span class="n">FastAPI</span><span class="p">,</span> <span class="n">HTTPException</span><span class="p">,</span> <span class="n">Request</span><span class="p">,</span> <span class="n">Response</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fastapi.responses</span><span class="w"> </span><span class="kn">import</span> <span class="n">JSONResponse</span>
@@ -763,7 +764,13 @@ window.runMermaid = runMermaid;</script>
     <span class="n">SanitizerBusy</span><span class="p">,</span>
     <span class="n">make_image_sanitizer</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">heed.redact</span><span class="w"> </span><span class="kn">import</span> <span class="n">Redactor</span><span class="p">,</span> <span class="n">redact_console</span><span class="p">,</span> <span class="n">redact_network</span><span class="p">,</span> <span class="n">redact_text</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">heed.redact</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">Redactor</span><span class="p">,</span>
+    <span class="n">redact_console</span><span class="p">,</span>
+    <span class="n">redact_network</span><span class="p">,</span>
+    <span class="n">redact_text</span><span class="p">,</span>
+    <span class="n">redact_url</span><span class="p">,</span>
+<span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">heed.routing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Moderator</span><span class="p">,</span> <span class="n">SinkResolver</span><span class="p">,</span> <span class="n">Verdict</span><span class="p">,</span> <span class="n">accept_all</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">heed.security</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">IMAGE_EXTENSIONS</span><span class="p">,</span>
@@ -785,7 +792,14 @@ window.runMermaid = runMermaid;</script>
 
 <span class="n">_FORM_MEDIA_TYPES</span> <span class="o">=</span> <span class="p">(</span><span class="s2">"multipart/form-data"</span><span class="p">,</span> <span class="s2">"application/x-www-form-urlencoded"</span><span class="p">)</span>
 <span class="n">_TEXT_FIELDS</span> <span class="o">=</span> <span class="p">(</span>
-    <span class="s2">"title"</span><span class="p">,</span> <span class="s2">"body"</span><span class="p">,</span> <span class="s2">"category"</span><span class="p">,</span> <span class="s2">"page_url"</span><span class="p">,</span> <span class="s2">"env"</span><span class="p">,</span> <span class="s2">"anon_id"</span><span class="p">,</span> <span class="s2">"console"</span><span class="p">,</span> <span class="s2">"network"</span>
+    <span class="s2">"title"</span><span class="p">,</span>
+    <span class="s2">"body"</span><span class="p">,</span>
+    <span class="s2">"category"</span><span class="p">,</span>
+    <span class="s2">"page_url"</span><span class="p">,</span>
+    <span class="s2">"env"</span><span class="p">,</span>
+    <span class="s2">"anon_id"</span><span class="p">,</span>
+    <span class="s2">"console"</span><span class="p">,</span>
+    <span class="s2">"network"</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="n">_MAX_LOC_CHARS</span> <span class="o">=</span> <span class="mi">64</span>
 <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s2">"heed.ingest"</span><span class="p">)</span>
@@ -899,7 +913,7 @@ window.runMermaid = runMermaid;</script>
         <span class="n">category</span><span class="o">=</span><span class="n">submission</span><span class="o">.</span><span class="n">category</span><span class="p">,</span>
         <span class="n">title</span><span class="o">=</span><span class="n">submission</span><span class="o">.</span><span class="n">title</span><span class="p">,</span>
         <span class="n">body</span><span class="o">=</span><span class="n">submission</span><span class="o">.</span><span class="n">body</span><span class="p">,</span>
-        <span class="n">page_url</span><span class="o">=</span><span class="n">submission</span><span class="o">.</span><span class="n">page_url</span><span class="p">,</span>
+        <span class="n">page_url</span><span class="o">=</span><span class="n">_page_url</span><span class="p">(</span><span class="n">submission</span><span class="o">.</span><span class="n">page_url</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="n">redactor</span><span class="p">),</span>
         <span class="n">env</span><span class="o">=</span><span class="n">submission</span><span class="o">.</span><span class="n">env</span><span class="p">,</span>
         <span class="n">attachments</span><span class="o">=</span><span class="n">attachments</span><span class="p">,</span>
         <span class="n">console</span><span class="o">=</span><span class="n">console</span><span class="p">,</span>
@@ -908,6 +922,18 @@ window.runMermaid = runMermaid;</script>
         <span class="n">origin</span><span class="o">=</span><span class="n">origin</span><span class="p">,</span>
         <span class="n">status</span><span class="o">=</span><span class="n">Status</span><span class="o">.</span><span class="n">received</span><span class="p">,</span>
     <span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_page_url</span><span class="p">(</span><span class="n">page_url</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="n">redactor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""``page_url`` masked (see ``config.mask_page_url``); drops it on failure."""</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">page_url</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">config</span><span class="o">.</span><span class="n">mask_page_url</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">page_url</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">urlsplit</span><span class="p">(</span><span class="n">page_url</span><span class="p">)</span>  <span class="c1"># redact_url would hand an unparseable URL to the redactor</span>
+        <span class="k">return</span> <span class="n">redact_url</span><span class="p">(</span><span class="n">page_url</span><span class="p">,</span> <span class="n">redactor</span><span class="o">=</span><span class="n">redactor</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>  <span class="c1"># noqa: BLE001 - an unmaskable URL is dropped, not sent raw</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span><span class="s2">"heed: the redactor failed; dropping page_url"</span><span class="p">)</span>
+        <span class="k">return</span> <span class="s2">""</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_discard_attachments</span><span class="p">(</span><span class="n">attachments</span><span class="p">,</span> <span class="n">attachment_store</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
