@@ -110,7 +110,7 @@ A possible duplicate of an incoming report.
 
 Configuration for the model, should be a dictionary conforming to [`ConfigDict`][pydantic.config.ConfigDict].
 
-### *class* heed.sinks.GitHubIssuesSink(create_issue, , label_map=None, screenshot_url=None, treatments=None, list_issues=None, public_label='public', status_labels=None)
+### *class* heed.sinks.GitHubIssuesSink(create_issue, , label_map=None, screenshot_url=None, treatments=None, list_issues=None, public_label='public', status_labels=None, allowed_report_labels=())
 
 Bases: [`BaseSink`](heed.sinks.base.html.md#heed.sinks.base.BaseSink)
 

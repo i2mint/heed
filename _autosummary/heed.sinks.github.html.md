@@ -23,7 +23,7 @@ embed it in the body; base64 data-URIs do not render.
 
 | [`github_sink_from_token`](#heed.sinks.github.github_sink_from_token)(repo, token, \*\*kwargs)   | Build a GitHubIssuesSink that creates issues in `repo` ('owner/name').   |
 |----------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------|
-| [`neutralise_refs`](#heed.sinks.github.neutralise_refs)(text)                             | Defuse GitHub `@mention` and `#123` references in untrusted text.        |
+| [`neutralise_refs`](#heed.sinks.github.neutralise_refs)(text)                             | Defuse GitHub `@mention`, `#123`, issue-URL and SHA references.          |
 | [`render_issue_body`](#heed.sinks.github.render_issue_body)(report, \*[, ...])              | Render a report as a GitHub-flavoured markdown issue body.               |
 
 ### Classes
@@ -50,7 +50,7 @@ title of an unmoderated report must not reach a public page by default.
 
 Issue labels a maintainer applies to move an item along; the board reads them back.
 
-### *class* heed.sinks.github.GitHubIssuesSink(create_issue, , label_map=None, screenshot_url=None, treatments=None, list_issues=None, public_label='public', status_labels=None)
+### *class* heed.sinks.github.GitHubIssuesSink(create_issue, , label_map=None, screenshot_url=None, treatments=None, list_issues=None, public_label='public', status_labels=None, allowed_report_labels=())
 
 Bases: [`BaseSink`](heed.sinks.base.html.md#heed.sinks.base.BaseSink)
 
@@ -97,7 +97,7 @@ App installation token or a PAT) — never shipped to the browser.
 
 ### heed.sinks.github.neutralise_refs(text)
 
-Defuse GitHub `@mention` and `#123` references in untrusted text.
+Defuse GitHub `@mention`, `#123`, issue-URL and SHA references.
 
 A zero-width joiner after `@`/`#` stops GitHub notifying a user or cross-linking
 an issue from the tracker’s account. Only the rendered issue is changed; the stored
