@@ -55,6 +55,13 @@ Replace personal data and secrets in `text` by placeholders.
 '{"password": "[redacted]", "user": "ana"}'
 ```
 
+URLs in the text are masked like request URLs ([`redact_url()`](#heed.redact.redact_url)) first:
+
+```pycon
+>>> redact_text("callback https://app.example/cb?code=4/0AbC&state=x failed")
+'callback https://app.example/cb?code=[redacted]&state=[redacted] failed'
+```
+
 * **Return type:**
   [`str`](https://docs.python.org/3/builtins/stdtypes.html#str)
 

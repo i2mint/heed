@@ -749,7 +749,7 @@ window.runMermaid = runMermaid;</script>
     <span class="sa">r</span><span class="s2">"secret|token|passw|pwd|api[_-]?key|apikey|auth|session|cookie|csrf|xsrf"</span>
     <span class="sa">r</span><span class="s2">"|credential|private[_-]?key|card[_-]?number|credit[_-]?card"</span>
 <span class="p">)</span>
-<span class="n">_SHORT_KEYS</span> <span class="o">=</span> <span class="sa">r</span><span class="s2">"pass|pin|sid|otp|ssn|cvv|cvc"</span>
+<span class="n">_SHORT_KEYS</span> <span class="o">=</span> <span class="sa">r</span><span class="s2">"pass|pin|sid|otp|ssn|cvv|cvc|sig|signature"</span>
 <span class="n">_W</span> <span class="o">=</span> <span class="s2">"A-Za-z0-9_-"</span>  <span class="c1"># an identifier-ish run</span>
 <span class="n">_HEX</span> <span class="o">=</span> <span class="s2">"0-9A-Fa-f"</span>
 
@@ -819,7 +819,7 @@ window.runMermaid = runMermaid;</script>
     <span class="p">(</span>
         <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span>
             <span class="sa">rf</span><span class="s2">"(?&lt;![</span><span class="si">{</span><span class="n">_W</span><span class="si">}</span><span class="s2">])([</span><span class="si">{</span><span class="n">_W</span><span class="si">}</span><span class="s2">]+)([</span><span class="se">\"</span><span class="s2">']?\s*[:=]\s*)"</span>
-            <span class="sa">r</span><span class="s2">"(</span><span class="se">\"</span><span class="s2">[^</span><span class="se">\"</span><span class="s2">\n]*</span><span class="se">\"</span><span class="s2">|'[^'\n]*'|[^\s</span><span class="se">\"</span><span class="s2">'&amp;,;}]+)"</span>
+            <span class="sa">r</span><span class="s2">"(</span><span class="se">\"</span><span class="s2">[^</span><span class="se">\"</span><span class="s2">\n]*</span><span class="se">\"</span><span class="s2">|'[^'\n]*'|[^\s</span><span class="se">\"</span><span class="s2">'&amp;,;}{\[]+)"</span>
         <span class="p">),</span>
         <span class="n">_secret_value</span><span class="p">(</span><span class="n">REDACTED</span><span class="p">),</span>
     <span class="p">),</span>
@@ -852,6 +852,7 @@ window.runMermaid = runMermaid;</script>
     <span class="p">(</span><span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">"(/home/|/Users/|\b[A-Za-z]:</span><span class="se">\\</span><span class="s2">Users</span><span class="se">\\</span><span class="s2">)[^/</span><span class="se">\\</span><span class="s2">\s</span><span class="se">\"</span><span class="s2">']+"</span><span class="p">),</span> <span class="sa">r</span><span class="s2">"\1[user]"</span><span class="p">),</span>
 <span class="p">)</span>
 
+<span class="n">_URL_IN_TEXT</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">"\bhttps?://[^\s</span><span class="se">\"</span><span class="s2">'&lt;&gt;`]+"</span><span class="p">)</span>
 <span class="n">_CARD_CANDIDATE</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">"\b\d(?:[ -]?\d){12,18}\b"</span><span class="p">)</span>
 
 
@@ -881,7 +882,13 @@ window.runMermaid = runMermaid;</script>
 <span class="sd">    'paid with [card], order 1234567890123'</span>
 <span class="sd">    &gt;&gt;&gt; redact_text('{"password": "hunter2", "user": "ana"}')</span>
 <span class="sd">    '{"password": "[redacted]", "user": "ana"}'</span>
+
+<span class="sd">    URLs in the text are masked like request URLs (:func:`redact_url`) first:</span>
+
+<span class="sd">    &gt;&gt;&gt; redact_text("callback https://app.example/cb?code=4/0AbC&amp;state=x failed")</span>
+<span class="sd">    'callback https://app.example/cb?code=[redacted]&amp;state=[redacted] failed'</span>
 <span class="sd">    """</span>
+    <span class="n">text</span> <span class="o">=</span> <span class="n">_URL_IN_TEXT</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="k">lambda</span> <span class="n">m</span><span class="p">:</span> <span class="n">redact_url</span><span class="p">(</span><span class="n">m</span><span class="o">.</span><span class="n">group</span><span class="p">()),</span> <span class="n">text</span><span class="p">)</span>
     <span class="k">for</span> <span class="n">pattern</span><span class="p">,</span> <span class="n">replacement</span> <span class="ow">in</span> <span class="n">_RULES</span><span class="p">:</span>
         <span class="n">text</span> <span class="o">=</span> <span class="n">pattern</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="n">replacement</span><span class="p">,</span> <span class="n">text</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">_CARD_CANDIDATE</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="n">_mask_card</span><span class="p">,</span> <span class="n">text</span><span class="p">)</span></div>

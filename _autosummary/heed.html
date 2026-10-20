@@ -1531,6 +1531,11 @@ left in place, and not returned.</p>
 <span class="go">'{"password": "[redacted]", "user": "ana"}'</span>
 </pre></div>
 </div>
+<p>URLs in the text are masked like request URLs (<a class="reference internal" href="#heed.redact_url" title="heed.redact_url"><code class="xref py py-func docutils literal notranslate"><span class="pre">redact_url()</span></code></a>) first:</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">redact_text</span><span class="p">(</span><span class="s2">"callback https://app.example/cb?code=4/0AbC&amp;state=x failed"</span><span class="p">)</span>
+<span class="go">'callback https://app.example/cb?code=[redacted]&amp;state=[redacted] failed'</span>
+</pre></div>
+</div>
 <dl class="field-list simple">
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></span></p>

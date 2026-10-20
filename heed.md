@@ -1,4 +1,4 @@
-> built 2026-10-20 05:44 UTC from 916d25c (main) · heed 0.0.1. Details: build_info.json
+> built 2026-10-20 05:58 UTC from c4b7852 (main) · heed 0.0.1. Details: build_info.json
 
 # index.html.md
 
@@ -1230,6 +1230,13 @@ Replace personal data and secrets in `text` by placeholders.
 '{"password": "[redacted]", "user": "ana"}'
 ```
 
+URLs in the text are masked like request URLs ([`redact_url()`](_autosummary/heed.html.md#heed.redact_url)) first:
+
+```pycon
+>>> redact_text("callback https://app.example/cb?code=4/0AbC&state=x failed")
+'callback https://app.example/cb?code=[redacted]&state=[redacted] failed'
+```
+
 * **Return type:**
   [`str`](https://docs.python.org/3/builtins/stdtypes.html#str)
 
@@ -1628,6 +1635,13 @@ Replace personal data and secrets in `text` by placeholders.
 'paid with [card], order 1234567890123'
 >>> redact_text('{"password": "hunter2", "user": "ana"}')
 '{"password": "[redacted]", "user": "ana"}'
+```
+
+URLs in the text are masked like request URLs ([`redact_url()`](_autosummary/heed.redact.html.md#heed.redact.redact_url)) first:
+
+```pycon
+>>> redact_text("callback https://app.example/cb?code=4/0AbC&state=x failed")
+'callback https://app.example/cb?code=[redacted]&state=[redacted] failed'
 ```
 
 * **Return type:**
@@ -2969,7 +2983,7 @@ overrides them.
 
 # About this build
 
-This documentation was built on **2026-10-20 05:44 UTC** from commit <a href="https://github.com/i2mint/heed/commit/916d25c30a4969708e6b823d849726b00322479a"><code>916d25c</code></a> on branch <code>main</code>, for **heed 0.0.1** (from <code>pyproject.toml</code>).
+This documentation was built on **2026-10-20 05:58 UTC** from commit <a href="https://github.com/i2mint/heed/commit/c4b78524a50eb094066ff9e2c18c85112caf3711"><code>c4b7852</code></a> on branch <code>main</code>, for **heed 0.0.1** (from <code>pyproject.toml</code>).
 
 #### WARNING
 The documentation and the package may be misaligned:
@@ -2980,7 +2994,7 @@ The documentation and the package may be misaligned:
 
 |                     |                                                                                                                                                    |
 |---------------------|----------------------------------------------------------------------------------------------------------------------------------------------------|
-| Commit              | <a href="https://github.com/i2mint/heed/commit/916d25c30a4969708e6b823d849726b00322479a"><code>916d25c30a4969708e6b823d849726b00322479a</code></a> |
+| Commit              | <a href="https://github.com/i2mint/heed/commit/c4b78524a50eb094066ff9e2c18c85112caf3711"><code>c4b78524a50eb094066ff9e2c18c85112caf3711</code></a> |
 | Branch              | <code>main</code>                                                                                                                                  |
 | Tags at this commit | none                                                                                                                                               |
 | Working tree        | clean                                                                                                                                              |
@@ -2991,9 +3005,9 @@ The documentation and the package may be misaligned:
 |              |                                                                                            |
 |--------------|--------------------------------------------------------------------------------------------|
 | Repository   | <code>i2mint/heed</code>                                                                   |
-| Run          | <a href="https://github.com/i2mint/heed/actions/runs/39376324611">39376324611</a>          |
+| Run          | <a href="https://github.com/i2mint/heed/actions/runs/39377659772">39377659772</a>          |
 | Ref          | <code>refs/heads/main</code>                                                               |
-| Event commit | <code>916d25c30a4969708e6b823d849726b00322479a</code> (in the history of the built commit) |
+| Event commit | <code>c4b78524a50eb094066ff9e2c18c85112caf3711</code> (in the history of the built commit) |
 
 ## Tools
 
@@ -3024,7 +3038,7 @@ Latest release: <a href="https://pypi.org/project/heed/0.1.0/">0.1.0</a>, newer 
 
 ```bash
 git clone https://github.com/i2mint/heed && cd heed
-git checkout 916d25c30a4969708e6b823d849726b00322479a
+git checkout c4b78524a50eb094066ff9e2c18c85112caf3711
 pip install "epythet==0.2.18"
 epythet quickstart . --ignore tests/ scrap/ examples/
 ```
