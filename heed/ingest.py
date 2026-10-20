@@ -20,8 +20,8 @@ imported at module level.
 
 import functools
 import json
-import math
 import logging
+import math
 from collections.abc import Callable, MutableMapping
 from typing import Any, Optional
 from urllib.parse import urlsplit
