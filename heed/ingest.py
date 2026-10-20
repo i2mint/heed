@@ -22,6 +22,7 @@ import json
 import logging
 from collections.abc import Callable, MutableMapping
 from typing import Any, Optional
+from urllib.parse import urlsplit
 
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request, Response
 from fastapi.responses import JSONResponse
@@ -198,6 +199,7 @@ def _page_url(page_url: str, config, redactor) -> str:
     if not page_url or not config.mask_page_url:
         return page_url
     try:
+        urlsplit(page_url)  # redact_url would hand an unparseable URL to the redactor
         return redact_url(page_url, redactor=redactor)
     except Exception:  # noqa: BLE001 - an unmaskable URL is dropped, not sent raw
         logger.exception("heed: the redactor failed; dropping page_url")
