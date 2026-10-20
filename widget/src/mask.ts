@@ -78,6 +78,10 @@ function luhnOk(digits: string): boolean {
   return total % 10 === 0;
 }
 
+/** Base that only lets a relative URL parse; never emitted. */
+const PARSE_HOST = "heed.invalid";
+const PARSE_BASE = `http://${PARSE_HOST}`;
+
 /** `text` with personal data and secrets replaced by placeholders. */
 export function maskText(text: string): string {
   text = text.replace(URL_IN_TEXT, (url) => maskUrl(url));
@@ -129,18 +133,28 @@ function maskSegment(segment: string): string {
 
 /**
  * `url` without credentials, fragment, query values (the keys are kept), id-like path
- * segments or handles, resolved against `base` when relative. A `data:` or `blob:` URL keeps only its scheme;
+ * segments or handles, resolved against `base` when relative (kept relative when there is no `base`;
+ * WHATWG parsing normalises dot segments and backslashes, which `urlsplit` does not: no leak). A `data:` or `blob:` URL keeps only its scheme;
  * anything that does not parse is masked as text.
  */
 export function maskUrl(url: string, base?: string): string {
   let u: URL;
+  let relative = false;
   try {
     u = new URL(url, base);
   } catch {
-    return maskText(url);
+    try {
+      u = new URL(url, PARSE_BASE); // relative and no base: mask it in its relative form, like `redact_url`
+      relative = true;
+    } catch {
+      return maskText(url);
+    }
   }
   if (u.protocol !== "http:" && u.protocol !== "https:") return `${u.protocol}${REDACTED}`; // data:, blob: carry content
-  const path = u.pathname.split("/").map(maskSegment).join("/");
+  let path = u.pathname.split("/").map(maskSegment).join("/");
   const keys = [...u.searchParams.keys()].map((k) => `${encodeURIComponent(maskText(k))}=${REDACTED}`);
-  return `${u.protocol}//${u.host}${path}${keys.length ? `?${keys.join("&")}` : ""}`;
+  // A relative URL keeps a host only when it had one ("//cdn/x"); "/a/..//b" must not read as one.
+  const origin = !relative ? `${u.protocol}//${u.host}` : u.host !== PARSE_HOST ? `//${u.host}` : "";
+  if (relative && !origin) path = path.startsWith("//") ? `/.${path}` : /^[/\\]/.test(url.trimStart()) ? path : path.slice(1);
+  return `${origin}${path}${keys.length ? `?${keys.join("&")}` : ""}`;
 }
