@@ -28,6 +28,11 @@ Public API (Phase 1):
               screenshot_url_resolver (a separate origin for screenshots, #19)
     Widget    make_widget_router (serves the built embeddable widget),
               widget_contract (what the widget sends; SSOT for widget/)
+    Threads   Comment, CommentSubmission, add_comment, list_comments,
+              delete_comment, email_moderator, make_thread_router (a public,
+              persistent comment thread per key)
+    Review    ReviewPage, publish_review, review_url, make_review_app (media + a
+              thread under it, behind a capability link; CLI ``heed review``)
 
 Example:
     >>> from heed import StoreSink, ReportSubmission, process_submission
@@ -56,6 +61,7 @@ from heed.config import HeedConfig
 from heed.images import make_image_sanitizer, reencode_image, strip_image
 from heed.ingest import make_app, make_router, process_submission
 from heed.redact import redact_text, redact_url
+from heed.review import ReviewPage, make_review_app, publish_review, review_url
 from heed.routing import (
     Verdict,
     accept_all,
@@ -95,6 +101,15 @@ from heed.sinks import (
     github_sink_from_token,
 )
 from heed.storage import make_attachment_store, make_holding_store, make_report_store
+from heed.threads import (
+    Comment,
+    CommentSubmission,
+    add_comment,
+    delete_comment,
+    email_moderator,
+    list_comments,
+    make_thread_router,
+)
 from heed.widget import make_widget_router, widget_contract
 
 __version__ = "0.0.1"
@@ -166,4 +181,16 @@ __all__ = [
     "make_report_store",
     "make_attachment_store",
     "make_holding_store",
+    # comment threads + review pages (media with a thread under it)
+    "Comment",
+    "CommentSubmission",
+    "add_comment",
+    "list_comments",
+    "delete_comment",
+    "email_moderator",
+    "make_thread_router",
+    "ReviewPage",
+    "publish_review",
+    "review_url",
+    "make_review_app",
 ]
