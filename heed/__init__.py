@@ -36,7 +36,8 @@ Public API (Phase 1):
     Triage    triage, Triage, Severity (a proposal per report: injected LLM,
               fenced and whitelisted, or keyword rules without one);
               find_duplicates, mark_duplicate (retrieval + optional confirmation;
-              marking is explicit, never a silent merge)
+              marking is explicit, never a silent merge); FeedbackQueue (list / get /
+              triage / dedup / create / close; ``heed.mcp`` serves it over MCP)
 
 Example:
     >>> from heed import StoreSink, ReportSubmission, process_submission
@@ -65,6 +66,7 @@ from heed.config import HeedConfig
 from heed.dedup import find_duplicates, mark_duplicate
 from heed.images import make_image_sanitizer, reencode_image, strip_image
 from heed.ingest import make_app, make_router, process_submission
+from heed.queue import FeedbackQueue
 from heed.redact import redact_text, redact_url
 from heed.review import ReviewPage, make_review_app, publish_review, review_url
 from heed.routing import (
@@ -207,4 +209,5 @@ __all__ = [
     "Severity",
     "find_duplicates",
     "mark_duplicate",
+    "FeedbackQueue",
 ]
