@@ -64,7 +64,7 @@ describe("light intake for feature requests", () => {
     const note = $(el, ".note").textContent;
     choose(el, "feature");
     expect($<HTMLElement>(el, ".shot").hidden).toBe(true);
-    expect($(el, ".note").textContent).toMatch(/Sent with your idea/);
+    expect($(el, ".note").textContent).toMatch(/Sent with your message/);
     expect($(el, ".note").textContent).not.toBe(note);
     await send(el);
     const body = sent(fetch);
@@ -138,9 +138,9 @@ describe("light intake for feature requests", () => {
     const take = vi.fn(async () => png());
     const el = mount(take, { categories: "feature bug" });
     el.open();
-    expect($(el, ".note").textContent).toMatch(/Sent with your idea/);
+    expect($(el, ".note").textContent).toMatch(/Sent with your message/);
     el.setAttribute("categories", "bug"); // the selected category is now bug
-    expect($(el, ".note").textContent).not.toMatch(/Sent with your idea/);
+    expect($(el, ".note").textContent).not.toMatch(/Sent with your message/);
     await vi.waitFor(() => expect(take).toHaveBeenCalledTimes(1));
     await previewShown(el);
     await send(el);
@@ -265,5 +265,19 @@ describe("light intake: one decision per send", () => {
     expect(take).toHaveBeenCalledTimes(1);
     choose(el, "bug");
     await vi.waitFor(() => expect(take).toHaveBeenCalledTimes(2));
+  });
+
+  it("words the note after the page-url mode and what the embedder adds", () => {
+    const el = mount(vi.fn(async () => png()), { categories: "feature" });
+    el.open();
+    const note = () => $(el, ".note").textContent!;
+    expect(note()).toMatch(/\(without its query\)\. .*anonymous ID\.$/); // extra is configured
+    el.setAttribute("page-url", "full");
+    expect(note()).not.toMatch(/without its query/);
+    expect(note()).toMatch(/^Sent with your message: this page's address\. /);
+    el.configure({ extra: null });
+    expect(note()).not.toMatch(/anonymous ID/);
+    el.setAttribute("anon-id", "visitor_42");
+    expect(note()).toMatch(/anonymous ID\.$/);
   });
 });

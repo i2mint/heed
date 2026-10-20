@@ -41,7 +41,8 @@ const pt: MessageOverrides = {
     note: "Enviado com o seu relato: o endereço desta página (sem a consulta) e dados do seu navegador.",
     noteShot:
       "Enviado com o seu relato: o endereço desta página (sem a consulta), dados do seu navegador e a captura de tela abaixo, se estiver marcada. Os campos de formulário aparecem tarjados nela.",
-    noteLight: "Enviado com a sua ideia: o endereço desta página (sem a consulta). Sem captura de tela nem dados do navegador.",
+    noteLight: "Enviado com a sua mensagem: o endereço desta página (sem a consulta). Sem captura de tela nem dados do navegador.",
+    noteMore: "Este site também pode enviar dados próprios, como um identificador anônimo.",
     shotLabel: "Incluir uma captura de tela desta página",
     logsLabel: "Incluir detalhes técnicos (mensagens recentes do console e solicitações de rede, com dados pessoais ocultos)",
     shotAlt: "Captura de tela a ser enviada",
@@ -88,7 +89,8 @@ export const LOCALES: Record<string, MessageOverrides> = {
     note: "Se envía con tu informe: la dirección de esta página (sin la consulta) y los datos de tu navegador.",
     noteShot:
       "Se envía con tu informe: la dirección de esta página (sin la consulta), los datos de tu navegador y la captura de abajo, si está marcada. Los campos de formulario aparecen ocultos en ella.",
-    noteLight: "Se envía con tu idea: la dirección de esta página (sin la consulta). Sin captura ni datos del navegador.",
+    noteLight: "Se envía con tu mensaje: la dirección de esta página (sin la consulta). Sin captura ni datos del navegador.",
+    noteMore: "Este sitio también puede añadir datos propios, como un identificador anónimo.",
     shotLabel: "Incluir una captura de esta página",
     logsLabel: "Incluir detalles técnicos (mensajes recientes de la consola y solicitudes de red, con los datos personales ocultos)",
     shotAlt: "Captura que se enviará",
@@ -133,7 +135,8 @@ export const LOCALES: Record<string, MessageOverrides> = {
     note: "Envoyé avec votre signalement : l’adresse de cette page (sans paramètres) et les informations de votre navigateur.",
     noteShot:
       "Envoyé avec votre signalement : l’adresse de cette page (sans paramètres), les informations de votre navigateur et la capture d’écran ci-dessous si elle est cochée. Les champs de formulaire y sont masqués.",
-    noteLight: "Envoyé avec votre idée : l’adresse de cette page (sans paramètres). Ni capture d’écran ni informations sur le navigateur.",
+    noteLight: "Envoyé avec votre message : l’adresse de cette page (sans paramètres). Ni capture d’écran ni informations sur le navigateur.",
+    noteMore: "Ce site peut aussi ajouter ses propres informations, comme un identifiant anonyme.",
     shotLabel: "Joindre une capture d’écran de cette page",
     logsLabel: "Joindre des détails techniques (messages récents de la console et requêtes réseau, données personnelles masquées)",
     shotAlt: "Capture d’écran à envoyer",
@@ -178,7 +181,8 @@ export const LOCALES: Record<string, MessageOverrides> = {
     note: "Mit Ihrer Meldung gesendet: die Adresse dieser Seite (ohne Abfrageteil) und Angaben zu Ihrem Browser.",
     noteShot:
       "Mit Ihrer Meldung gesendet: die Adresse dieser Seite (ohne Abfrageteil), Angaben zu Ihrem Browser und, falls angehakt, der Screenshot unten. Formularfelder sind darin geschwärzt.",
-    noteLight: "Mit Ihrer Idee gesendet: die Adresse dieser Seite (ohne Abfrageteil). Kein Screenshot, keine Browserangaben.",
+    noteLight: "Mit Ihrer Nachricht gesendet: die Adresse dieser Seite (ohne Abfrageteil). Kein Screenshot, keine Browserangaben.",
+    noteMore: "Diese Website kann auch eigene Angaben hinzufügen, etwa eine anonyme Kennung.",
     shotLabel: "Screenshot dieser Seite beifügen",
     logsLabel: "Technische Details beifügen (letzte Konsolenmeldungen und Netzwerkanfragen, personenbezogene Daten maskiert)",
     shotAlt: "Screenshot, der gesendet wird",
@@ -211,7 +215,8 @@ export const LOCALES: Record<string, MessageOverrides> = {
     note: "Enviado com a sua mensagem: o endereço desta página (sem a consulta) e dados do seu navegador.",
     noteShot:
       "Enviado com a sua mensagem: o endereço desta página (sem a consulta), dados do seu navegador e a captura de ecrã abaixo, se estiver marcada. Os campos de formulário aparecem cobertos a preto.",
-    noteLight: "Enviado com a sua ideia: o endereço desta página (sem a consulta). Sem captura de ecrã nem dados do navegador.",
+    noteLight: "Enviado com a sua mensagem: o endereço desta página (sem a consulta). Sem captura de ecrã nem dados do navegador.",
+    noteMore: "Este site também pode enviar dados próprios, como um identificador anónimo.",
     shotLabel: "Incluir uma captura de ecrã desta página",
     logsLabel: "Incluir detalhes técnicos (mensagens recentes da consola e pedidos de rede, com dados pessoais ocultados)",
     shotAlt: "Captura de ecrã a enviar",

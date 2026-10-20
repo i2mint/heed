@@ -528,7 +528,9 @@ export class HeedFeedbackElement extends Base {
     if (!ui) return;
     const o = this.options;
     const light = this.#isLight();
-    ui.note.textContent = light ? m.noteLight : o.screenshot ? m.noteShot : m.note;
+    let note = light ? m.noteLight : o.screenshot ? m.noteShot : m.note;
+    if (o.pageUrl == "full") note = note.replace(/ ?\([^)]*\)/, ""); // the notes' only parenthesis says "without its query"
+    ui.note.textContent = o.anonId || o.extra ? `${note} ${m.noteMore}` : note;
     ui.shotRow.hidden = !o.screenshot || light;
     const kinds = { console: o.captureConsole, network: o.captureNetwork };
     ui.logsRow.hidden = light || !(kinds.console || kinds.network);
