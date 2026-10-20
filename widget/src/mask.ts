@@ -153,10 +153,8 @@ export function maskUrl(url: string, base?: string): string {
   if (u.protocol !== "http:" && u.protocol !== "https:") return `${u.protocol}${REDACTED}`; // data:, blob: carry content
   let path = u.pathname.split("/").map(maskSegment).join("/");
   const keys = [...u.searchParams.keys()].map((k) => `${encodeURIComponent(maskText(k))}=${REDACTED}`);
-  const query = keys.length ? `?${keys.join("&")}` : "";
-  if (!relative) return `${u.protocol}//${u.host}${path}${query}`;
-  if (u.host !== PARSE_HOST) return `//${u.host}${path}${query}`; // protocol-relative
-  if (path.startsWith("//")) path = `/.${path}`; // "/a/..//b" must not read as a host
-  else if (!/^[/\\]/.test(url.trimStart())) path = path.slice(1); // "a/b", "?q=1": no leading slash was given
-  return `${path}${query}`;
+  // A relative URL keeps a host only when it had one ("//cdn/x"); "/a/..//b" must not read as one.
+  const origin = !relative ? `${u.protocol}//${u.host}` : u.host !== PARSE_HOST ? `//${u.host}` : "";
+  if (relative && !origin) path = path.startsWith("//") ? `/.${path}` : /^[/\\]/.test(url.trimStart()) ? path : path.slice(1);
+  return `${origin}${path}${keys.length ? `?${keys.join("&")}` : ""}`;
 }
