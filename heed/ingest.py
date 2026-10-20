@@ -50,7 +50,13 @@ from heed.images import (
     SanitizerBusy,
     make_image_sanitizer,
 )
-from heed.redact import Redactor, redact_console, redact_network, redact_text, redact_url
+from heed.redact import (
+    Redactor,
+    redact_console,
+    redact_network,
+    redact_text,
+    redact_url,
+)
 from heed.routing import Moderator, SinkResolver, Verdict, accept_all
 from heed.security import (
     IMAGE_EXTENSIONS,
@@ -72,7 +78,14 @@ from heed.widget import make_widget_router
 
 _FORM_MEDIA_TYPES = ("multipart/form-data", "application/x-www-form-urlencoded")
 _TEXT_FIELDS = (
-    "title", "body", "category", "page_url", "env", "anon_id", "console", "network"
+    "title",
+    "body",
+    "category",
+    "page_url",
+    "env",
+    "anon_id",
+    "console",
+    "network",
 )
 _MAX_LOC_CHARS = 64
 logger = logging.getLogger("heed.ingest")
@@ -194,7 +207,7 @@ def _new_report(
     )
 
 
-def _page_url(page_url: str, config, redactor) -> str:
+    """``page_url`` with tokens/ids masked (``config.mask_page_url``); fail closed."""
     """``page_url`` with tokens/ids masked (see ``config.mask_page_url``); fail closed."""
     if not page_url or not config.mask_page_url:
         return page_url

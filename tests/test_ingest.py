@@ -164,8 +164,13 @@ def test_page_url_is_masked_by_default_and_opt_out():
     """Id-like path segments, handles and query values never reach the sink (#60)."""
     url = "https://app.example/reset/9f8e7d6c5b4a3f2e/users/12345/@ana?t=s3cr3t#f"
     kept = "https://app.example/reset/9f8e7d6c5b4a3f2e/users/12345/@ana?t=s3cr3t#f"
-    masked, _ = process_submission(ReportSubmission(title="x", page_url=url), StoreSink({}))
-    assert masked.page_url == "https://app.example/reset/[id]/users/[id]/[user]?t=[redacted]"
+    masked, _ = process_submission(
+        ReportSubmission(title="x", page_url=url), StoreSink({})
+    )
+    assert (
+        masked.page_url
+        == "https://app.example/reset/[id]/users/[id]/[user]?t=[redacted]"
+    )
     raw, _ = process_submission(
         ReportSubmission(title="x", page_url=url),
         StoreSink({}),
