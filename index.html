@@ -426,6 +426,16 @@ pip<span class="w"> </span>install<span class="w"> </span><span class="s2">"heed
 </div>
 <p>Options (<code class="docutils literal notranslate"><span class="pre">data-*</span></code> or <code class="docutils literal notranslate"><span class="pre">heed.init({...})</span></code>), the <code class="docutils literal notranslate"><span class="pre">heed</span></code> API, the React wrapper, screenshots and their masking, pinning a build with SRI, events, theming and CSP notes: <a class="reference internal" href="#widget/README.md"><span class="xref myst"><code class="docutils literal notranslate"><span class="pre">widget/README.md</span></code></span></a>.</p>
 </section>
+<section id="review-pages-media-with-a-comment-thread-under-it">
+<h2>Review pages: media with a comment thread under it<a class="headerlink" href="#review-pages-media-with-a-comment-thread-under-it" title="Link to this heading">#</a></h2>
+<p>Publish a video, audio takes or images and get a link; whoever has it watches, reads the comments and adds their own (a name per comment, optionally pinned to a moment in the media), without an account:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>heed<span class="w"> </span>review<span class="w"> </span>publish<span class="w"> </span>cut1.mp4<span class="w"> </span>--title<span class="w"> </span><span class="s2">"Cut 1"</span><span class="w"> </span>--note-file<span class="w"> </span>notes.md<span class="w">   </span><span class="c1"># prints the link</span>
+heed<span class="w"> </span>review<span class="w"> </span>publish<span class="w"> </span>cut2.mp4<span class="w"> </span>--to<span class="w"> </span>&lt;page-id&gt;<span class="w">                          </span><span class="c1"># a new cut, same link and thread</span>
+heed<span class="w"> </span>review<span class="w"> </span>comments<span class="w"> </span>&lt;page-id&gt;<span class="w"> </span>--json<span class="w">                                </span><span class="c1"># read the feedback back</span>
+</pre></div>
+</div>
+<p>The link is a capability (128 random bits in the URL fragment); the thread endpoint is rate-limited, capped and honeypotted. Serve it with <code class="docutils literal notranslate"><span class="pre">make_review_app(rootdir,</span> <span class="pre">is_moderator=email_moderator([...]))</span></code>, or <code class="docutils literal notranslate"><span class="pre">heed</span> <span class="pre">review</span> <span class="pre">serve</span></code>. The reusable part is <code class="docutils literal notranslate"><span class="pre">heed.threads</span></code> (a hardened comment thread per key, <code class="docutils literal notranslate"><span class="pre">make_thread_router</span></code>); <code class="docutils literal notranslate"><span class="pre">heed.review</span></code> is one consumer of it. Agents: the shipped skill <code class="docutils literal notranslate"><span class="pre">heed/data/skills/heed-review</span></code>. Rationale: <a class="reference internal" href="#misc/docs/adr/0001-review-pages-and-comment-threads-live-in-heed.md"><span class="xref myst"><code class="docutils literal notranslate"><span class="pre">misc/docs/adr/0001-review-pages-and-comment-threads-live-in-heed.md</span></code></span></a>.</p>
+</section>
 <section id="documents">
 <h2>Documents<a class="headerlink" href="#documents" title="Link to this heading">#</a></h2>
 <ul class="simple">
@@ -444,7 +454,7 @@ sink interface, and the spectrum of approaches with pros/cons.</p></li>
 </section>
 </section>
 
-<p class="epythet-provenance" style="font-size:.8em;opacity:.65;margin-top:2.5em;text-align:right">built 2026-10-20 10:06 UTC from <a href="https://github.com/i2mint/heed/commit/defeb511c331b84aa6f6a44fd6ef88b3914b1662">defeb51</a> (main) · heed 0.0.1 · <a href="about-this-build.html">about this build</a></p>
+<p class="epythet-provenance" style="font-size:.8em;opacity:.65;margin-top:2.5em;text-align:right">built 2026-10-20 10:32 UTC from <a href="https://github.com/i2mint/heed/commit/cf00921788e4940ec8bed18c19ff04150e5bf0df">cf00921</a> (main) · heed 0.0.1 · <a href="about-this-build.html">about this build</a></p>
 
                 </article>
               
@@ -490,6 +500,7 @@ sink interface, and the spectrum of approaches with pros/cons.</p></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#running-the-ingest-endpoint-safely">Running the ingest endpoint safely</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#one-inbox-for-bugs-ideas-and-questions">One inbox for bugs, ideas and questions</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#embedding-the-widget">Embedding the widget</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#review-pages-media-with-a-comment-thread-under-it">Review pages: media with a comment thread under it</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#documents">Documents</a></li>
 </ul>
   </nav></div>

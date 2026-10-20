@@ -1,0 +1,875 @@
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+<link rel="alternate" type="text/markdown" href="heed.review.html.md">
+<link rel="describedby" href="../llms.txt" type="text/markdown">
+<link rel="alternate" type="text/markdown" href="heed.review.html.md">
+<link rel="describedby" href="llms.txt">
+    <title>heed.review &#8212; heed</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../_static/styles/theme.css?digest=18bd87630a240e9c25be" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=18bd87630a240e9c25be" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d75fae25" />
+    <link rel="stylesheet" type="text/css" href="../_static/sphinx_autodoc_typehints.css?v=057ac668" />
+    <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../_static/epythet.css?v=ef673b48" />
+  
+  <!-- So that users can add custom icons -->
+  <script defer src="../_static/scripts/fontawesome.js?digest=18bd87630a240e9c25be"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=18bd87630a240e9c25be" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=18bd87630a240e9c25be" />
+
+    <script src="../_static/documentation_options.js?v=d45e8c67"></script>
+    <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../_static/copybutton.js?v=fd10adb8"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = '_autosummary/heed.review';</script>
+    <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="heed.routing" href="heed.routing.html" />
+    <link rel="prev" title="heed.redact" href="heed.redact.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="color-scheme" content="light dark"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="0.0.1" />
+  
+    
+    <script src="../_static/searchtools.js"></script>
+    <script src="../_static/language_data.js"></script>
+    <script src="../searchindex.js"></script>
+  
+  </head>
+  <body data-default-mode="">
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+  
+  
+  
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header id="pst-header" class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button type="button" class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../index.html">
+  
+  
+  
+  
+  
+  
+    <p class="title logo__title">heed</p>
+  
+</a></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="../api.html">
+    API reference
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../ai-agents.html">
+    For AI agents
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button type="button" class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button type="button" class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg fa-fw" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg fa-fw" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg fa-fw" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button type="button" class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg fa-fw me-1"></i>System Settings</button></li>
+    <li><button type="button" class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg fa-fw me-1"></i>Light</button></li>
+    <li><button type="button" class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg fa-fw me-1"></i>Dark</button></li>
+  </ul>
+</div></div>
+      
+        <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/i2mint/heed" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i><span class="visually-hidden">GitHub</span></a>
+        </li>
+</ul></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button type="button" class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+    <button type="button" class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="../api.html">
+    API reference
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../ai-agents.html">
+    For AI agents
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button type="button" class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg fa-fw" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg fa-fw" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg fa-fw" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button type="button" class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg fa-fw me-1"></i>System Settings</button></li>
+    <li><button type="button" class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg fa-fw me-1"></i>Light</button></li>
+    <li><button type="button" class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg fa-fw me-1"></i>Dark</button></li>
+  </ul>
+</div></div>
+        
+          <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/i2mint/heed" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i><span class="visually-hidden">GitHub</span></a>
+        </li>
+</ul></div>
+        
+      </div>
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item pst-sidebar-collapse"><button type="button" id="pst-collapse-sidebar-button" aria-expanded="true" aria-controls="pst-primary-sidebar">
+  <svg class="pst-icon" role="img" aria-hidden="true" focusable="false" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+    <path fill="currentColor" d="M3 15.5C2.36232 15.5 1.74874 15.2564 1.28478 14.8189C0.820828 14.3815 0.541576 13.7832 0.504167 13.1467L0.5 13L0.5 3C0.499965 2.36232 0.743605 1.74874 1.18107 1.28478C1.61854 0.820828 2.21676 0.541576 2.85333 0.504167L3 0.5L13 0.5C13.6377 0.499965 14.2513 0.743605 14.7152 1.18107C15.1792 1.61854 15.4584 2.21676 15.4958 2.85333L15.5 3L15.5 13C15.5 13.6377 15.2564 14.2513 14.8189 14.7152C14.3815 15.1792 13.7832 15.4584 13.1467 15.4958L13 15.5L3 15.5ZM3 13.8333L10.5 13.8333L10.5 2.16667L3 2.16667C2.79589 2.16669 2.59889 2.24163 2.44636 2.37726C2.29383 2.5129 2.19638 2.69979 2.1725 2.9025L2.16667 3L2.16667 13C2.16669 13.2041 2.24163 13.4011 2.37726 13.5536C2.5129 13.7062 2.69979 13.8036 2.9025 13.8275L3 13.8333ZM6.65583 10.325L6.5775 10.2558L4.91083 8.58917C4.76735 8.44567 4.68116 8.25476 4.66843 8.05223C4.65569 7.84971 4.71729 7.6495 4.84167 7.48917L4.91083 7.41083L6.5775 5.74417C6.72747 5.59471 6.9287 5.50794 7.14032 5.50148C7.35194 5.49502 7.55809 5.56935 7.7169 5.70937C7.8757 5.8494 7.97525 6.04463 7.99533 6.25539C8.01541 6.46616 7.95451 6.67667 7.825 6.84417L7.75583 6.9225L6.67917 8L7.75583 9.0775C7.89931 9.22099 7.98551 9.41191 7.99824 9.61443C8.01097 9.81695 7.94938 10.0172 7.825 10.1775L7.75583 10.2558C7.61234 10.3993 7.42142 10.4855 7.2189 10.4982C7.01638 10.511 6.81617 10.4494 6.65583 10.325Z"/>
+  </svg>
+  <span class="pst-collapse-sidebar-label">Collapse Sidebar</span>
+  <span class="pst-expand-sidebar-label">Expand Sidebar</span>
+</button></div>
+        <div class="sidebar-primary-item">
+
+<nav class="bd-docs-nav bd-links"
+     aria-label="Section Navigation">
+  <p class="bd-links__title" role="heading" aria-level="1">Section Navigation</p>
+  <div class="bd-toc-item navbar-nav"><ul class="current nav bd-sidenav">
+<li class="toctree-l1 current active has-children"><a class="reference internal" href="heed.html">heed</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="heed.base.html">heed.base</a></li>
+<li class="toctree-l2"><a class="reference internal" href="heed.board.html">heed.board</a></li>
+<li class="toctree-l2"><a class="reference internal" href="heed.config.html">heed.config</a></li>
+<li class="toctree-l2"><a class="reference internal" href="heed.images.html">heed.images</a></li>
+<li class="toctree-l2"><a class="reference internal" href="heed.ingest.html">heed.ingest</a></li>
+<li class="toctree-l2"><a class="reference internal" href="heed.redact.html">heed.redact</a></li>
+<li class="toctree-l2 current active"><a aria-current="page" class="current reference internal" href="#">heed.review</a></li>
+<li class="toctree-l2"><a class="reference internal" href="heed.routing.html">heed.routing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="heed.security.html">heed.security</a></li>
+<li class="toctree-l2"><a class="reference internal" href="heed.serving.html">heed.serving</a></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="heed.sinks.html">heed.sinks</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="heed.sinks.base.html">heed.sinks.base</a></li>
+<li class="toctree-l3"><a class="reference internal" href="heed.sinks.category.html">heed.sinks.category</a></li>
+<li class="toctree-l3"><a class="reference internal" href="heed.sinks.github.html">heed.sinks.github</a></li>
+<li class="toctree-l3"><a class="reference internal" href="heed.sinks.store.html">heed.sinks.store</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2"><a class="reference internal" href="heed.storage.html">heed.storage</a></li>
+<li class="toctree-l2"><a class="reference internal" href="heed.threads.html">heed.threads</a></li>
+<li class="toctree-l2"><a class="reference internal" href="heed.widget.html">heed.widget</a></li>
+</ul>
+</details></li>
+</ul>
+</div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="../api.html" class="nav-link">API reference</a></li>
+    
+    
+    <li class="breadcrumb-item"><a href="heed.html" class="nav-link">heed</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">heed.review</span></li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="module-heed.review">
+<span id="heed-review"></span><h1>heed.review<a class="headerlink" href="#module-heed.review" title="Link to this heading">#</a></h1>
+<p>Review pages: media (a video, audio, images) with a comment thread under it.</p>
+<p>Publish one or more media files under a title and get a link; whoever has the link
+watches the media and reads and adds comments (a name per comment, optionally pinned
+to a moment in the video), on every visit, without an account. The owner deletes
+comments, over HTTP when an auth layer says so (<code class="docutils literal notranslate"><span class="pre">is_moderator</span></code>) or from the CLI.</p>
+<p>The link is a <strong>capability</strong>: the page id is 128 random bits and travels in the URL
+<em>fragment</em> (<code class="docutils literal notranslate"><span class="pre">https://host/review/#&lt;id&gt;</span></code>), so the link itself is never sent in a
+request or a <code class="docutils literal notranslate"><span class="pre">Referer</span></code> (the API calls the page makes do carry the id in their
+paths, so the host’s access logs see it). Without the id a page, its media and its
+thread are all 404s. On top of that the thread endpoint is rate-limited per IP and per
+thread, capped per thread, size-capped, and has a honeypot (see <a class="reference internal" href="heed.threads.html#module-heed.threads" title="heed.threads"><code class="xref py py-mod docutils literal notranslate"><span class="pre">heed.threads</span></code></a>).</p>
+<p>Layout of the data root (one folder; ADR-0024’s S3 layout mirrors it key for key):</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">pages</span><span class="o">/&lt;</span><span class="nb">id</span><span class="o">&gt;.</span><span class="n">json</span>            <span class="n">the</span> <span class="n">page</span><span class="p">:</span> <span class="n">title</span><span class="p">,</span> <span class="n">note</span><span class="p">,</span> <span class="n">media</span> <span class="nb">list</span><span class="p">,</span> <span class="n">created_at</span>
+<span class="n">media</span><span class="o">/&lt;</span><span class="nb">id</span><span class="o">&gt;/&lt;</span><span class="n">name</span><span class="o">&gt;</span>          <span class="n">the</span> <span class="n">media</span> <span class="n">files</span><span class="p">,</span> <span class="n">served</span> <span class="k">with</span> <span class="n">byte</span> <span class="n">ranges</span> <span class="p">(</span><span class="n">seekable</span><span class="p">)</span>
+<span class="n">comments</span><span class="o">/&lt;</span><span class="nb">id</span><span class="o">&gt;/&lt;</span><span class="n">cid</span><span class="o">&gt;.</span><span class="n">json</span>   <span class="n">the</span> <span class="n">thread</span> <span class="p">(</span><span class="n">heed</span><span class="o">.</span><span class="n">threads</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Python:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">tempfile</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">root</span> <span class="o">=</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">mkdtemp</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">clip</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">root</span><span class="p">,</span> <span class="s2">"cut1.mp4"</span><span class="p">);</span> <span class="n">_</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">clip</span><span class="p">,</span> <span class="s2">"wb"</span><span class="p">)</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">b</span><span class="s2">"</span><span class="se">\0</span><span class="s2">"</span> <span class="o">*</span> <span class="mi">10</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">page</span> <span class="o">=</span> <span class="n">publish_review</span><span class="p">([</span><span class="n">clip</span><span class="p">],</span> <span class="n">title</span><span class="o">=</span><span class="s2">"Plot car, cut 1"</span><span class="p">,</span> <span class="n">rootdir</span><span class="o">=</span><span class="n">root</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="p">[</span><span class="n">m</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">page</span><span class="o">.</span><span class="n">media</span><span class="p">],</span> <span class="nb">len</span><span class="p">(</span><span class="n">page</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+<span class="go">(['cut1.mp4'], 22)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">url</span> <span class="o">=</span> <span class="n">review_url</span><span class="p">(</span><span class="n">page</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="s2">"https://apps.example/review/"</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">url</span> <span class="o">==</span> <span class="s2">"https://apps.example/review/#"</span> <span class="o">+</span> <span class="n">page</span><span class="o">.</span><span class="n">id</span>
+<span class="go">True</span>
+</pre></div>
+</div>
+<p>CLI: <code class="docutils literal notranslate"><span class="pre">heed</span> <span class="pre">review</span> <span class="pre">publish</span> <span class="pre">cut1.mp4</span> <span class="pre">--title</span> <span class="pre">&quot;Plot</span> <span class="pre">car&quot;</span></code> prints the link;
+<code class="docutils literal notranslate"><span class="pre">heed</span> <span class="pre">review</span> <span class="pre">comments</span> <span class="pre">&lt;id&gt;</span></code> reads the thread back (<code class="docutils literal notranslate"><span class="pre">--json</span></code> for agents).</p>
+<p class="rubric">Module Attributes</p>
+<div class="pst-scrollable-table-container"><table class="autosummary longtable table">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#heed.review.DEFAULT_DIR" title="heed.review.DEFAULT_DIR"><code class="xref py py-obj docutils literal notranslate"><span class="pre">DEFAULT_DIR</span></code></a></p></td>
+<td><p>Where review pages live when neither <code class="docutils literal notranslate"><span class="pre">rootdir</span></code> nor <code class="docutils literal notranslate"><span class="pre">HEED_REVIEW_DIR</span></code> is given.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#heed.review.CONFIG_FILE" title="heed.review.CONFIG_FILE"><code class="xref py py-obj docutils literal notranslate"><span class="pre">CONFIG_FILE</span></code></a></p></td>
+<td><p>The optional config file that may set <code class="docutils literal notranslate"><span class="pre">[review]</span> <span class="pre">base_url</span></code> (and <code class="docutils literal notranslate"><span class="pre">dir</span></code>).</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#heed.review.PRIVATE_PAGE_HEADERS" title="heed.review.PRIVATE_PAGE_HEADERS"><code class="xref py py-obj docutils literal notranslate"><span class="pre">PRIVATE_PAGE_HEADERS</span></code></a></p></td>
+<td><p>never indexed, never leak the URL onward.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p class="rubric">Functions</p>
+<div class="pst-scrollable-table-container"><table class="autosummary longtable table">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#heed.review.default_base_url" title="heed.review.default_base_url"><code class="xref py py-obj docutils literal notranslate"><span class="pre">default_base_url</span></code></a>()</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">HEED_REVIEW_BASE_URL</span></code>, else <code class="docutils literal notranslate"><span class="pre">[review]</span> <span class="pre">base_url</span></code> in the config file.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#heed.review.default_rootdir" title="heed.review.default_rootdir"><code class="xref py py-obj docutils literal notranslate"><span class="pre">default_rootdir</span></code></a>()</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">HEED_REVIEW_DIR</span></code>, else <code class="docutils literal notranslate"><span class="pre">[review]</span> <span class="pre">dir</span></code> in the config file, else default.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#heed.review.main" title="heed.review.main"><code class="xref py py-obj docutils literal notranslate"><span class="pre">main</span></code></a>([argv])</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">heed</span> <span class="pre">review</span> <span class="pre">...</span></code>: publish pages, read their comments, moderate, serve.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#heed.review.make_review_app" title="heed.review.make_review_app"><code class="xref py py-obj docutils literal notranslate"><span class="pre">make_review_app</span></code></a>([rootdir, is_moderator, ...])</p></td>
+<td><p>The review API (and, with <code class="docutils literal notranslate"><span class="pre">serve_shell</span></code>, the page at <code class="docutils literal notranslate"><span class="pre">/</span></code>).</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#heed.review.media_kind" title="heed.review.media_kind"><code class="xref py py-obj docutils literal notranslate"><span class="pre">media_kind</span></code></a>(filename)</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">(kind,</span> <span class="pre">content_type)</span></code> of a media file, refusing anything not media.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#heed.review.page_shell" title="heed.review.page_shell"><code class="xref py py-obj docutils literal notranslate"><span class="pre">page_shell</span></code></a>(*[, api, title])</p></td>
+<td><p>The page's HTML shell: it loads the script and style from <code class="docutils literal notranslate"><span class="pre">{api}/ui/</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#heed.review.publish_review" title="heed.review.publish_review"><code class="xref py py-obj docutils literal notranslate"><span class="pre">publish_review</span></code></a>(media, *[, title, note, ...])</p></td>
+<td><p>Publish <code class="docutils literal notranslate"><span class="pre">media</span></code> as a new review page (or add it to page <code class="docutils literal notranslate"><span class="pre">to</span></code>).</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#heed.review.review_url" title="heed.review.review_url"><code class="xref py py-obj docutils literal notranslate"><span class="pre">review_url</span></code></a>(page_id[, base_url])</p></td>
+<td><p>The shareable link of a page: the base URL with the id as its fragment.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#heed.review.safe_media_name" title="heed.review.safe_media_name"><code class="xref py py-obj docutils literal notranslate"><span class="pre">safe_media_name</span></code></a>(filename)</p></td>
+<td><p>A file name made safe to store and serve (no path, no odd characters).</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p class="rubric">Classes</p>
+<div class="pst-scrollable-table-container"><table class="autosummary longtable table">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#heed.review.MediaItem" title="heed.review.MediaItem"><code class="xref py py-obj docutils literal notranslate"><span class="pre">MediaItem</span></code></a>(*, name, kind, content_type, bytes)</p></td>
+<td><p>One media file of a page.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#heed.review.ReviewPage" title="heed.review.ReviewPage"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ReviewPage</span></code></a>(*, id, title[, note, media, ...])</p></td>
+<td><p>A published review page (its comments live beside it, in the thread store).</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#heed.review.ReviewStores" title="heed.review.ReviewStores"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ReviewStores</span></code></a>([rootdir])</p></td>
+<td><p>The three stores of a data root: pages, media files, comments.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<dl class="py data">
+<dt class="sig sig-object py" id="heed.review.CONFIG_FILE">
+<span class="sig-prename descclassname"><span class="pre">heed.review.</span></span><span class="sig-name descname"><span class="pre">CONFIG_FILE</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'~/.config/heed/config.toml'</span></span><a class="headerlink" href="#heed.review.CONFIG_FILE" title="Link to this definition">#</a></dt>
+<dd><p>The optional config file that may set <code class="docutils literal notranslate"><span class="pre">[review]</span> <span class="pre">base_url</span></code> (and <code class="docutils literal notranslate"><span class="pre">dir</span></code>).</p>
+</dd></dl>
+
+<dl class="py data">
+<dt class="sig sig-object py" id="heed.review.DEFAULT_DIR">
+<span class="sig-prename descclassname"><span class="pre">heed.review.</span></span><span class="sig-name descname"><span class="pre">DEFAULT_DIR</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'~/.local/share/heed/review'</span></span><a class="headerlink" href="#heed.review.DEFAULT_DIR" title="Link to this definition">#</a></dt>
+<dd><p>Where review pages live when neither <code class="docutils literal notranslate"><span class="pre">rootdir</span></code> nor <code class="docutils literal notranslate"><span class="pre">HEED_REVIEW_DIR</span></code> is given.</p>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="heed.review.MediaItem">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">heed.review.</span></span><span class="sig-name descname"><span class="pre">MediaItem</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">kind</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">content_type</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bytes</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/review.html#MediaItem"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.review.MediaItem" title="Link to this definition">#</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">BaseModel</span></code></p>
+<p>One media file of a page.</p>
+<dl class="field-list simple">
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="heed.review.MediaItem.model_config">
+<span class="sig-name descname"><span class="pre">model_config</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.ClassVar" title="(in Python v3.15)"><span class="pre">ClassVar</span></a><span class="p"><span class="pre">[</span></span><span class="pre">ConfigDict</span><span class="p"><span class="pre">]</span></span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{}</span></span><a class="headerlink" href="#heed.review.MediaItem.model_config" title="Link to this definition">#</a></dt>
+<dd><p>Configuration for the model, should be a dictionary conforming to [<code class="code docutils literal notranslate"><span class="pre">ConfigDict</span></code>][pydantic.config.ConfigDict].</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py data">
+<dt class="sig sig-object py" id="heed.review.PRIVATE_PAGE_HEADERS">
+<span class="sig-prename descclassname"><span class="pre">heed.review.</span></span><span class="sig-name descname"><span class="pre">PRIVATE_PAGE_HEADERS</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{'Referrer-Policy':</span> <span class="pre">'no-referrer',</span> <span class="pre">'X-Content-Type-Options':</span> <span class="pre">'nosniff',</span> <span class="pre">'X-Robots-Tag':</span> <span class="pre">'noindex,</span> <span class="pre">nofollow'}</span></span><a class="headerlink" href="#heed.review.PRIVATE_PAGE_HEADERS" title="Link to this definition">#</a></dt>
+<dd><p>never indexed, never leak the URL onward.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Headers on every review response</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="heed.review.ReviewPage">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">heed.review.</span></span><span class="sig-name descname"><span class="pre">ReviewPage</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">id</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">title</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">note</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">media</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">created_at</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">updated_at</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/review.html#ReviewPage"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.review.ReviewPage" title="Link to this definition">#</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">BaseModel</span></code></p>
+<p>A published review page (its comments live beside it, in the thread store).</p>
+<dl class="field-list simple">
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="heed.review.ReviewPage.model_config">
+<span class="sig-name descname"><span class="pre">model_config</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.ClassVar" title="(in Python v3.15)"><span class="pre">ClassVar</span></a><span class="p"><span class="pre">[</span></span><span class="pre">ConfigDict</span><span class="p"><span class="pre">]</span></span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{}</span></span><a class="headerlink" href="#heed.review.ReviewPage.model_config" title="Link to this definition">#</a></dt>
+<dd><p>Configuration for the model, should be a dictionary conforming to [<code class="code docutils literal notranslate"><span class="pre">ConfigDict</span></code>][pydantic.config.ConfigDict].</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="heed.review.ReviewStores">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">heed.review.</span></span><span class="sig-name descname"><span class="pre">ReviewStores</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">rootdir</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/review.html#ReviewStores"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.review.ReviewStores" title="Link to this definition">#</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/builtins/functions.html#object" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>The three stores of a data root: pages, media files, comments.</p>
+<p>Pages are a text <code class="docutils literal notranslate"><span class="pre">MutableMapping</span></code> (swap in any <code class="docutils literal notranslate"><span class="pre">dol</span></code> store); <code class="docutils literal notranslate"><span class="pre">threads</span></code> maps
+a page id to its comment store (<a class="reference internal" href="heed.threads.html#heed.threads.folder_threads" title="heed.threads.folder_threads"><code class="xref py py-func docutils literal notranslate"><span class="pre">heed.threads.folder_threads()</span></code></a>); media are
+files, because video must be served with byte ranges.</p>
+<dl class="field-list simple">
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="heed.review.ReviewStores.all_pages">
+<span class="sig-name descname"><span class="pre">all_pages</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/review.html#ReviewStores.all_pages"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.review.ReviewStores.all_pages" title="Link to this definition">#</a></dt>
+<dd><p>Every page, newest first.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a>[<a class="reference internal" href="#heed.review.ReviewPage" title="heed.review.ReviewPage"><code class="xref py py-class docutils literal notranslate"><span class="pre">ReviewPage</span></code></a>]</span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="heed.review.ReviewStores.comments_of">
+<span class="sig-name descname"><span class="pre">comments_of</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">page_id</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/review.html#ReviewStores.comments_of"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.review.ReviewStores.comments_of" title="Link to this definition">#</a></dt>
+<dd><p>The thread of <code class="docutils literal notranslate"><span class="pre">page_id</span></code>, oldest first.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a>[<a class="reference internal" href="heed.threads.html#heed.threads.Comment" title="heed.threads.Comment"><code class="xref py py-class docutils literal notranslate"><span class="pre">Comment</span></code></a>]</span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="heed.review.ReviewStores.media_path">
+<span class="sig-name descname"><span class="pre">media_path</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">page_id</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/review.html#ReviewStores.media_path"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.review.ReviewStores.media_path" title="Link to this definition">#</a></dt>
+<dd><p>The file of media <code class="docutils literal notranslate"><span class="pre">name</span></code> of <code class="docutils literal notranslate"><span class="pre">page_id</span></code>, if the page lists it.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Path</span></code></a> | <span class="highlight sphinx_autodoc_typehints-value"><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><code class="xref py py-obj docutils literal notranslate"><span class="kc"><span class="pre">None</span></span></code></a></span></span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="heed.review.ReviewStores.page">
+<span class="sig-name descname"><span class="pre">page</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">page_id</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/review.html#ReviewStores.page"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.review.ReviewStores.page" title="Link to this definition">#</a></dt>
+<dd><p>The page <code class="docutils literal notranslate"><span class="pre">page_id</span></code>, or <code class="docutils literal notranslate"><span class="pre">None</span></code> if there is none (or the id is invalid).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference internal" href="#heed.review.ReviewPage" title="heed.review.ReviewPage"><code class="xref py py-class docutils literal notranslate"><span class="pre">ReviewPage</span></code></a> | <span class="highlight sphinx_autodoc_typehints-value"><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><code class="xref py py-obj docutils literal notranslate"><span class="kc"><span class="pre">None</span></span></code></a></span></span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="heed.review.ReviewStores.save">
+<span class="sig-name descname"><span class="pre">save</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">page</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/review.html#ReviewStores.save"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.review.ReviewStores.save" title="Link to this definition">#</a></dt>
+<dd><p>Write <code class="docutils literal notranslate"><span class="pre">page</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><span class="highlight sphinx_autodoc_typehints-value"><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><code class="xref py py-obj docutils literal notranslate"><span class="kc"><span class="pre">None</span></span></code></a></span></span></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="heed.review.default_base_url">
+<span class="sig-prename descclassname"><span class="pre">heed.review.</span></span><span class="sig-name descname"><span class="pre">default_base_url</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/review.html#default_base_url"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.review.default_base_url" title="Link to this definition">#</a></dt>
+<dd><p><code class="docutils literal notranslate"><span class="pre">HEED_REVIEW_BASE_URL</span></code>, else <code class="docutils literal notranslate"><span class="pre">[review]</span> <span class="pre">base_url</span></code> in the config file.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a> | <span class="highlight sphinx_autodoc_typehints-value"><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><code class="xref py py-obj docutils literal notranslate"><span class="kc"><span class="pre">None</span></span></code></a></span></span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="heed.review.default_rootdir">
+<span class="sig-prename descclassname"><span class="pre">heed.review.</span></span><span class="sig-name descname"><span class="pre">default_rootdir</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/review.html#default_rootdir"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.review.default_rootdir" title="Link to this definition">#</a></dt>
+<dd><p><code class="docutils literal notranslate"><span class="pre">HEED_REVIEW_DIR</span></code>, else <code class="docutils literal notranslate"><span class="pre">[review]</span> <span class="pre">dir</span></code> in the config file, else default.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Path</span></code></a></span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="heed.review.main">
+<span class="sig-prename descclassname"><span class="pre">heed.review.</span></span><span class="sig-name descname"><span class="pre">main</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">argv</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/review.html#main"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.review.main" title="Link to this definition">#</a></dt>
+<dd><p><code class="docutils literal notranslate"><span class="pre">heed</span> <span class="pre">review</span> <span class="pre">...</span></code>: publish pages, read their comments, moderate, serve.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a></span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="heed.review.make_review_app">
+<span class="sig-prename descclassname"><span class="pre">heed.review.</span></span><span class="sig-name descname"><span class="pre">make_review_app</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">rootdir</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">is_moderator</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;function</span> <span class="pre">no_moderator&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">trusted_proxies</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">()</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rate_limiter</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rate_limit_per_minute</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_comments_per_thread</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">500</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">serve_shell</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/review.html#make_review_app"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.review.make_review_app" title="Link to this definition">#</a></dt>
+<dd><p>The review API (and, with <code class="docutils literal notranslate"><span class="pre">serve_shell</span></code>, the page at <code class="docutils literal notranslate"><span class="pre">/</span></code>).</p>
+<p>Routes: <code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/pages/{id}</span></code>, <code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/pages/{id}/media/{name}</span></code> (byte ranges),
+<code class="docutils literal notranslate"><span class="pre">GET|POST</span> <span class="pre">/threads/{id}</span></code>, <code class="docutils literal notranslate"><span class="pre">DELETE</span> <span class="pre">/threads/{id}/{comment}</span></code> (moderators),
+<code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/ui/review.{js,css}</span></code>. There is deliberately no HTTP listing of pages:
+it would hand every capability to any script running as the owner (the CLI’s
+<code class="docutils literal notranslate"><span class="pre">ls</span></code> lists them).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">FastAPI</span></code></span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="heed.review.media_kind">
+<span class="sig-prename descclassname"><span class="pre">heed.review.</span></span><span class="sig-name descname"><span class="pre">media_kind</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">filename</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/review.html#media_kind"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.review.media_kind" title="Link to this definition">#</a></dt>
+<dd><p><code class="docutils literal notranslate"><span class="pre">(kind,</span> <span class="pre">content_type)</span></code> of a media file, refusing anything not media.</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">media_kind</span><span class="p">(</span><span class="s2">"a.mp4"</span><span class="p">)</span>
+<span class="go">('video', 'video/mp4')</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">media_kind</span><span class="p">(</span><span class="s2">"a.html"</span><span class="p">)</span>
+<span class="gt">Traceback (most recent call last):</span>
+<span class="c">...</span>
+<span class="gr">ValueError</span>: <span class="n">Not a video, audio or image file: 'a.html' (text/html)</span>
+</pre></div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#tuple" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">tuple</span></code></a>[<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>]</span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="heed.review.page_shell">
+<span class="sig-prename descclassname"><span class="pre">heed.review.</span></span><span class="sig-name descname"><span class="pre">page_shell</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">api</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">title</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'Review'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/review.html#page_shell"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.review.page_shell" title="Link to this definition">#</a></dt>
+<dd><p>The page’s HTML shell: it loads the script and style from <code class="docutils literal notranslate"><span class="pre">{api}/ui/</span></code>.</p>
+<p>A host that serves static files (enlace’s <code class="docutils literal notranslate"><span class="pre">frontend_dir</span></code>) writes this once:
+<code class="docutils literal notranslate"><span class="pre">heed</span> <span class="pre">review</span> <span class="pre">page-shell</span> <span class="pre">--api</span> <span class="pre">/api/review</span> <span class="pre">&gt;</span> <span class="pre">frontend/index.html</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="heed.review.publish_review">
+<span class="sig-prename descclassname"><span class="pre">heed.review.</span></span><span class="sig-name descname"><span class="pre">publish_review</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">media</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">title</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">note</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rootdir</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">to</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/review.html#publish_review"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.review.publish_review" title="Link to this definition">#</a></dt>
+<dd><p>Publish <code class="docutils literal notranslate"><span class="pre">media</span></code> as a new review page (or add it to page <code class="docutils literal notranslate"><span class="pre">to</span></code>).</p>
+<p>The files are copied into the data root. Adding to an existing page keeps its
+link and its thread, so a new cut can go where the old one’s comments are; a file
+with the name of one already on the page replaces it.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference internal" href="#heed.review.ReviewPage" title="heed.review.ReviewPage"><code class="xref py py-class docutils literal notranslate"><span class="pre">ReviewPage</span></code></a></span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="heed.review.review_url">
+<span class="sig-prename descclassname"><span class="pre">heed.review.</span></span><span class="sig-name descname"><span class="pre">review_url</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">page_id</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">base_url</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/review.html#review_url"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.review.review_url" title="Link to this definition">#</a></dt>
+<dd><p>The shareable link of a page: the base URL with the id as its fragment.</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">review_url</span><span class="p">(</span><span class="s2">"abc"</span><span class="p">,</span> <span class="s2">"https://apps.example/review"</span><span class="p">)</span>
+<span class="go">'https://apps.example/review/#abc'</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">review_url</span><span class="p">(</span><span class="s2">"abc"</span><span class="p">,</span> <span class="s2">""</span><span class="p">)</span>  <span class="c1"># no base URL: the fragment alone</span>
+<span class="go">'#abc'</span>
+</pre></div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="heed.review.safe_media_name">
+<span class="sig-prename descclassname"><span class="pre">heed.review.</span></span><span class="sig-name descname"><span class="pre">safe_media_name</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">filename</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/review.html#safe_media_name"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.review.safe_media_name" title="Link to this definition">#</a></dt>
+<dd><p>A file name made safe to store and serve (no path, no odd characters).</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">safe_media_name</span><span class="p">(</span><span class="s2">"../../etc/My Cut (v2).mp4"</span><span class="p">)</span>
+<span class="go">'My Cut _v2_.mp4'</span>
+</pre></div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></span></p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="heed.redact.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">heed.redact</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="heed.routing.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">heed.routing</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.review.CONFIG_FILE"><code class="docutils literal notranslate"><span class="pre">CONFIG_FILE</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.review.DEFAULT_DIR"><code class="docutils literal notranslate"><span class="pre">DEFAULT_DIR</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.review.MediaItem"><code class="docutils literal notranslate"><span class="pre">MediaItem</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.review.MediaItem.model_config"><code class="docutils literal notranslate"><span class="pre">MediaItem.model_config</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.review.PRIVATE_PAGE_HEADERS"><code class="docutils literal notranslate"><span class="pre">PRIVATE_PAGE_HEADERS</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.review.ReviewPage"><code class="docutils literal notranslate"><span class="pre">ReviewPage</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.review.ReviewPage.model_config"><code class="docutils literal notranslate"><span class="pre">ReviewPage.model_config</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.review.ReviewStores"><code class="docutils literal notranslate"><span class="pre">ReviewStores</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.review.ReviewStores.all_pages"><code class="docutils literal notranslate"><span class="pre">ReviewStores.all_pages()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.review.ReviewStores.comments_of"><code class="docutils literal notranslate"><span class="pre">ReviewStores.comments_of()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.review.ReviewStores.media_path"><code class="docutils literal notranslate"><span class="pre">ReviewStores.media_path()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.review.ReviewStores.page"><code class="docutils literal notranslate"><span class="pre">ReviewStores.page()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.review.ReviewStores.save"><code class="docutils literal notranslate"><span class="pre">ReviewStores.save()</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.review.default_base_url"><code class="docutils literal notranslate"><span class="pre">default_base_url()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.review.default_rootdir"><code class="docutils literal notranslate"><span class="pre">default_rootdir()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.review.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.review.make_review_app"><code class="docutils literal notranslate"><span class="pre">make_review_app()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.review.media_kind"><code class="docutils literal notranslate"><span class="pre">media_kind()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.review.page_shell"><code class="docutils literal notranslate"><span class="pre">page_shell()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.review.publish_review"><code class="docutils literal notranslate"><span class="pre">publish_review()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.review.review_url"><code class="docutils literal notranslate"><span class="pre">review_url()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.review.safe_media_name"><code class="docutils literal notranslate"><span class="pre">safe_media_name()</span></code></a></li>
+</ul>
+  </nav></div>
+
+  <div class="sidebar-secondary-item">
+
+  <div class="tocsection sourcelink">
+    <a href="../_sources/_autosummary/heed.review.rst.txt">
+      <i class="fa-solid fa-file-lines"></i> Show Source
+    </a>
+  </div>
+</div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../_static/scripts/bootstrap.js?digest=18bd87630a240e9c25be"></script>
+<script defer src="../_static/scripts/pydata-sphinx-theme.js?digest=18bd87630a240e9c25be"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<p class="theme-version">
+  <!-- # L10n: Setting the PST URL as an argument as this does not need to be localized -->
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.23.0.
+</p></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>

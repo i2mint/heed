@@ -38,6 +38,13 @@ Public API (Phase 1):
   <br/>
   Widget    make_widget_router (serves the built embeddable widget),
   : widget_contract (what the widget sends; SSOT for widget/)
+  <br/>
+  Threads   Comment, CommentSubmission, add_comment, list_comments,
+  : delete_comment, email_moderator, make_thread_router (a public,
+    persistent comment thread per key)
+  <br/>
+  Review    ReviewPage, publish_review, review_url, make_review_app (media + a
+  : thread under it, behind a capability link; CLI `heed review`)
 
 ### Example
 
@@ -85,6 +92,14 @@ True
 | [`make_report_store`](#heed.make_report_store)([rootdir, delete_func])          | A text store for report JSON.                                                                                                       |
 | [`make_attachment_store`](#heed.make_attachment_store)([rootdir, ...])              | A bytes store for attachments.                                                                                                      |
 | [`make_holding_store`](#heed.make_holding_store)([rootdir, delete_func])         | A report store for held reports, with a dedicated claims store beside it.                                                           |
+| [`add_comment`](#heed.add_comment)(store, thread, submission, \*[, ...])  | Store `submission` in `thread`'s `store`; return the stored comment.                                                                |
+| [`list_comments`](#heed.list_comments)(store)                               | A thread's comments, oldest first.                                                                                                  |
+| [`delete_comment`](#heed.delete_comment)(store, comment_id)                  | Delete one comment; `False` if there was none (or the id is invalid).                                                               |
+| [`email_moderator`](#heed.email_moderator)(emails)                            | A moderator check passing requests whose authenticated email is in `emails`.                                                        |
+| [`make_thread_router`](#heed.make_thread_router)([threads, thread_exists, ...])  | The HTTP surface of comment threads (`threads`: thread id -> its store).                                                            |
+| [`publish_review`](#heed.publish_review)(media, \*[, title, note, ...])      | Publish `media` as a new review page (or add it to page `to`).                                                                      |
+| [`review_url`](#heed.review_url)(page_id[, base_url])                    | The shareable link of a page: the base URL with the id as its fragment.                                                             |
+| [`make_review_app`](#heed.make_review_app)([rootdir, is_moderator, ...])      | The review API (and, with `serve_shell`, the page at `/`).                                                                          |
 
 ### Classes
 
@@ -114,6 +129,9 @@ True
 | [`BotVerifier`](#heed.BotVerifier)(\*args, \*\*kwargs)                   | Verify a human-challenge token server-side; True means "looks human".          |
 | [`SiteverifyBotVerifier`](#heed.SiteverifyBotVerifier)(secret, \*[, ...])          | Turnstile / hCaptcha verification (both speak the same siteverify protocol).   |
 | [`Verdict`](#heed.Verdict)(\*values)                                 | A moderator's decision about one report.                                       |
+| [`Comment`](#heed.Comment)(\*, author, body[, at_ms, media, ...])    | A stored comment: the submission plus a server-assigned id, time and role.     |
+| [`CommentSubmission`](#heed.CommentSubmission)(\*, author, body[, at_ms, ...]) | What a visitor may send: a name, a comment, and optionally a media position.   |
+| [`ReviewPage`](#heed.ReviewPage)(\*, id, title[, note, media, ...])     | A published review page (its comments live beside it, in the thread store).    |
 
 ### *class* heed.Attachment(, kind='screenshot', media_type='image/png', ref, size=None)
 
@@ -262,6 +280,34 @@ What one category of report becomes as a GitHub issue.
 
 `detail="light"` is the feature-request intake: the idea and who asked, without
 the browser/console/network dump or a screenshot, which say nothing about a wish.
+
+### *class* heed.Comment(, author, body, at_ms=None, media=None, id, thread, created_at, moderator=False)
+
+Bases: [`CommentSubmission`](heed.threads.html.md#heed.threads.CommentSubmission)
+
+A stored comment: the submission plus a server-assigned id, time and role.
+
+#### model_config *: [ClassVar](https://docs.python.org/3/library/typing.html#typing.ClassVar)[ConfigDict]* *= {}*
+
+Configuration for the model, should be a dictionary conforming to [`ConfigDict`][pydantic.config.ConfigDict].
+
+#### moderator *: [bool](https://docs.python.org/3/builtins/functions.html#bool)*
+
+the page marks it, so a name cannot pass
+for the owner’s.
+
+* **Type:**
+  Posted by a moderator (the owner)
+
+### *class* heed.CommentSubmission(, author, body, at_ms=None, media=None)
+
+Bases: `BaseModel`
+
+What a visitor may send: a name, a comment, and optionally a media position.
+
+#### model_config *: [ClassVar](https://docs.python.org/3/library/typing.html#typing.ClassVar)[ConfigDict]* *= {}*
+
+Configuration for the model, should be a dictionary conforming to [`ConfigDict`][pydantic.config.ConfigDict].
 
 ### *class* heed.Environment(\*, user_agent=None, browser=None, os=None, viewport=None, locale=None, device_pixel_ratio=None, extra=<factory>)
 
@@ -435,6 +481,16 @@ The (untrusted) payload a widget POSTs; server fields are assigned later.
 
 Configuration for the model, should be a dictionary conforming to [`ConfigDict`][pydantic.config.ConfigDict].
 
+### *class* heed.ReviewPage(\*, id, title, note=None, media=<factory>, created_at, updated_at=None)
+
+Bases: `BaseModel`
+
+A published review page (its comments live beside it, in the thread store).
+
+#### model_config *: [ClassVar](https://docs.python.org/3/library/typing.html#typing.ClassVar)[ConfigDict]* *= {}*
+
+Configuration for the model, should be a dictionary conforming to [`ConfigDict`][pydantic.config.ConfigDict].
+
 ### *class* heed.Sink(\*args, \*\*kwargs)
 
 Bases: [`Protocol`](https://docs.python.org/3/library/typing.html#typing.Protocol)
@@ -497,6 +553,13 @@ The default moderator: everything goes straight to the sink.
 * **Return type:**
   [`Verdict`](heed.routing.html.md#heed.routing.Verdict)
 
+### heed.add_comment(store, thread, submission, , moderator=False)
+
+Store `submission` in `thread`’s `store`; return the stored comment.
+
+* **Return type:**
+  [`Comment`](heed.threads.html.md#heed.threads.Comment)
+
 ### heed.attachment_headers(media_type, , filename=None, cross_origin=False)
 
 Headers for serving a stored screenshot (issue #15). Use them on every response
@@ -532,6 +595,13 @@ Shipped items, newest first (undated ones last).
 * **Return type:**
   [`list`](https://docs.python.org/3/builtins/stdtypes.html#list)[[`PublicItem`](heed.board.html.md#heed.board.PublicItem)]
 
+### heed.delete_comment(store, comment_id)
+
+Delete one comment; `False` if there was none (or the id is invalid).
+
+* **Return type:**
+  [`bool`](https://docs.python.org/3/builtins/functions.html#bool)
+
 ### heed.discard_held(report_id, , holding_store, attachment_store=None)
 
 Delete a held report for good, with its attachments (e.g. a screenshot).
@@ -545,6 +615,16 @@ with [`release_held()`](#heed.release_held) for the same report.
 
 * **Return type:**
   [`None`](https://docs.python.org/3/builtins/constants.html#None)
+
+### heed.email_moderator(emails)
+
+A moderator check passing requests whose authenticated email is in `emails`.
+
+It reads `request.state.user_email`, which an auth middleware sets (enlace_auth
+does, on public apps too, when the visitor has a session).
+
+* **Return type:**
+  [`Callable`](https://docs.python.org/3/library/collections.abc.html#collections.abc.Callable)[[`Request`], [`bool`](https://docs.python.org/3/builtins/functions.html#bool)]
 
 ### heed.github_sink_from_token(repo, token, \*\*kwargs)
 
@@ -562,6 +642,13 @@ Full pre-moderation: every report waits for a human.
 
 * **Return type:**
   [`Verdict`](heed.routing.html.md#heed.routing.Verdict)
+
+### heed.list_comments(store)
+
+A thread’s comments, oldest first. Unreadable entries are skipped.
+
+* **Return type:**
+  [`list`](https://docs.python.org/3/builtins/stdtypes.html#list)[[`Comment`](heed.threads.html.md#heed.threads.Comment)]
 
 ### heed.make_app(sink, , config=None, attachment_store=None, prefix='/heed', serve_widget=True, \*\*router_kwargs)
 
@@ -712,6 +799,19 @@ report – and reports can carry personal data. Pass `delete_func` to opt back i
 * **Return type:**
   [`MutableMapping`](https://docs.python.org/3/library/collections.abc.html#collections.abc.MutableMapping)
 
+### heed.make_review_app(rootdir=None, \*, is_moderator=<function no_moderator>, trusted_proxies=(), rate_limiter=None, rate_limit_per_minute=10, max_comments_per_thread=500, serve_shell=True)
+
+The review API (and, with `serve_shell`, the page at `/`).
+
+Routes: `GET /pages/{id}`, `GET /pages/{id}/media/{name}` (byte ranges),
+`GET|POST /threads/{id}`, `DELETE /threads/{id}/{comment}` (moderators),
+`GET /ui/review.{js,css}`. There is deliberately no HTTP listing of pages:
+it would hand every capability to any script running as the owner (the CLI’s
+`ls` lists them).
+
+* **Return type:**
+  `FastAPI`
+
 ### heed.make_router(sink, \*, config=None, attachment_store=None, rate_limiter=None, origin_rate_limiter=None, bot_verifier=None, user_dependency=None, resolve_sink=None, moderator=None, holding_sink=None, image_sanitizer=None, redactor=<function redact_text>)
 
 Build a FastAPI APIRouter exposing `POST /report` (and its CORS preflight).
@@ -733,6 +833,33 @@ Routing is decided server-side, never by the browser: `resolve_sink` maps the
 validated origin to that site’s sink (`sink` is then the fallback and may be
 None; an origin resolving to no sink gets 403). `moderator` may hold reports in
 `holding_sink` (required with a moderator) or reject them; see `routing.py`.
+
+* **Return type:**
+  `APIRouter`
+
+### heed.make_thread_router(threads=None, \*, thread_exists=<function valid_id>, is_moderator=<function no_moderator>, rate_limiter=None, rate_limit_per_minute=10, thread_rate_limiter=None, thread_rate_limit_per_hour=120, max_comments_per_thread=500, trusted_proxies=(), honeypot_field='website', on_comment=None)
+
+The HTTP surface of comment threads (`threads`: thread id -> its store).
+
+`GET /threads/{thread}` lists, `POST /threads/{thread}` adds (a JSON body:
+`author`, `body`, optional `at_ms` and `media`),
+`DELETE /threads/{thread}/{id}` deletes when `is_moderator(request)` and the
+request carries the `X-Heed-Moderate` header. A thread for which
+`thread_exists` is false answers 404 to everything, which is how a host makes
+threads capabilities. A filled `honeypot_field` is accepted silently and
+stored nowhere. Behind a reverse proxy, set `trusted_proxies` or every visitor
+shares the proxy’s rate-limit bucket.
+
+```pycon
+>>> from fastapi import FastAPI
+>>> from fastapi.testclient import TestClient
+>>> app = FastAPI(); app.include_router(make_thread_router())
+>>> client = TestClient(app)
+>>> client.post("/threads/t1", json={"author": "Thor", "body": "hi"}).status_code
+201
+>>> [c["body"] for c in client.get("/threads/t1").json()["comments"]]
+['hi']
+```
 
 * **Return type:**
   `APIRouter`
@@ -769,6 +896,17 @@ unless enabled in `config`, and what is kept is passed through `redactor`
 
 * **Return type:**
   [`tuple`](https://docs.python.org/3/builtins/stdtypes.html#tuple)[[`Report`](heed.base.html.md#heed.base.Report), [`SinkResult`](heed.sinks.base.html.md#heed.sinks.base.SinkResult)]
+
+### heed.publish_review(media, , title=None, note=None, rootdir=None, to=None)
+
+Publish `media` as a new review page (or add it to page `to`).
+
+The files are copied into the data root. Adding to an existing page keeps its
+link and its thread, so a new cut can go where the old one’s comments are; a file
+with the name of one already on the page replaces it.
+
+* **Return type:**
+  [`ReviewPage`](heed.review.html.md#heed.review.ReviewPage)
 
 ### heed.recover_claimed(\*, holding_store, claimed_store=None, stale_after=None, clock=<built-in function time>)
 
@@ -884,6 +1022,20 @@ leaves a claim on a report the other release already sent, and the next
 * **Return type:**
   [`SinkResult`](heed.sinks.base.html.md#heed.sinks.base.SinkResult)
 
+### heed.review_url(page_id, base_url=None)
+
+The shareable link of a page: the base URL with the id as its fragment.
+
+```pycon
+>>> review_url("abc", "https://apps.example/review")
+'https://apps.example/review/#abc'
+>>> review_url("abc", "")  # no base URL: the fragment alone
+'#abc'
+```
+
+* **Return type:**
+  [`str`](https://docs.python.org/3/builtins/stdtypes.html#str)
+
 ### heed.roadmap(items)
 
 Items still to come, started first; most-voted first within each stage.
@@ -955,9 +1107,11 @@ overrides them.
 | [`images`](heed.images.html.md#module-heed.images)     | Neutralise uploaded screenshots before they are stored (issue #15).                |
 | [`ingest`](heed.ingest.html.md#module-heed.ingest)     | The ingest layer — build a Report from a submission and route it to a sink.        |
 | [`redact`](heed.redact.html.md#module-heed.redact)     | Redaction of personal data and secrets in captured console and network entries.    |
+| [`review`](heed.review.html.md#module-heed.review)     | Review pages: media (a video, audio, images) with a comment thread under it.       |
 | [`routing`](heed.routing.html.md#module-heed.routing)   | Where a report goes: server-side site resolution and moderation (holding state).   |
 | [`security`](heed.security.html.md#module-heed.security) | Public-endpoint hardening (the ingest endpoint is unauthenticated and hostile).    |
 | [`serving`](heed.serving.html.md#module-heed.serving)   | Serve stored screenshots: a read-only route meant for its own origin (issue #19).  |
 | [`sinks`](heed.sinks.html.md#module-heed.sinks)       | Sinks: pluggable report destinations (strategy pattern).                           |
 | [`storage`](heed.storage.html.md#module-heed.storage)   | Storage helpers — dol-backed stores for reports and binary attachments.            |
+| [`threads`](heed.threads.html.md#module-heed.threads)   | Comment threads: a persistent, public, append-mostly conversation per key.         |
 | [`widget`](heed.widget.html.md#module-heed.widget)     | Serve the embeddable widget, and state the contract it is built against.           |

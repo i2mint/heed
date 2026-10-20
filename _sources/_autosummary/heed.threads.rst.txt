@@ -1,0 +1,38 @@
+heed.threads
+============
+
+.. automodule:: heed.threads
+
+   
+   .. rubric:: Module Attributes
+
+   .. autosummary::
+   
+      MEDIA_NAME_PATTERN
+      ID_PATTERN
+      MODERATE_HEADER
+      THREAD_RESPONSE_HEADERS
+   
+   .. rubric:: Functions
+
+   .. autosummary::
+   
+      add_comment
+      count_comments
+      delete_comment
+      email_moderator
+      folder_threads
+      list_comments
+      make_thread_router
+      memory_threads
+      new_comment_id
+      no_moderator
+      valid_id
+   
+   .. rubric:: Classes
+
+   .. autosummary::
+   
+      Comment
+      CommentSubmission
+   

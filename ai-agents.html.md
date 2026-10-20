@@ -6,6 +6,22 @@
 them, says where each lives in the repository, and points at the
 machine-readable copies of this documentation.
 
+## Skills
+
+Skills are folders holding a `SKILL.md` (the [Agent Skills](https://agentskills.io) format): a description that tells an agent when to use it and a body with the procedure. Install one into your agent with `gh skill` (any host: `--agent claude-code`, `copilot`, `cursor`, `codex`, `gemini`), or use the copy bundled in the wheel.
+
+### `heed-review`
+
+Publish media (a video, audio takes, images) as a public review page with a persistent comment thread under it, send the link to someone who has no account (a writer, a client, a collaborator), and read their comments back so you can act on them. Use when the user asks for “a page where X can comment on the video”, “get feedback from <someone> on this cut”, “let them pick a voice in the comments”, “a review link”, “share this for comments”, “what did <someone> say about the video”, or when a published review page needs a new cut on the same link. Not for the owner’s private reading (that is annals-publish).
+
+```bash
+gh skill install i2mint/heed heed-review --agent claude-code
+```
+
+Source: [`heed/data/skills/heed-review`](https://github.com/i2mint/heed/tree/HEAD/heed/data/skills/heed-review) (bundled with the pip package).
+
+The bundled skills are also on disk after `pip install heed`, under the package’s `data/skills/` directory; link them into an agent without network access with `skill link-skills <that directory>`.
+
 ## Instruction files
 
 Files agents read before working in this repository.

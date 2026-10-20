@@ -326,6 +326,7 @@
 <li class="toctree-l2"><a class="reference internal" href="heed.images.html">heed.images</a></li>
 <li class="toctree-l2"><a class="reference internal" href="heed.ingest.html">heed.ingest</a></li>
 <li class="toctree-l2"><a class="reference internal" href="heed.redact.html">heed.redact</a></li>
+<li class="toctree-l2"><a class="reference internal" href="heed.review.html">heed.review</a></li>
 <li class="toctree-l2"><a class="reference internal" href="heed.routing.html">heed.routing</a></li>
 <li class="toctree-l2"><a class="reference internal" href="heed.security.html">heed.security</a></li>
 <li class="toctree-l2"><a class="reference internal" href="heed.serving.html">heed.serving</a></li>
@@ -337,6 +338,7 @@
 </ul>
 </details></li>
 <li class="toctree-l2"><a class="reference internal" href="heed.storage.html">heed.storage</a></li>
+<li class="toctree-l2"><a class="reference internal" href="heed.threads.html">heed.threads</a></li>
 <li class="toctree-l2"><a class="reference internal" href="heed.widget.html">heed.widget</a></li>
 </ul>
 </details></li>
@@ -437,6 +439,11 @@ Serving   make_attachment_router, make_attachment_app, AttachmentSigner,</p>
 </div></blockquote>
 <dl class="simple">
 <dt>Widget    make_widget_router (serves the built embeddable widget),</dt><dd><p>widget_contract (what the widget sends; SSOT for widget/)</p>
+</dd>
+<dt>Threads   Comment, CommentSubmission, add_comment, list_comments,</dt><dd><p>delete_comment, email_moderator, make_thread_router (a public,
+persistent comment thread per key)</p>
+</dd>
+<dt>Review    ReviewPage, publish_review, review_url, make_review_app (media + a</dt><dd><p>thread under it, behind a capability link; CLI <code class="docutils literal notranslate"><span class="pre">heed</span> <span class="pre">review</span></code>)</p>
 </dd>
 </dl>
 </dd>
@@ -547,6 +554,30 @@ Serving   make_attachment_router, make_attachment_app, AttachmentSigner,</p>
 <tr class="row-odd"><td><p><a class="reference internal" href="#heed.make_holding_store" title="heed.make_holding_store"><code class="xref py py-obj docutils literal notranslate"><span class="pre">make_holding_store</span></code></a>([rootdir, delete_func])</p></td>
 <td><p>A report store for held reports, with a dedicated claims store beside it.</p></td>
 </tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#heed.add_comment" title="heed.add_comment"><code class="xref py py-obj docutils literal notranslate"><span class="pre">add_comment</span></code></a>(store, thread, submission, *[, ...])</p></td>
+<td><p>Store <code class="docutils literal notranslate"><span class="pre">submission</span></code> in <code class="docutils literal notranslate"><span class="pre">thread</span></code>'s <code class="docutils literal notranslate"><span class="pre">store</span></code>; return the stored comment.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#heed.list_comments" title="heed.list_comments"><code class="xref py py-obj docutils literal notranslate"><span class="pre">list_comments</span></code></a>(store)</p></td>
+<td><p>A thread's comments, oldest first.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#heed.delete_comment" title="heed.delete_comment"><code class="xref py py-obj docutils literal notranslate"><span class="pre">delete_comment</span></code></a>(store, comment_id)</p></td>
+<td><p>Delete one comment; <code class="docutils literal notranslate"><span class="pre">False</span></code> if there was none (or the id is invalid).</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#heed.email_moderator" title="heed.email_moderator"><code class="xref py py-obj docutils literal notranslate"><span class="pre">email_moderator</span></code></a>(emails)</p></td>
+<td><p>A moderator check passing requests whose authenticated email is in <code class="docutils literal notranslate"><span class="pre">emails</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#heed.make_thread_router" title="heed.make_thread_router"><code class="xref py py-obj docutils literal notranslate"><span class="pre">make_thread_router</span></code></a>([threads, thread_exists, ...])</p></td>
+<td><p>The HTTP surface of comment threads (<code class="docutils literal notranslate"><span class="pre">threads</span></code>: thread id -&gt; its store).</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#heed.publish_review" title="heed.publish_review"><code class="xref py py-obj docutils literal notranslate"><span class="pre">publish_review</span></code></a>(media, *[, title, note, ...])</p></td>
+<td><p>Publish <code class="docutils literal notranslate"><span class="pre">media</span></code> as a new review page (or add it to page <code class="docutils literal notranslate"><span class="pre">to</span></code>).</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#heed.review_url" title="heed.review_url"><code class="xref py py-obj docutils literal notranslate"><span class="pre">review_url</span></code></a>(page_id[, base_url])</p></td>
+<td><p>The shareable link of a page: the base URL with the id as its fragment.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#heed.make_review_app" title="heed.make_review_app"><code class="xref py py-obj docutils literal notranslate"><span class="pre">make_review_app</span></code></a>([rootdir, is_moderator, ...])</p></td>
+<td><p>The review API (and, with <code class="docutils literal notranslate"><span class="pre">serve_shell</span></code>, the page at <code class="docutils literal notranslate"><span class="pre">/</span></code>).</p></td>
+</tr>
 </tbody>
 </table>
 </div>
@@ -627,6 +658,15 @@ Serving   make_attachment_router, make_attachment_app, AttachmentSigner,</p>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="#heed.Verdict" title="heed.Verdict"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Verdict</span></code></a>(*values)</p></td>
 <td><p>A moderator's decision about one report.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#heed.Comment" title="heed.Comment"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Comment</span></code></a>(*, author, body[, at_ms, media, ...])</p></td>
+<td><p>A stored comment: the submission plus a server-assigned id, time and role.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#heed.CommentSubmission" title="heed.CommentSubmission"><code class="xref py py-obj docutils literal notranslate"><span class="pre">CommentSubmission</span></code></a>(*, author, body[, at_ms, ...])</p></td>
+<td><p>What a visitor may send: a name, a comment, and optionally a media position.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#heed.ReviewPage" title="heed.ReviewPage"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ReviewPage</span></code></a>(*, id, title[, note, media, ...])</p></td>
+<td><p>A published review page (its comments live beside it, in the thread store).</p></td>
 </tr>
 </tbody>
 </table>
@@ -839,6 +879,48 @@ than embedded in issues. <code class="docutils literal notranslate"><span class=
 the browser/console/network dump or a screenshot, which say nothing about a wish.</p>
 <dl class="field-list simple">
 </dl>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="heed.Comment">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">heed.</span></span><span class="sig-name descname"><span class="pre">Comment</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">author</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">body</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">at_ms</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">media</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">id</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">thread</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">created_at</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">moderator</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/threads.html#Comment"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.Comment" title="Link to this definition">#</a></dt>
+<dd><p>Bases: <a class="reference internal" href="heed.threads.html#heed.threads.CommentSubmission" title="heed.threads.CommentSubmission"><code class="xref py py-class docutils literal notranslate"><span class="pre">CommentSubmission</span></code></a></p>
+<p>A stored comment: the submission plus a server-assigned id, time and role.</p>
+<dl class="field-list simple">
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="heed.Comment.model_config">
+<span class="sig-name descname"><span class="pre">model_config</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.ClassVar" title="(in Python v3.15)"><span class="pre">ClassVar</span></a><span class="p"><span class="pre">[</span></span><span class="pre">ConfigDict</span><span class="p"><span class="pre">]</span></span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{}</span></span><a class="headerlink" href="#heed.Comment.model_config" title="Link to this definition">#</a></dt>
+<dd><p>Configuration for the model, should be a dictionary conforming to [<code class="code docutils literal notranslate"><span class="pre">ConfigDict</span></code>][pydantic.config.ConfigDict].</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="heed.Comment.moderator">
+<span class="sig-name descname"><span class="pre">moderator</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><span class="pre">bool</span></a></span><a class="headerlink" href="#heed.Comment.moderator" title="Link to this definition">#</a></dt>
+<dd><p>the page marks it, so a name cannot pass
+for the owner’s.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Posted by a moderator (the owner)</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="heed.CommentSubmission">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">heed.</span></span><span class="sig-name descname"><span class="pre">CommentSubmission</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">author</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">body</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">at_ms</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">media</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/threads.html#CommentSubmission"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.CommentSubmission" title="Link to this definition">#</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">BaseModel</span></code></p>
+<p>What a visitor may send: a name, a comment, and optionally a media position.</p>
+<dl class="field-list simple">
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="heed.CommentSubmission.model_config">
+<span class="sig-name descname"><span class="pre">model_config</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.ClassVar" title="(in Python v3.15)"><span class="pre">ClassVar</span></a><span class="p"><span class="pre">[</span></span><span class="pre">ConfigDict</span><span class="p"><span class="pre">]</span></span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{}</span></span><a class="headerlink" href="#heed.CommentSubmission.model_config" title="Link to this definition">#</a></dt>
+<dd><p>Configuration for the model, should be a dictionary conforming to [<code class="code docutils literal notranslate"><span class="pre">ConfigDict</span></code>][pydantic.config.ConfigDict].</p>
+</dd></dl>
+
 </dd></dl>
 
 <dl class="py class">
@@ -1072,6 +1154,21 @@ that long before the fallback limiter decides.</p>
 </dd></dl>
 
 <dl class="py class">
+<dt class="sig sig-object py" id="heed.ReviewPage">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">heed.</span></span><span class="sig-name descname"><span class="pre">ReviewPage</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">id</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">title</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">note</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">media</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">created_at</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">updated_at</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/review.html#ReviewPage"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.ReviewPage" title="Link to this definition">#</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">BaseModel</span></code></p>
+<p>A published review page (its comments live beside it, in the thread store).</p>
+<dl class="field-list simple">
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="heed.ReviewPage.model_config">
+<span class="sig-name descname"><span class="pre">model_config</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.ClassVar" title="(in Python v3.15)"><span class="pre">ClassVar</span></a><span class="p"><span class="pre">[</span></span><span class="pre">ConfigDict</span><span class="p"><span class="pre">]</span></span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{}</span></span><a class="headerlink" href="#heed.ReviewPage.model_config" title="Link to this definition">#</a></dt>
+<dd><p>Configuration for the model, should be a dictionary conforming to [<code class="code docutils literal notranslate"><span class="pre">ConfigDict</span></code>][pydantic.config.ConfigDict].</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
 <dt class="sig sig-object py" id="heed.Sink">
 <span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">heed.</span></span><span class="sig-name descname"><span class="pre">Sink</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/sinks/base.html#Sink"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.Sink" title="Link to this definition">#</a></dt>
 <dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Protocol" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Protocol</span></code></a></p>
@@ -1154,6 +1251,17 @@ S3, …) — dependency-injected so the sink stays testable.</p>
 </dd></dl>
 
 <dl class="py function">
+<dt class="sig sig-object py" id="heed.add_comment">
+<span class="sig-prename descclassname"><span class="pre">heed.</span></span><span class="sig-name descname"><span class="pre">add_comment</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">store</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">thread</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">submission</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">moderator</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/threads.html#add_comment"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.add_comment" title="Link to this definition">#</a></dt>
+<dd><p>Store <code class="docutils literal notranslate"><span class="pre">submission</span></code> in <code class="docutils literal notranslate"><span class="pre">thread</span></code>’s <code class="docutils literal notranslate"><span class="pre">store</span></code>; return the stored comment.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference internal" href="heed.threads.html#heed.threads.Comment" title="heed.threads.Comment"><code class="xref py py-class docutils literal notranslate"><span class="pre">Comment</span></code></a></span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
 <dt class="sig sig-object py" id="heed.attachment_headers">
 <span class="sig-prename descclassname"><span class="pre">heed.</span></span><span class="sig-name descname"><span class="pre">attachment_headers</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">media_type</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">filename</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cross_origin</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/security.html#attachment_headers"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.attachment_headers" title="Link to this definition">#</a></dt>
 <dd><p>Headers for serving a stored screenshot (issue #15). Use them on every response
@@ -1199,6 +1307,17 @@ screenshot embedded elsewhere (e.g. in a GitHub issue) needs.</p>
 </dd></dl>
 
 <dl class="py function">
+<dt class="sig sig-object py" id="heed.delete_comment">
+<span class="sig-prename descclassname"><span class="pre">heed.</span></span><span class="sig-name descname"><span class="pre">delete_comment</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">store</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">comment_id</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/threads.html#delete_comment"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.delete_comment" title="Link to this definition">#</a></dt>
+<dd><p>Delete one comment; <code class="docutils literal notranslate"><span class="pre">False</span></code> if there was none (or the id is invalid).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a></span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
 <dt class="sig sig-object py" id="heed.discard_held">
 <span class="sig-prename descclassname"><span class="pre">heed.</span></span><span class="sig-name descname"><span class="pre">discard_held</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">report_id</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">holding_store</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">attachment_store</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/routing.html#discard_held"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.discard_held" title="Link to this definition">#</a></dt>
 <dd><p>Delete a held report for good, with its attachments (e.g. a screenshot).</p>
@@ -1211,6 +1330,19 @@ with <a class="reference internal" href="#heed.release_held" title="heed.release
 <dl class="field-list simple">
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><span class="highlight sphinx_autodoc_typehints-value"><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><code class="xref py py-obj docutils literal notranslate"><span class="kc"><span class="pre">None</span></span></code></a></span></span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="heed.email_moderator">
+<span class="sig-prename descclassname"><span class="pre">heed.</span></span><span class="sig-name descname"><span class="pre">email_moderator</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">emails</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/threads.html#email_moderator"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.email_moderator" title="Link to this definition">#</a></dt>
+<dd><p>A moderator check passing requests whose authenticated email is in <code class="docutils literal notranslate"><span class="pre">emails</span></code>.</p>
+<p>It reads <code class="docutils literal notranslate"><span class="pre">request.state.user_email</span></code>, which an auth middleware sets (enlace_auth
+does, on public apps too, when the visitor has a session).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Callable" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Callable</span></code></a>[[<code class="xref py py-class docutils literal notranslate"><span class="pre">Request</span></code>], <a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>]</span></p>
 </dd>
 </dl>
 </dd></dl>
@@ -1235,6 +1367,17 @@ App installation token or a PAT) — never shipped to the browser.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference internal" href="heed.routing.html#heed.routing.Verdict" title="heed.routing.Verdict"><code class="xref py py-class docutils literal notranslate"><span class="pre">Verdict</span></code></a></span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="heed.list_comments">
+<span class="sig-prename descclassname"><span class="pre">heed.</span></span><span class="sig-name descname"><span class="pre">list_comments</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">store</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/threads.html#list_comments"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.list_comments" title="Link to this definition">#</a></dt>
+<dd><p>A thread’s comments, oldest first. Unreadable entries are skipped.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a>[<a class="reference internal" href="heed.threads.html#heed.threads.Comment" title="heed.threads.Comment"><code class="xref py py-class docutils literal notranslate"><span class="pre">Comment</span></code></a>]</span></p>
 </dd>
 </dl>
 </dd></dl>
@@ -1421,6 +1564,22 @@ report – and reports can carry personal data. Pass <code class="docutils liter
 </dd></dl>
 
 <dl class="py function">
+<dt class="sig sig-object py" id="heed.make_review_app">
+<span class="sig-prename descclassname"><span class="pre">heed.</span></span><span class="sig-name descname"><span class="pre">make_review_app</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">rootdir</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">is_moderator</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;function</span> <span class="pre">no_moderator&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">trusted_proxies</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">()</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rate_limiter</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rate_limit_per_minute</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_comments_per_thread</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">500</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">serve_shell</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/review.html#make_review_app"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.make_review_app" title="Link to this definition">#</a></dt>
+<dd><p>The review API (and, with <code class="docutils literal notranslate"><span class="pre">serve_shell</span></code>, the page at <code class="docutils literal notranslate"><span class="pre">/</span></code>).</p>
+<p>Routes: <code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/pages/{id}</span></code>, <code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/pages/{id}/media/{name}</span></code> (byte ranges),
+<code class="docutils literal notranslate"><span class="pre">GET|POST</span> <span class="pre">/threads/{id}</span></code>, <code class="docutils literal notranslate"><span class="pre">DELETE</span> <span class="pre">/threads/{id}/{comment}</span></code> (moderators),
+<code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/ui/review.{js,css}</span></code>. There is deliberately no HTTP listing of pages:
+it would hand every capability to any script running as the owner (the CLI’s
+<code class="docutils literal notranslate"><span class="pre">ls</span></code> lists them).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">FastAPI</span></code></span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
 <dt class="sig sig-object py" id="heed.make_router">
 <span class="sig-prename descclassname"><span class="pre">heed.</span></span><span class="sig-name descname"><span class="pre">make_router</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sink</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">config</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">attachment_store</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rate_limiter</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">origin_rate_limiter</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bot_verifier</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">user_dependency</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">resolve_sink</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">moderator</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">holding_sink</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">image_sanitizer</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">redactor</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;function</span> <span class="pre">redact_text&gt;</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/ingest.html#make_router"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.make_router" title="Link to this definition">#</a></dt>
 <dd><p>Build a FastAPI APIRouter exposing <code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/report</span></code> (and its CORS preflight).</p>
@@ -1439,6 +1598,35 @@ is never parsed.</p>
 validated origin to that site’s sink (<code class="docutils literal notranslate"><span class="pre">sink</span></code> is then the fallback and may be
 None; an origin resolving to no sink gets 403). <code class="docutils literal notranslate"><span class="pre">moderator</span></code> may hold reports in
 <code class="docutils literal notranslate"><span class="pre">holding_sink</span></code> (required with a moderator) or reject them; see <code class="docutils literal notranslate"><span class="pre">routing.py</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">APIRouter</span></code></span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="heed.make_thread_router">
+<span class="sig-prename descclassname"><span class="pre">heed.</span></span><span class="sig-name descname"><span class="pre">make_thread_router</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">threads</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">thread_exists</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;function</span> <span class="pre">valid_id&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">is_moderator</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;function</span> <span class="pre">no_moderator&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rate_limiter</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rate_limit_per_minute</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">thread_rate_limiter</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">thread_rate_limit_per_hour</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">120</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_comments_per_thread</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">500</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">trusted_proxies</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">()</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">honeypot_field</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'website'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">on_comment</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/threads.html#make_thread_router"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.make_thread_router" title="Link to this definition">#</a></dt>
+<dd><p>The HTTP surface of comment threads (<code class="docutils literal notranslate"><span class="pre">threads</span></code>: thread id -&gt; its store).</p>
+<p><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/threads/{thread}</span></code> lists, <code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/threads/{thread}</span></code> adds (a JSON body:
+<code class="docutils literal notranslate"><span class="pre">author</span></code>, <code class="docutils literal notranslate"><span class="pre">body</span></code>, optional <code class="docutils literal notranslate"><span class="pre">at_ms</span></code> and <code class="docutils literal notranslate"><span class="pre">media</span></code>),
+<code class="docutils literal notranslate"><span class="pre">DELETE</span> <span class="pre">/threads/{thread}/{id}</span></code> deletes when <code class="docutils literal notranslate"><span class="pre">is_moderator(request)</span></code> and the
+request carries the <code class="docutils literal notranslate"><span class="pre">X-Heed-Moderate</span></code> header. A thread for which
+<code class="docutils literal notranslate"><span class="pre">thread_exists</span></code> is false answers 404 to everything, which is how a host makes
+threads capabilities. A filled <code class="docutils literal notranslate"><span class="pre">honeypot_field</span></code> is accepted silently and
+stored nowhere. Behind a reverse proxy, set <code class="docutils literal notranslate"><span class="pre">trusted_proxies</span></code> or every visitor
+shares the proxy’s rate-limit bucket.</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">fastapi</span><span class="w"> </span><span class="kn">import</span> <span class="n">FastAPI</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">fastapi.testclient</span><span class="w"> </span><span class="kn">import</span> <span class="n">TestClient</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">app</span> <span class="o">=</span> <span class="n">FastAPI</span><span class="p">();</span> <span class="n">app</span><span class="o">.</span><span class="n">include_router</span><span class="p">(</span><span class="n">make_thread_router</span><span class="p">())</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">client</span> <span class="o">=</span> <span class="n">TestClient</span><span class="p">(</span><span class="n">app</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">client</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="s2">"/threads/t1"</span><span class="p">,</span> <span class="n">json</span><span class="o">=</span><span class="p">{</span><span class="s2">"author"</span><span class="p">:</span> <span class="s2">"Thor"</span><span class="p">,</span> <span class="s2">"body"</span><span class="p">:</span> <span class="s2">"hi"</span><span class="p">})</span><span class="o">.</span><span class="n">status_code</span>
+<span class="go">201</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="p">[</span><span class="n">c</span><span class="p">[</span><span class="s2">"body"</span><span class="p">]</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">client</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"/threads/t1"</span><span class="p">)</span><span class="o">.</span><span class="n">json</span><span class="p">()[</span><span class="s2">"comments"</span><span class="p">]]</span>
+<span class="go">['hi']</span>
+</pre></div>
+</div>
 <dl class="field-list simple">
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">APIRouter</span></code></span></p>
@@ -1485,6 +1673,20 @@ unless enabled in <code class="docutils literal notranslate"><span class="pre">c
 <dl class="field-list simple">
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#tuple" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">tuple</span></code></a>[<a class="reference internal" href="heed.base.html#heed.base.Report" title="heed.base.Report"><code class="xref py py-class docutils literal notranslate"><span class="pre">Report</span></code></a>, <a class="reference internal" href="heed.sinks.base.html#heed.sinks.base.SinkResult" title="heed.sinks.base.SinkResult"><code class="xref py py-class docutils literal notranslate"><span class="pre">SinkResult</span></code></a>]</span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="heed.publish_review">
+<span class="sig-prename descclassname"><span class="pre">heed.</span></span><span class="sig-name descname"><span class="pre">publish_review</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">media</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">title</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">note</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rootdir</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">to</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/review.html#publish_review"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.publish_review" title="Link to this definition">#</a></dt>
+<dd><p>Publish <code class="docutils literal notranslate"><span class="pre">media</span></code> as a new review page (or add it to page <code class="docutils literal notranslate"><span class="pre">to</span></code>).</p>
+<p>The files are copied into the data root. Adding to an existing page keeps its
+link and its thread, so a new cut can go where the old one’s comments are; a file
+with the name of one already on the page replaces it.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference internal" href="heed.review.html#heed.review.ReviewPage" title="heed.review.ReviewPage"><code class="xref py py-class docutils literal notranslate"><span class="pre">ReviewPage</span></code></a></span></p>
 </dd>
 </dl>
 </dd></dl>
@@ -1612,6 +1814,23 @@ leaves a claim on a report the other release already sent, and the next
 </dd></dl>
 
 <dl class="py function">
+<dt class="sig sig-object py" id="heed.review_url">
+<span class="sig-prename descclassname"><span class="pre">heed.</span></span><span class="sig-name descname"><span class="pre">review_url</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">page_id</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">base_url</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/review.html#review_url"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.review_url" title="Link to this definition">#</a></dt>
+<dd><p>The shareable link of a page: the base URL with the id as its fragment.</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">review_url</span><span class="p">(</span><span class="s2">"abc"</span><span class="p">,</span> <span class="s2">"https://apps.example/review"</span><span class="p">)</span>
+<span class="go">'https://apps.example/review/#abc'</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">review_url</span><span class="p">(</span><span class="s2">"abc"</span><span class="p">,</span> <span class="s2">""</span><span class="p">)</span>  <span class="c1"># no base URL: the fragment alone</span>
+<span class="go">'#abc'</span>
+</pre></div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
 <dt class="sig sig-object py" id="heed.roadmap">
 <span class="sig-prename descclassname"><span class="pre">heed.</span></span><span class="sig-name descname"><span class="pre">roadmap</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">items</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/board.html#roadmap"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.roadmap" title="Link to this definition">#</a></dt>
 <dd><p>Items still to come, started first; most-voted first within each stage.</p>
@@ -1708,20 +1927,26 @@ overrides them.</p>
 <tr class="row-even"><td><p><a class="reference internal" href="heed.redact.html#module-heed.redact" title="heed.redact"><code class="xref py py-obj docutils literal notranslate"><span class="pre">redact</span></code></a></p></td>
 <td><p>Redaction of personal data and secrets in captured console and network entries.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="heed.routing.html#module-heed.routing" title="heed.routing"><code class="xref py py-obj docutils literal notranslate"><span class="pre">routing</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="heed.review.html#module-heed.review" title="heed.review"><code class="xref py py-obj docutils literal notranslate"><span class="pre">review</span></code></a></p></td>
+<td><p>Review pages: media (a video, audio, images) with a comment thread under it.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="heed.routing.html#module-heed.routing" title="heed.routing"><code class="xref py py-obj docutils literal notranslate"><span class="pre">routing</span></code></a></p></td>
 <td><p>Where a report goes: server-side site resolution and moderation (holding state).</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="heed.security.html#module-heed.security" title="heed.security"><code class="xref py py-obj docutils literal notranslate"><span class="pre">security</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="heed.security.html#module-heed.security" title="heed.security"><code class="xref py py-obj docutils literal notranslate"><span class="pre">security</span></code></a></p></td>
 <td><p>Public-endpoint hardening (the ingest endpoint is unauthenticated and hostile).</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="heed.serving.html#module-heed.serving" title="heed.serving"><code class="xref py py-obj docutils literal notranslate"><span class="pre">serving</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="heed.serving.html#module-heed.serving" title="heed.serving"><code class="xref py py-obj docutils literal notranslate"><span class="pre">serving</span></code></a></p></td>
 <td><p>Serve stored screenshots: a read-only route meant for its own origin (issue #19).</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="heed.sinks.html#module-heed.sinks" title="heed.sinks"><code class="xref py py-obj docutils literal notranslate"><span class="pre">sinks</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="heed.sinks.html#module-heed.sinks" title="heed.sinks"><code class="xref py py-obj docutils literal notranslate"><span class="pre">sinks</span></code></a></p></td>
 <td><p>Sinks: pluggable report destinations (strategy pattern).</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="heed.storage.html#module-heed.storage" title="heed.storage"><code class="xref py py-obj docutils literal notranslate"><span class="pre">storage</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="heed.storage.html#module-heed.storage" title="heed.storage"><code class="xref py py-obj docutils literal notranslate"><span class="pre">storage</span></code></a></p></td>
 <td><p>Storage helpers — dol-backed stores for reports and binary attachments.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="heed.threads.html#module-heed.threads" title="heed.threads"><code class="xref py py-obj docutils literal notranslate"><span class="pre">threads</span></code></a></p></td>
+<td><p>Comment threads: a persistent, public, append-mostly conversation per key.</p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="heed.widget.html#module-heed.widget" title="heed.widget"><code class="xref py py-obj docutils literal notranslate"><span class="pre">widget</span></code></a></p></td>
 <td><p>Serve the embeddable widget, and state the contract it is built against.</p></td>
@@ -1806,6 +2031,15 @@ overrides them.</p>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.CategoryTreatment"><code class="docutils literal notranslate"><span class="pre">CategoryTreatment</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.Comment"><code class="docutils literal notranslate"><span class="pre">Comment</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.Comment.model_config"><code class="docutils literal notranslate"><span class="pre">Comment.model_config</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.Comment.moderator"><code class="docutils literal notranslate"><span class="pre">Comment.moderator</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.CommentSubmission"><code class="docutils literal notranslate"><span class="pre">CommentSubmission</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.CommentSubmission.model_config"><code class="docutils literal notranslate"><span class="pre">CommentSubmission.model_config</span></code></a></li>
+</ul>
+</li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.Environment"><code class="docutils literal notranslate"><span class="pre">Environment</span></code></a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.Environment.model_config"><code class="docutils literal notranslate"><span class="pre">Environment.model_config</span></code></a></li>
 </ul>
@@ -1850,6 +2084,10 @@ overrides them.</p>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.ReportSubmission.model_config"><code class="docutils literal notranslate"><span class="pre">ReportSubmission.model_config</span></code></a></li>
 </ul>
 </li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.ReviewPage"><code class="docutils literal notranslate"><span class="pre">ReviewPage</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.ReviewPage.model_config"><code class="docutils literal notranslate"><span class="pre">ReviewPage.model_config</span></code></a></li>
+</ul>
+</li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.Sink"><code class="docutils literal notranslate"><span class="pre">Sink</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.SinkResult"><code class="docutils literal notranslate"><span class="pre">SinkResult</span></code></a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.SinkResult.model_config"><code class="docutils literal notranslate"><span class="pre">SinkResult.model_config</span></code></a></li>
@@ -1863,12 +2101,16 @@ overrides them.</p>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.Verdict"><code class="docutils literal notranslate"><span class="pre">Verdict</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.accept_all"><code class="docutils literal notranslate"><span class="pre">accept_all()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.add_comment"><code class="docutils literal notranslate"><span class="pre">add_comment()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.attachment_headers"><code class="docutils literal notranslate"><span class="pre">attachment_headers()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.chain_moderators"><code class="docutils literal notranslate"><span class="pre">chain_moderators()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.changelog"><code class="docutils literal notranslate"><span class="pre">changelog()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.delete_comment"><code class="docutils literal notranslate"><span class="pre">delete_comment()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.discard_held"><code class="docutils literal notranslate"><span class="pre">discard_held()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.email_moderator"><code class="docutils literal notranslate"><span class="pre">email_moderator()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.github_sink_from_token"><code class="docutils literal notranslate"><span class="pre">github_sink_from_token()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.hold_all"><code class="docutils literal notranslate"><span class="pre">hold_all()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.list_comments"><code class="docutils literal notranslate"><span class="pre">list_comments()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.make_app"><code class="docutils literal notranslate"><span class="pre">make_app()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.make_attachment_app"><code class="docutils literal notranslate"><span class="pre">make_attachment_app()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.make_attachment_router"><code class="docutils literal notranslate"><span class="pre">make_attachment_router()</span></code></a></li>
@@ -1879,15 +2121,19 @@ overrides them.</p>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.make_image_sanitizer"><code class="docutils literal notranslate"><span class="pre">make_image_sanitizer()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.make_rate_limiter"><code class="docutils literal notranslate"><span class="pre">make_rate_limiter()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.make_report_store"><code class="docutils literal notranslate"><span class="pre">make_report_store()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.make_review_app"><code class="docutils literal notranslate"><span class="pre">make_review_app()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.make_router"><code class="docutils literal notranslate"><span class="pre">make_router()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.make_thread_router"><code class="docutils literal notranslate"><span class="pre">make_thread_router()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.make_widget_router"><code class="docutils literal notranslate"><span class="pre">make_widget_router()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.new_report_id"><code class="docutils literal notranslate"><span class="pre">new_report_id()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.process_submission"><code class="docutils literal notranslate"><span class="pre">process_submission()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.publish_review"><code class="docutils literal notranslate"><span class="pre">publish_review()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.recover_claimed"><code class="docutils literal notranslate"><span class="pre">recover_claimed()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.redact_text"><code class="docutils literal notranslate"><span class="pre">redact_text()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.redact_url"><code class="docutils literal notranslate"><span class="pre">redact_url()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.reencode_image"><code class="docutils literal notranslate"><span class="pre">reencode_image()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.release_held"><code class="docutils literal notranslate"><span class="pre">release_held()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.review_url"><code class="docutils literal notranslate"><span class="pre">review_url()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.roadmap"><code class="docutils literal notranslate"><span class="pre">roadmap()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.screenshot_url_resolver"><code class="docutils literal notranslate"><span class="pre">screenshot_url_resolver()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.sinks_by_origin"><code class="docutils literal notranslate"><span class="pre">sinks_by_origin()</span></code></a></li>

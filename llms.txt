@@ -14,6 +14,7 @@
 - [heed.images](_autosummary/heed.images.html.md): Neutralise uploaded screenshots before they are stored (issue #15).
 - [heed.ingest](_autosummary/heed.ingest.html.md): The ingest layer — build a Report from a submission and route it to a sink.
 - [heed.redact](_autosummary/heed.redact.html.md): Redaction of personal data and secrets in captured console and network entries.
+- [heed.review](_autosummary/heed.review.html.md): Review pages: media (a video, audio, images) with a comment thread under it.
 - [heed.routing](_autosummary/heed.routing.html.md): Where a report goes: server-side site resolution and moderation (holding state).
 - [heed.security](_autosummary/heed.security.html.md): Public-endpoint hardening (the ingest endpoint is unauthenticated and hostile).
 - [heed.serving](_autosummary/heed.serving.html.md): Serve stored screenshots: a read-only route meant for its own origin (issue #19).
@@ -23,9 +24,10 @@
 - [heed.sinks.github](_autosummary/heed.sinks.github.html.md): A sink that turns a report into a GitHub issue.
 - [heed.sinks.store](_autosummary/heed.sinks.store.html.md): A sink that persists reports into a Mapping (the default, dependency-free sink).
 - [heed.storage](_autosummary/heed.storage.html.md): Storage helpers — dol-backed stores for reports and binary attachments.
+- [heed.threads](_autosummary/heed.threads.html.md): Comment threads: a persistent, public, append-mostly conversation per key.
 - [heed.widget](_autosummary/heed.widget.html.md): Serve the embeddable widget, and state the contract it is built against.
 - [For AI agents](ai-agents.html.md): &#96;heed&#96; ships artifacts for coding agents alongside its code. This page lists
-- [About this build](about-this-build.html.md): This documentation was built on &#42;&#42;2026-10-20 10:06 UTC&#42;&#42; from commit &lt;a href="https://github.com/i2m...
+- [About this build](about-this-build.html.md): This documentation was built on &#42;&#42;2026-10-20 10:32 UTC&#42;&#42; from commit &lt;a href="https://github.com/i2m...
 
 ## Optional
 

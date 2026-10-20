@@ -379,6 +379,19 @@
 <p><code class="docutils literal notranslate"><span class="pre">heed</span></code> ships artifacts for coding agents alongside its code. This page lists
 them, says where each lives in the repository, and points at the
 machine-readable copies of this documentation.</p>
+<section id="skills">
+<h2>Skills<a class="headerlink" href="#skills" title="Link to this heading">#</a></h2>
+<p>Skills are folders holding a <code class="docutils literal notranslate"><span class="pre">SKILL.md</span></code> (the <a class="reference external" href="https://agentskills.io">Agent Skills</a> format): a description that tells an agent when to use it and a body with the procedure. Install one into your agent with <code class="docutils literal notranslate"><span class="pre">gh</span> <span class="pre">skill</span></code> (any host: <code class="docutils literal notranslate"><span class="pre">--agent</span> <span class="pre">claude-code</span></code>, <code class="docutils literal notranslate"><span class="pre">copilot</span></code>, <code class="docutils literal notranslate"><span class="pre">cursor</span></code>, <code class="docutils literal notranslate"><span class="pre">codex</span></code>, <code class="docutils literal notranslate"><span class="pre">gemini</span></code>), or use the copy bundled in the wheel.</p>
+<section id="heed-review">
+<h3><code class="docutils literal notranslate"><span class="pre">heed-review</span></code><a class="headerlink" href="#heed-review" title="Link to this heading">#</a></h3>
+<p>Publish media (a video, audio takes, images) as a public review page with a persistent comment thread under it, send the link to someone who has no account (a writer, a client, a collaborator), and read their comments back so you can act on them. Use when the user asks for “a page where X can comment on the video”, “get feedback from <someone> on this cut”, “let them pick a voice in the comments”, “a review link”, “share this for comments”, “what did <someone> say about the video”, or when a published review page needs a new cut on the same link. Not for the owner’s private reading (that is annals-publish).</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>gh<span class="w"> </span>skill<span class="w"> </span>install<span class="w"> </span>i2mint/heed<span class="w"> </span>heed-review<span class="w"> </span>--agent<span class="w"> </span>claude-code
+</pre></div>
+</div>
+<p>Source: <a class="reference external" href="https://github.com/i2mint/heed/tree/HEAD/heed/data/skills/heed-review"><code class="docutils literal notranslate"><span class="pre">heed/data/skills/heed-review</span></code></a> (bundled with the pip package).</p>
+<p>The bundled skills are also on disk after <code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">heed</span></code>, under the package’s <code class="docutils literal notranslate"><span class="pre">data/skills/</span></code> directory; link them into an agent without network access with <code class="docutils literal notranslate"><span class="pre">skill</span> <span class="pre">link-skills</span> <span class="pre">&lt;that</span> <span class="pre">directory&gt;</span></code>.</p>
+</section>
+</section>
 <section id="instruction-files">
 <h2>Instruction files<a class="headerlink" href="#instruction-files" title="Link to this heading">#</a></h2>
 <p>Files agents read before working in this repository.</p>
@@ -436,6 +449,10 @@ machine-readable copies of this documentation.</p>
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#skills">Skills</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#heed-review"><code class="docutils literal notranslate"><span class="pre">heed-review</span></code></a></li>
+</ul>
+</li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#instruction-files">Instruction files</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#machine-readable-documentation">Machine-readable documentation</a></li>
 </ul>

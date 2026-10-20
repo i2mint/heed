@@ -39,6 +39,14 @@
       make_report_store
       make_attachment_store
       make_holding_store
+      add_comment
+      list_comments
+      delete_comment
+      email_moderator
+      make_thread_router
+      publish_review
+      review_url
+      make_review_app
    
    .. rubric:: Classes
 
@@ -69,6 +77,9 @@
       BotVerifier
       SiteverifyBotVerifier
       Verdict
+      Comment
+      CommentSubmission
+      ReviewPage
    
 .. rubric:: Modules
 
@@ -82,9 +93,11 @@
    images
    ingest
    redact
+   review
    routing
    security
    serving
    sinks
    storage
+   threads
    widget
