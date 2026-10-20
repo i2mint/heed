@@ -25,7 +25,7 @@
 - [heed.storage](_autosummary/heed.storage.html.md): Storage helpers — dol-backed stores for reports and binary attachments.
 - [heed.widget](_autosummary/heed.widget.html.md): Serve the embeddable widget, and state the contract it is built against.
 - [For AI agents](ai-agents.html.md): &#96;heed&#96; ships artifacts for coding agents alongside its code. This page lists
-- [About this build](about-this-build.html.md): This documentation was built on &#42;&#42;2026-10-20 07:07 UTC&#42;&#42; from commit &lt;a href="https://github.com/i2m...
+- [About this build](about-this-build.html.md): This documentation was built on &#42;&#42;2026-10-20 07:18 UTC&#42;&#42; from commit &lt;a href="https://github.com/i2m...
 
 ## Optional
 
