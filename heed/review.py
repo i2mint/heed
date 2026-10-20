@@ -514,7 +514,8 @@ def main(argv: list[str] | None = None) -> int:
             from heed.threads import token_moderator
 
             try:
-                is_moderator = token_moderator(os.environ.get(a.moderator_token_env, ""))
+                token = os.environ.get(a.moderator_token_env, "")
+                is_moderator = token_moderator(token)
             except ValueError as e:
                 p.error(f"${a.moderator_token_env}: {e}")
         app = make_review_app(a.dir, is_moderator=is_moderator)
