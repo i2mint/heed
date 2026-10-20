@@ -835,6 +835,10 @@ segment redacted as text.
 '/api/users/[email]?q=[redacted]'
 >>> redact_url("https://app.example/reset/9f8e7d6c5b4a3f2e;jsessionid=X/42")
 'https://app.example/reset/[id]/[id]'
+>>> redact_url("https://app.example/r/AbCdEfGhIjKlMnOpQr%2Fx/eyJhbGci.eyJzdWIi.sigpart")
+'https://app.example/r/[id]/[id]'
+>>> redact_url("mailto:ana@example.com")
+'mailto:[redacted]'
 ```
 
 * **Return type:**

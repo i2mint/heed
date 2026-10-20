@@ -496,6 +496,10 @@ segment redacted as text.</p>
 <span class="go">'/api/users/[email]?q=[redacted]'</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">redact_url</span><span class="p">(</span><span class="s2">"https://app.example/reset/9f8e7d6c5b4a3f2e;jsessionid=X/42"</span><span class="p">)</span>
 <span class="go">'https://app.example/reset/[id]/[id]'</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">redact_url</span><span class="p">(</span><span class="s2">"https://app.example/r/AbCdEfGhIjKlMnOpQr</span><span class="si">%2F</span><span class="s2">x/eyJhbGci.eyJzdWIi.sigpart"</span><span class="p">)</span>
+<span class="go">'https://app.example/r/[id]/[id]'</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">redact_url</span><span class="p">(</span><span class="s2">"mailto:ana@example.com"</span><span class="p">)</span>
+<span class="go">'mailto:[redacted]'</span>
 </pre></div>
 </div>
 <dl class="field-list simple">

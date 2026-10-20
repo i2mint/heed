@@ -1050,7 +1050,10 @@ window.runMermaid = runMermaid;</script>
             <span class="k">return</span> <span class="n">not_found</span><span class="p">()</span>
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">data</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">max_bytes</span><span class="p">:</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-                <span class="s2">"heed: </span><span class="si">%s</span><span class="s2"> is </span><span class="si">%d</span><span class="s2"> bytes, over max_bytes=</span><span class="si">%d</span><span class="s2">: not served"</span><span class="p">,</span> <span class="n">ref</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">data</span><span class="p">),</span> <span class="n">max_bytes</span>
+                <span class="s2">"heed: </span><span class="si">%s</span><span class="s2"> is </span><span class="si">%d</span><span class="s2"> bytes, over max_bytes=</span><span class="si">%d</span><span class="s2">: not served"</span><span class="p">,</span>
+                <span class="n">ref</span><span class="p">,</span>
+                <span class="nb">len</span><span class="p">(</span><span class="n">data</span><span class="p">),</span>
+                <span class="n">max_bytes</span><span class="p">,</span>
             <span class="p">)</span>
             <span class="k">return</span> <span class="n">not_found</span><span class="p">()</span>
         <span class="n">media_type</span> <span class="o">=</span> <span class="n">sniff_image_type</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
