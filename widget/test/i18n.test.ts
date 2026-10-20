@@ -46,6 +46,9 @@ describe("pickLanguage", () => {
     expect(pickLanguage("fr-CA", "de")).toBe("fr");
     expect(pickLanguage("", null, "pt_BR")).toBe("pt");
     expect(pickLanguage(undefined, "ES")).toBe("es");
+    expect(pickLanguage("pt-PT", "fr")).toBe("pt-PT");
+    expect(pickLanguage("pt_pt")).toBe("pt-PT");
+    expect(pickLanguage("pt-BR")).toBe("pt");
   });
   it("English for unsupported or no language, without falling through to the next tag", () => {
     expect(pickLanguage("ja", "fr")).toBe("en");
