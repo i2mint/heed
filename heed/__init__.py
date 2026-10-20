@@ -2,8 +2,9 @@
 
 ``heed`` lets any visitor of a deployed web app report a bug or request a feature, with
 useful context gathered automatically, routed to a pluggable backend (GitHub Issues
-first). It works standalone and integrates with ``enlace`` as an optional add-on,
-without depending on it.
+first). It works standalone and integrates with ``enlace`` as an optional add-on; the
+only part of enlace it uses is the stdlib-only ``enlace.ratelimit`` (trusted-proxy
+client address and limiters), shared so the mechanism is implemented once.
 
 Phase 1 ships the backend core and the embeddable widget (``widget/``, served by
 :func:`make_widget_router`). The competitive
