@@ -483,8 +483,13 @@ def test_reporter_labels_are_dropped_unless_allow_listed_and_never_reserved():
     gh = FakeGitHub()
     report = _report(labels=["public", "wontfix", "ui", "x"])
     GitHubIssuesSink(gh.create_issue).submit(report)
-    assert "ui" not in gh.created[-1]["labels"] and "public" not in gh.created[-1]["labels"]
-    sink = GitHubIssuesSink(gh.create_issue, allowed_report_labels=["ui", "Public", " WontFix"])
+    assert (
+        "ui" not in gh.created[-1]["labels"]
+        and "public" not in gh.created[-1]["labels"]
+    )
+    sink = GitHubIssuesSink(
+        gh.create_issue, allowed_report_labels=["ui", "Public", " WontFix"]
+    )
     sink.submit(report)
     labels = gh.created[-1]["labels"]
     assert "ui" in labels and "x" not in labels

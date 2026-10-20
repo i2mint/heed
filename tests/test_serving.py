@@ -240,7 +240,10 @@ def test_a_symlink_out_of_the_root_is_not_served(tmp_path):
     with pytest.raises(KeyError):
         store[REF]
     signer = AttachmentSigner(KEY)
-    assert _client(store, signer=signer).get(signer.url("/attachments", REF)).status_code == 404
+    assert (
+        _client(store, signer=signer).get(signer.url("/attachments", REF)).status_code
+        == 404
+    )
     # a plain file in the root, and a root that is itself reached through a symlink
     (root / "ok.png").write_bytes(_tiny_png())
     (tmp_path / "link").symlink_to(root)
@@ -295,7 +298,9 @@ def test_hosts_are_required_unless_any_is_explicit():
     with pytest.raises(ValueError, match="allowed_hosts"):
         make_attachment_app({}, signer=signer)
     for any_host in (ANY_HOST, [ANY_HOST]):
-        app = make_attachment_app({REF: _tiny_png()}, signer=signer, allowed_hosts=any_host)
+        app = make_attachment_app(
+            {REF: _tiny_png()}, signer=signer, allowed_hosts=any_host
+        )
         r = TestClient(app, base_url="http://whatever.example")
         assert r.get(signer.url("/attachments", REF)).status_code == 200
 

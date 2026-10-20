@@ -147,7 +147,9 @@ class GitHubIssuesSink(BaseSink):
         url = self._screenshot_url(report) if self._screenshot_url else None
         body = render_issue_body(report, screenshot_url=url, light=light)
         issue = self._create_issue(
-            title=neutralise_refs(treatment.title_prefix + report.title), body=body, labels=labels
+            title=neutralise_refs(treatment.title_prefix + report.title),
+            body=body,
+            labels=labels,
         )
         number = issue.get("number")
         return SinkResult(
@@ -290,7 +292,10 @@ def render_issue_body(
     if report.body:
         lines += [neutralise_refs(report.body), ""]
 
-    reporter = neutralise_refs(report.identity.user or "") or f"anonymous ({report.identity.anon_id[:8]}…)"
+    reporter = (
+        neutralise_refs(report.identity.user or "")
+        or f"anonymous ({report.identity.anon_id[:8]}…)"
+    )
     meta = [f"- **Category**: {report.category.value}"]
     if report.page_url:
         meta.append(f"- **URL**: {neutralise_refs(report.page_url)}")
@@ -311,7 +316,9 @@ def render_issue_body(
     if report.console:
         lines += _collapsible(
             "Console",
-            neutralise_refs("\n".join(f"[{e.level}] {e.message}" for e in report.console)),
+            neutralise_refs(
+                "\n".join(f"[{e.level}] {e.message}" for e in report.console)
+            ),
         )
     if report.network:
         lines += _collapsible(
