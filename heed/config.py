@@ -70,6 +70,15 @@ class HeedConfig:
     trusted_proxies: list[str] = field(default_factory=list)
     ipv6_rate_limit_prefix: int = 64  # IPv6 clients share a bucket per /64
 
+    # --- Worker threads --------------------------------------------------------------
+    # Blocking calls run off the event loop, each kind in its own pool, so a burst of
+    # slow bot verifications (5 s timeout) cannot starve the rate limiters, the
+    # screenshot re-encodes or delivery, nor the app's default thread pool.
+    limiter_threads: int = 16
+    bot_verify_threads: int = 8
+    reencode_threads: int = 4  # queue in front of the max_concurrent_reencodes slots
+    delivery_threads: int = 8  # attachment store + sink (e.g. the GitHub API)
+
     # --- Bot gate (off until a secret is configured) --------------------------------
     bot_gate: str | None = None  # "turnstile" | "hcaptcha"; None infers turnstile
     bot_secret: str | None = field(default=None, repr=False)
@@ -120,9 +129,14 @@ class HeedConfig:
             ("max_concurrent_reencodes", 1),
             ("reencode_busy_wait_seconds", 0),
             ("reencode_retry_after_seconds", 0),
+            ("limiter_threads", 1),
+            ("bot_verify_threads", 1),
+            ("reencode_threads", 1),
+            ("delivery_threads", 1),
         ):
             if getattr(self, name) < low:
-                raise ValueError(f"{name} must be at least {low}, got {getattr(self, name)}")
+                value = getattr(self, name)
+                raise ValueError(f"{name} must be at least {low}, got {value}")
         if self.redis_socket_timeout_seconds <= 0:
             raise ValueError(
                 "redis_socket_timeout_seconds must be positive, "
