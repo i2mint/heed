@@ -85,12 +85,43 @@ export function maskText(text: string): string {
   return text.replace(CARD_CANDIDATE, (m) => (luhnOk(m.replace(/\D/g, "")) ? "[card]" : m));
 }
 
-const ID_SEGMENT = /^(?:\d+|(?=[A-Za-z_-]*\d)[A-Za-z0-9_-]{12,})$/;
+const ID_SEGMENT = /^(?:\d+|(?=[A-Za-z_.~+=-]*\d)[A-Za-z0-9_.~+=-]{12,})$/;
+const MIN_LETTER_TOKEN_LEN = 16; // all-letter tokens shorter than this read as words
+const MIN_TOKEN_ENTROPY = 3.8; // bits per character; slugs and words fall below
+const ALNUM = /^[\p{L}\p{N}]+$/u;
 
-/** One path segment: ids (all digits, or 12+ characters with a digit) and handles go, `;params` too. */
+/** Percent-decoding that leaves a malformed escape as it is (Python's `unquote`). */
+const lenientDecode = (s: string): string =>
+  s.replace(/(?:%[0-9A-Fa-f]{2})+/g, (run) => {
+    try {
+      return decodeURIComponent(run);
+    } catch {
+      return run;
+    }
+  });
+
+function entropy(text: string): number {
+  const counts = new Map<string, number>();
+  const chars = [...text];
+  for (const c of chars) counts.set(c, (counts.get(c) ?? 0) + 1);
+  let bits = 0;
+  for (const n of counts.values()) bits -= (n / chars.length) * Math.log2(n / chars.length);
+  return bits;
+}
+
+/** Is `segment` (percent-decoded) an id or an opaque token? Mirrors `_looks_like_token` in `redact.py`. */
+function looksLikeToken(segment: string): boolean {
+  if (ID_SEGMENT.test(segment)) return true;
+  const dots = segment.split(".").length - 1;
+  const body = dots > 1 ? segment.replaceAll(".", "") : segment; // slugs and file names are words
+  return [...segment].length >= MIN_LETTER_TOKEN_LEN && ALNUM.test(body) && entropy(segment) >= MIN_TOKEN_ENTROPY;
+}
+
+/** One path segment: ids and opaque tokens (also behind percent-encoding) and handles go, `;params` too. */
 function maskSegment(segment: string): string {
   segment = segment.split(";", 1)[0];
-  if (ID_SEGMENT.test(segment)) return "[id]";
+  const decoded = lenientDecode(segment);
+  if (looksLikeToken(decoded) || looksLikeToken(decoded.replaceAll("/", ""))) return "[id]";
   if (segment.startsWith("@")) return "[user]";
   return maskText(segment);
 }

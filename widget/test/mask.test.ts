@@ -64,3 +64,27 @@ describe("maskUrl", () => {
     expect(maskUrl("data:text/plain,secret")).toBe("data:[redacted]");
   });
 });
+
+describe("maskUrl: tokens the server catches (parity with redact.py)", () => {
+  const B = "https://app.example";
+  it.each([
+    ["/s/AbCdEfGhIjKlMnOpQrSt", "/s/[id]"],
+    ["/s/token%2EwithDots%2E9x8y7z", "/s/[id]"],
+    ["/r/AbCdEfGhIjKlMn%2FOpQrSt", "/r/[id]"],
+    ["/auth/eyJhbGci.eyJzdWIi.sigpart", "/auth/[id]"],
+    ["/help/terms-and-conditions-page", "/help/terms-and-conditions-page"],
+    ["/reset/abcdefghijklmnopqrstuvwx", "/reset/[id]"],
+    ["/docs/Getting-Started-With-Kubernetes", "/docs/Getting-Started-With-Kubernetes"],
+    ["/wiki/Pneumonoultramicroscopicsilicovolcanoconiosis", "/wiki/Pneumonoultramicroscopicsilicovolcanoconiosis"],
+    ["/files/MyQuarterlyReportFinal.pdf", "/files/MyQuarterlyReportFinal.pdf"],
+    ["/x/50%/AbCdEfGhIjKlMnOpQrSt", "/x/50%/[id]"],
+  ])("%s", (path, expected) => {
+    expect(maskUrl(path, B)).toBe(B + expected);
+  });
+
+  it("masks the payload of opaque schemes", () => {
+    expect(maskUrl("mailto:ana@example.com?subject=hi")).toBe("mailto:[redacted]");
+    expect(maskUrl("data:text/plain;base64,QUJD")).toBe("data:[redacted]");
+  });
+});
+
