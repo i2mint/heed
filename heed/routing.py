@@ -259,7 +259,7 @@ def release_held(
 def _leaf_sinks(sink):
     """``sink``, or the sinks inside a composite one (e.g. a ``CategorySink``)."""
     members = getattr(sink, "sinks", None)
-    if callable(members):
+    if getattr(sink, "is_composite_sink", False) and callable(members):
         for inner in members():
             yield from _leaf_sinks(inner)
     else:

@@ -502,3 +502,65 @@ def test_issue_urls_and_shas_are_defanged():
     out = neutralise_refs("see https://github.com/o/r/issues/3 and 0123abc4567def")
     assert "github.com/o/r/issues" not in out and "0123abc4567def" not in out
     assert neutralise_refs("https://example.com/a") == "https://example.com/a"
+
+
+# ------------------------------------------- follow-ups from the #9 review (heed#52)
+
+
+def test_board_survives_a_malformed_date_and_null_labels():
+    issues = [
+        {"number": 1, "title": "bad date", "labels": ["public"], "created_at": "not-a-date"},
+        {"number": 2, "title": "null labels", "labels": None},
+        {"number": 3, "title": "fine", "labels": ["public"], "created_at": "2026-01-02T03:04:05Z"},
+    ]
+    sink = GitHubIssuesSink(FakeGitHub().create_issue, list_issues=FakeGitHub(issues).list_issues)
+    items = sink.public_items()
+    assert [i.ref for i in items] == ["1", "3"]
+    assert items[0].created_at is None and items[1].created_at is not None
+
+
+def test_category_sink_lists_third_party_sinks_that_take_no_category_keyword():
+    from heed.sinks import CategorySink
+
+    class Plain:
+        def submit(self, report):  # pragma: no cover
+            ...
+
+        def public_items(self):
+            return [
+                PublicItem(ref="1", title="a", category=Category.feature),
+                PublicItem(ref="2", title="b", category=Category.bug),
+            ]
+
+    sink = CategorySink({"feature": Plain()}, default=StoreSink({}))
+    assert [i.ref for i in sink.public_items(category=Category.bug)] == ["2"]
+    assert len(sink.public_items()) == 2
+
+
+def test_items_without_a_link_are_deduped_across_sinks_by_what_they_say():
+    from heed.sinks import CategorySink
+
+    item = PublicItem(ref="7", title="same", category=Category.feature)
+
+    class Lists:
+        def submit(self, report):  # pragma: no cover
+            ...
+
+        def public_items(self, *, category=None):
+            return [item]
+
+    sink = CategorySink({"feature": Lists()}, default=Lists())
+    assert len(sink.public_items()) == 1
+
+
+def test_only_a_marked_composite_sink_is_walked_for_leaves():
+    from heed.routing import _leaf_sinks
+    from heed.sinks import CategorySink
+
+    class Odd:
+        def sinks(self):  # an unrelated method that happens to share the name
+            return ["not a sink"]
+
+    odd, leaf = Odd(), StoreSink({})
+    assert list(_leaf_sinks(odd)) == [odd]
+    assert list(_leaf_sinks(CategorySink({"bug": leaf}, default=leaf))) == [leaf]

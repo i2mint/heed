@@ -16,7 +16,10 @@ from __future__ import annotations
 import re
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
-from typing import Any
+from datetime import datetime
+from typing import Any, Optional
+
+from pydantic import TypeAdapter
 
 from heed.base import Category, Report, Status
 from heed.board import PublicItem
@@ -172,7 +175,7 @@ class GitHubIssuesSink(BaseSink):
         for issue in self._list_issues(labels=[self._public_label], state="all"):
             if "pull_request" in issue or issue.get("number") is None:
                 continue  # the issues API also returns pull requests
-            names = [_label_name(label) for label in issue.get("labels", ())]
+            names = [_label_name(label) for label in issue.get("labels") or ()]
             if self._public_label not in names:
                 continue
             item_category = self._category_of(names)
@@ -186,8 +189,8 @@ class GitHubIssuesSink(BaseSink):
                     status=self._status_of(issue, set(names)),
                     url=issue.get("html_url"),
                     votes=_votes(issue),
-                    created_at=issue.get("created_at"),
-                    closed_at=issue.get("closed_at"),
+                    created_at=_date_or_none(issue.get("created_at")),
+                    closed_at=_date_or_none(issue.get("closed_at")),
                 )
             )
         return items
@@ -249,6 +252,20 @@ def _resolve(
 def _fold(label: str) -> str:
     """GitHub label names are case-insensitive; compare them folded."""
     return str(label).strip().casefold()
+
+
+def _date_or_none(value: Any) -> datetime | None:
+    """``value`` as a date-time, or None when it is missing or unparsable.
+
+    One issue with a malformed date must cost that item its date, not the whole board.
+    """
+    try:
+        return _DATE.validate_python(value)
+    except ValueError:
+        return None
+
+
+_DATE = TypeAdapter(Optional[datetime])
 
 
 def _label_name(label: Any) -> str:
