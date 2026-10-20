@@ -52,7 +52,7 @@ def test_built_widget_is_shipped_with_its_manifest():
     stable = manifest["files"]["heed-widget.js"]
     assert stable["immutable"] is False and "integrity" not in stable
     loader = manifest["entries"]["loader"]
-    assert manifest["files"][loader]["gzip_bytes"] <= 1_300
+    assert manifest["files"][loader]["gzip_bytes"] <= 1_500
     assert manifest["files"]["heed.js"]["immutable"] is False
 
 

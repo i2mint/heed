@@ -21,8 +21,8 @@ import { licence } from "./licence.mjs";
 const here = dirname(fileURLToPath(import.meta.url));
 const OUT_DIR = join(here, "..", "heed", "static", "widget");
 const pkg = JSON.parse(readFileSync(join(here, "package.json"), "utf8"));
-// Gzipped-size budgets in bytes, per entry (widget: 10_000 plus the opt-in bot-gate adapter, heed#37, the i18n machinery, heed#39, the hCaptcha entry and gate cancel/visibility, heed#43, and the language re-rendering, heed#45, and the screenshot cancel signal, heed#38, and opt-in capture: its fields, consent box and recorder hookup, heed#7 (the recorder itself is a separate lazy file); translations are a separate lazy file).
-const BUDGETS = { raster: 14_000, locales: 5_000, recorder: 3_500, widget: 13_400, loader: 1_300 };
+// Gzipped-size budgets in bytes, per entry (widget: 10_000 plus the opt-in bot-gate adapter, heed#37, the i18n machinery, heed#39, the hCaptcha entry and gate cancel/visibility, heed#43, and the language re-rendering, heed#45, and the screenshot cancel signal, heed#38, and opt-in capture: its fields, consent box and recorder hookup, heed#7 (the recorder itself is a separate lazy file); translations are a separate lazy file; loader: 1_500 since it starts the recorder early when capture is on, heed#62).
+const BUDGETS = { raster: 14_000, locales: 5_000, recorder: 3_600, widget: 13_400, loader: 1_500 };
 const RETAIN_VERSIONS = 5;
 // Built in order: the bundle embeds the rasterizer's and the translations' hashed names
 // and SRI hashes, the loader the bundle's.
@@ -53,6 +53,8 @@ const ENTRIES = {
     define: (m) => ({
       __HEED_BUNDLE__: JSON.stringify(m.entries.widget),
       __HEED_INTEGRITY__: JSON.stringify(m.files[m.entries.widget].integrity),
+      __HEED_RECORDER__: JSON.stringify(m.entries.recorder),
+      __HEED_RECORDER_INTEGRITY__: JSON.stringify(m.files[m.entries.recorder].integrity),
     }),
   },
 };
