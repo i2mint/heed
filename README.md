@@ -4,8 +4,9 @@
 that lets *any visitor* of your deployed web app report a bug or request a feature,
 with useful context gathered automatically, routed to a pluggable backend (GitHub
 Issues first). Works standalone; integrates cleanly with
-[`enlace`](https://github.com/i2mint/enlace) as an optional add-on, but does **not**
-depend on it.
+[`enlace`](https://github.com/i2mint/enlace) as an optional add-on, and never needs an
+enlace platform to run. It only reuses enlace's stdlib-only rate-limit helpers, though
+installing heed installs the `enlace` package with its own dependencies (uvicorn, cw).
 
 > **Status: design phase.** The competitive landscape, the design rationale, and the
 > roadmap live in [`misc/docs/`](misc/docs/). Work is tracked in GitHub
@@ -35,8 +36,11 @@ routes wherever you want.
 
 ## Design principles
 
-- **Standalone first.** No hard `enlace` dependency; enlace integration is an optional
-  `[enlace]` extra with lazy imports.
+- **Standalone first.** heed never needs an enlace platform: the router mounts in any
+  FastAPI app. The one thing it takes from the `enlace` package is `enlace.ratelimit`
+  (trusted-proxy client address + limiters, standard library only), so that security
+  mechanism has one implementation and one test suite; mounting into enlace stays an
+  optional `[enlace]` extra.
 - **Privacy by default.** Heavy capture (console, network, session replay) is opt-in;
   PII masking is designed in, not bolted on.
 - **Public endpoint = hostile input.** Rate limiting, origin checks, payload caps, and

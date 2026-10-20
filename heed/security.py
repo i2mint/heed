@@ -19,16 +19,27 @@ composes them and deployments swap implementations without touching it:
 
 from __future__ import annotations
 
-import ipaddress
+import dataclasses
 import json
 import logging
-import threading
 import time
 import urllib.parse
 import urllib.request
-from collections import OrderedDict, deque
 from collections.abc import Callable, Iterable, Mapping
 from typing import Any, Protocol, runtime_checkable
+
+from enlace.ratelimit import (
+    DEFAULT_IPV6_PREFIX,
+    DEFAULT_MAX_KEYS,
+    DEFAULT_REDIS_SOCKET_TIMEOUT,
+    Network,
+    Rate,
+    RedisLimiter,
+    SlidingWindowLimiter,
+    bucket_key,
+    client_address,
+    parse_networks,
+)
 
 logger = logging.getLogger("heed.security")
 
@@ -103,33 +114,10 @@ def preflight_headers(
 
 
 # ------------------------------------------------------------------------- client ip
-
-
-Network = ipaddress.IPv4Network | ipaddress.IPv6Network
-
-
-def parse_networks(proxies: Iterable[str | Network]) -> list[Network]:
-    """Parse IPs/CIDRs (strings or network objects) into networks; raises ValueError.
-
-    Call it once at startup so a typo fails loudly there, not on every request.
-
-    >>> parse_networks(["127.0.0.1", "10.0.0.0/8"])
-    [IPv4Network('127.0.0.1/32'), IPv4Network('10.0.0.0/8')]
-    """
-    return [
-        p
-        if isinstance(p, (ipaddress.IPv4Network, ipaddress.IPv6Network))
-        else ipaddress.ip_network(p.strip(), strict=False)
-        for p in proxies
-    ]
-
-
-def _in_networks(addr: str, networks: list) -> bool:
-    try:
-        ip = ipaddress.ip_address(addr.strip())
-    except ValueError:
-        return False
-    return any(ip in net for net in networks)
+#
+# The trusted-proxy client address, the bucket key and the limiter algorithms are
+# one shared implementation in ``enlace.ratelimit`` (stdlib only), tested there;
+# the names below keep heed's public API and its keyword-style constructors.
 
 
 def client_ip(
@@ -138,47 +126,33 @@ def client_ip(
     *,
     trusted_proxies: Iterable[str | Network] = (),
 ) -> str:
-    """The client address to rate-limit on.
+    """The client address to rate-limit on (:func:`enlace.ratelimit.client_address`).
 
     ``X-Forwarded-For`` is attacker-controlled unless the direct peer is a trusted
     proxy, so it is only consulted then — and read right-to-left, skipping trusted
-    hops, so a client cannot prepend a fake address.
+    hops, so a client cannot prepend a fake address. A hop that is not an address
+    stops the walk (the peer is used).
 
     >>> client_ip("10.0.0.1", "6.6.6.6, 1.2.3.4", trusted_proxies=["10.0.0.0/8"])
     '1.2.3.4'
     >>> client_ip("5.5.5.5", "1.2.3.4")  # untrusted peer: header ignored
     '5.5.5.5'
     """
-    peer = peer or "unknown"
-    networks = parse_networks(trusted_proxies)
-    if not networks or not forwarded_for or not _in_networks(peer, networks):
-        return peer
-    for hop in reversed([h.strip() for h in forwarded_for.split(",") if h.strip()]):
-        if not _in_networks(hop, networks):
-            return hop
-    return peer
+    return client_address(peer, forwarded_for, trusted=parse_networks(trusted_proxies))
 
 
-def rate_limit_key(ip: str, *, ipv6_prefix: int = 64) -> str:
+def rate_limit_key(ip: str, *, ipv6_prefix: int = DEFAULT_IPV6_PREFIX) -> str:
     """The bucket key for ``ip``: IPv4 as-is, IPv6 grouped by its /``ipv6_prefix``.
 
     One IPv6 host typically owns a whole /64, so per-address buckets are trivially
-    dodged by rotating addresses.
+    dodged by rotating addresses (:func:`enlace.ratelimit.bucket_key`).
 
     >>> rate_limit_key("2001:db8::1") == rate_limit_key("2001:db8::ffff")
     True
     >>> rate_limit_key("1.2.3.4")
     '1.2.3.4'
     """
-    try:
-        addr = ipaddress.ip_address(ip)
-    except ValueError:
-        return ip
-    if addr.version == 6 and addr.ipv4_mapped is not None:
-        return str(addr.ipv4_mapped)
-    if addr.version == 6:
-        return str(ipaddress.ip_network(f"{addr}/{ipv6_prefix}", strict=False))
-    return ip
+    return bucket_key(ip, ipv6_prefix=ipv6_prefix)
 
 
 # ---------------------------------------------------------------------- rate limits
@@ -191,13 +165,29 @@ class RateLimiter(Protocol):
     def allow(self, key: str) -> bool: ...
 
 
-#: Keys an in-memory limiter tracks before evicting the least recently seen.
-DEFAULT_MAX_KEYS = 100_000
-#: Connect/read timeout of the Redis limiter: a hung Redis costs at most this long.
-DEFAULT_REDIS_SOCKET_TIMEOUT = 0.5
+class _WindowKnobs:
+    """heed's names for the shared limiters' :class:`~enlace.ratelimit.Rate`."""
+
+    rate: Rate
+
+    @property
+    def max_per_window(self) -> int:
+        return self.rate.limit
+
+    @max_per_window.setter
+    def max_per_window(self, value: int) -> None:
+        self.rate = dataclasses.replace(self.rate, limit=value)
+
+    @property
+    def window_seconds(self) -> float:
+        return self.rate.window
+
+    @window_seconds.setter
+    def window_seconds(self, value: float) -> None:
+        self.rate = dataclasses.replace(self.rate, window=value)
 
 
-class InMemoryRateLimiter:
+class InMemoryRateLimiter(_WindowKnobs, SlidingWindowLimiter):
     """Sliding-window, in-memory limiter. Per process — NOT shared across workers.
 
     Fine for a single-worker deployment; with several workers each one counts alone,
@@ -214,45 +204,39 @@ class InMemoryRateLimiter:
         max_keys: int = DEFAULT_MAX_KEYS,
         clock: Callable[[], float] = time.monotonic,
     ):
-        if max_keys < 1:
-            raise ValueError(f"max_keys must be at least 1, got {max_keys}")
-        self.max_per_window = max_per_window
-        self.window_seconds = window_seconds
-        self.max_keys = max_keys
-        self._clock = clock
-        self._hits: OrderedDict[str, deque] = OrderedDict()
-        self._lock = threading.Lock()  # the router calls limiters from a threadpool
-
-    def allow(self, key: str) -> bool:
-        with self._lock:
-            return self._allow(key)
-
-    def _allow(self, key: str) -> bool:
-        now = self._clock()
-        hits = self._hits.get(key)
-        if hits is None:
-            hits = self._hits[key] = deque()
-            while len(self._hits) > self.max_keys:
-                self._hits.popitem(last=False)
-        else:
-            self._hits.move_to_end(key)
-        cutoff = now - self.window_seconds
-        while hits and hits[0] <= cutoff:
-            hits.popleft()
-        if len(hits) >= self.max_per_window:
-            return False
-        hits.append(now)
-        return True
+        super().__init__(
+            Rate(max_per_window, window_seconds), max_keys=max_keys, clock=clock
+        )
 
 
-class RedisRateLimiter:
+class _AllowAsAcquire:
+    """Adapt an ``allow(key) -> bool`` limiter to ``acquire(key) -> seconds``."""
+
+    def __init__(self, limiter: RateLimiter, *, wait: float):
+        self.limiter, self.wait = limiter, wait
+
+    def acquire(self, key: str) -> float:
+        return 0.0 if self.limiter.allow(key) else self.wait
+
+
+class RedisRateLimiter(_WindowKnobs, RedisLimiter):
     """Fixed-window limiter in Redis — one count shared by every worker and host.
 
     ``client`` is any redis-py compatible client (injected; tests use a fake). When
     Redis errors, the request is decided by ``fallback`` (a per-process in-memory
     limiter by default), so an outage degrades protection instead of either dropping
-    all feedback or removing the limit.
+    all feedback or removing the limit. :meth:`from_url` builds the client from a
+    ``redis://`` URL (needs the ``[redis]`` extra).
+
+    After a Redis error the fallback alone decides for ``retry_seconds`` (5 s by
+    default) before Redis is tried again, so a hung Redis costs one socket timeout
+    per interval, not one per request; one warning per outage is logged, on the
+    ``enlace.ratelimit`` logger. An ``allow``-only ``fallback`` is wrapped to answer
+    ``acquire`` too, so ``.fallback`` is then that wrapper (its ``.limiter`` is
+    yours). Counters are named ``{namespace}:{window}:{key}:{window number}``.
     """
+
+    install_hint = "pip install 'heed[redis]'"
 
     def __init__(
         self,
@@ -265,50 +249,21 @@ class RedisRateLimiter:
         max_keys: int = DEFAULT_MAX_KEYS,
         clock: Callable[[], float] = time.time,
     ):
-        self.client = client
-        self.max_per_window = max_per_window
-        self.window_seconds = window_seconds
-        self.namespace = namespace
-        self.fallback = fallback or InMemoryRateLimiter(
-            max_per_window=max_per_window,
-            window_seconds=window_seconds,
-            max_keys=max_keys,
+        if fallback is None:
+            fallback = InMemoryRateLimiter(
+                max_per_window=max_per_window,
+                window_seconds=window_seconds,
+                max_keys=max_keys,
+            )
+        elif not hasattr(fallback, "acquire"):  # any ``allow``-only RateLimiter
+            fallback = _AllowAsAcquire(fallback, wait=window_seconds)
+        super().__init__(
+            client,
+            Rate(max_per_window, window_seconds),
+            namespace=namespace,
+            fallback=fallback,
+            clock=clock,
         )
-        self._clock = clock
-
-    @classmethod
-    def from_url(
-        cls, url: str, *, socket_timeout: float = DEFAULT_REDIS_SOCKET_TIMEOUT, **kwargs
-    ) -> RedisRateLimiter:
-        """Build from a ``redis://`` URL (needs the ``[redis]`` extra).
-
-        ``socket_timeout`` bounds both connect and reads, so a hung Redis costs at most
-        that long before the fallback limiter decides.
-        """
-        try:
-            import redis  # lazy: optional dependency
-        except ImportError as e:  # pragma: no cover - depends on environment
-            raise ImportError(
-                "The Redis rate limiter needs the redis client: "
-                "pip install 'heed[redis]'"
-            ) from e
-        client = redis.Redis.from_url(
-            url, socket_timeout=socket_timeout, socket_connect_timeout=socket_timeout
-        )
-        return cls(client, **kwargs)
-
-    def allow(self, key: str) -> bool:
-        window = int(self._clock() // self.window_seconds)
-        redis_key = f"{self.namespace}:{key}:{window}"
-        try:
-            pipe = self.client.pipeline()
-            pipe.incr(redis_key)
-            pipe.expire(redis_key, int(self.window_seconds) + 1)
-            count = pipe.execute()[0]
-        except Exception:  # noqa: BLE001 - any client/network failure
-            logger.warning("Redis rate limiter unavailable; using fallback limiter")
-            return self.fallback.allow(key)
-        return int(count) <= self.max_per_window
 
 
 def _memory_limiter(

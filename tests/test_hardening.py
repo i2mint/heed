@@ -246,6 +246,47 @@ def test_redis_limiter_falls_back_when_redis_down():
     assert lim.allow("k") and not lim.allow("k")
 
 
+def test_redis_limiter_accepts_an_allow_only_fallback():
+    """Any RateLimiter (allow -> bool) still works as the fallback."""
+
+    class Once:
+        def __init__(self):
+            self.seen = set()
+
+        def allow(self, key):
+            fresh = key not in self.seen
+            self.seen.add(key)
+            return fresh
+
+    lim = RedisRateLimiter(_FakeRedis(fail=True), max_per_window=5, fallback=Once())
+    assert lim.allow("k") and not lim.allow("k")
+    assert lim.acquire("k") == 60.0  # the window, when the fallback only says no
+
+
+def test_heed_limiters_keep_their_knobs():
+    lim = InMemoryRateLimiter(max_per_window=4, window_seconds=7)
+    assert (lim.max_per_window, lim.window_seconds, lim.max_keys) == (4, 7, 100_000)
+    lim.max_per_window, lim.window_seconds = 1, 30  # still assignable
+    assert lim.allow("k") and not lim.allow("k") and lim.acquire("k") <= 30
+    red = RedisRateLimiter(object(), max_per_window=2, window_seconds=3)
+    assert (red.max_per_window, red.window_seconds, red.namespace) == (2, 3, "heed:rl")
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [
+        {"rate_limit_per_minute": 0},
+        {"origin_rate_limit_per_minute": 0},
+        {"rate_limit_window_seconds": 0},
+    ],
+)
+def test_unenforceable_rate_limits_fail_at_config(bad):
+    from heed.config import HeedConfig
+
+    with pytest.raises(ValueError, match=next(iter(bad))):
+        HeedConfig(**bad)
+
+
 def test_make_rate_limiter_registry():
     assert isinstance(make_rate_limiter(max_per_window=3), InMemoryRateLimiter)
     with pytest.raises(ValueError, match="redis_url"):

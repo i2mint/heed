@@ -28,6 +28,8 @@ dependencies = [
     # CapacityLimiter built outside an event loop: one thread pool per blocking kind.
     "anyio>=4.5",
     "dol>=0.3.37",
+    # enlace.ratelimit: the shared trusted-proxy client address + limiters (#97 there).
+    "enlace>=0.1.62",
 ]
 
 [project.license]
@@ -44,8 +46,9 @@ heed = "heed.__main__:main"
 github = ["ghapi>=1.0"]
 # Shared rate limiting across workers/hosts (rate_limit_backend="redis").
 redis = ["redis>=4.2"]
-# Optional, lazy-imported integration: mount heed into an enlace platform.
-enlace = ["enlace>=0.1.0"]
+# Kept as an alias for existing installs: enlace is now a core dependency (for
+# enlace.ratelimit), so this extra adds nothing.
+enlace = ["enlace>=0.1.62"]
 # Re-encode uploaded screenshots (screenshot_sanitizer="reencode"; "auto" uses it
 # when present). Without it, heed strips images structurally in pure Python.
 images = ["Pillow>=10.0"]
