@@ -125,7 +125,9 @@ class GitHubIssuesSink(BaseSink):
             DEFAULT_STATUS_LABELS if status_labels is None else status_labels
         )
         # Never let a reporter apply the board's gate or a maintainer status label.
-        self._reserved_labels = {_fold(x) for x in (self._public_label, *self._status_labels)}
+        self._reserved_labels = {
+            _fold(x) for x in (self._public_label, *self._status_labels)
+        }
 
     def treatment(self, category: Category) -> CategoryTreatment:
         """The treatment applied to reports of ``category``."""
@@ -264,7 +266,7 @@ _SHA = re.compile(r"\b(?=[0-9a-f]*\d)(?=[0-9a-f]*[a-f])[0-9a-f]{7,40}\b", re.I)
 
 
 def neutralise_refs(text: str) -> str:
-    """Defuse GitHub ``@mention``, ``#123``, issue-URL and commit-SHA references in untrusted text.
+    """Defuse GitHub ``@mention``, ``#123``, issue-URL and SHA references.
 
     A zero-width joiner after ``@``/``#`` stops GitHub notifying a user or cross-linking
     an issue from the tracker's account. Only the rendered issue is changed; the stored
