@@ -79,7 +79,8 @@ function luhnOk(digits: string): boolean {
 }
 
 /** Base that only lets a relative URL parse; never emitted. */
-const PARSE_BASE = "http://heed.invalid";
+const PARSE_HOST = "heed.invalid";
+const PARSE_BASE = `http://${PARSE_HOST}`;
 
 /** `text` with personal data and secrets replaced by placeholders. */
 export function maskText(text: string): string {
@@ -154,7 +155,8 @@ export function maskUrl(url: string, base?: string): string {
   const keys = [...u.searchParams.keys()].map((k) => `${encodeURIComponent(maskText(k))}=${REDACTED}`);
   const query = keys.length ? `?${keys.join("&")}` : "";
   if (!relative) return `${u.protocol}//${u.host}${path}${query}`;
-  if (/^[/\\]{2}/.test(url)) return `//${u.host}${path}${query}`; // protocol-relative
-  if (!/^[/\\]/.test(url)) path = path.slice(1); // "a/b", "?q=1": no leading slash was given
+  if (u.host !== PARSE_HOST) return `//${u.host}${path}${query}`; // protocol-relative
+  if (path.startsWith("//")) path = `/.${path}`; // "/a/..//b" must not read as a host
+  else if (!/^[/\\]/.test(url.trimStart())) path = path.slice(1); // "a/b", "?q=1": no leading slash was given
   return `${path}${query}`;
 }

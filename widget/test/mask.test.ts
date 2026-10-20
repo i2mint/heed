@@ -69,6 +69,8 @@ describe("maskUrl", () => {
     expect(maskUrl("users/ana@example.com/@ana?t=s")).toBe("users/[email]/[user]?t=[redacted]");
     expect(maskUrl("?token=abc")).toBe("?token=[redacted]");
     expect(maskUrl("//cdn.example/u/12345?k=v")).toBe("//cdn.example/u/[id]?k=[redacted]");
+    expect(maskUrl("\t//cdn.example/12345")).toBe("//cdn.example/[id]");
+    expect(maskUrl("/a/..//evil/12345")).toBe("/.//evil/[id]");
   });
 });
 
