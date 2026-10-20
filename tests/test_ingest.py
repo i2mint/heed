@@ -1,10 +1,13 @@
 """Tests for the ingest core and the FastAPI router."""
 
+import json
+
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from heed import (
     HeedConfig,
+    Report,
     ReportSubmission,
     StoreSink,
     make_router,
@@ -72,3 +75,72 @@ def test_router_blocks_disallowed_origin():
         "/report", data={"title": "x"}, headers={"origin": "https://evil.example"}
     )
     assert resp.status_code == 403
+
+
+def _capture_client(**config):
+    store: dict = {}
+    app = FastAPI()
+    app.include_router(make_router(StoreSink(store), config=HeedConfig(**config)))
+    return TestClient(app), store
+
+
+_CONSOLE = json.dumps(
+    [{"level": "error", "message": "auth failed for ana@example.com token=s3cr3t"}]
+)
+_NETWORK = json.dumps(
+    [{"method": "GET", "url": "https://u:p@api.ex/me?session=abc#x", "status": 401}]
+)
+
+
+def test_router_ignores_capture_unless_accepted():
+    """Without the opt-in, console/network fields are neither parsed nor kept."""
+    client, store = _capture_client()
+    resp = client.post(
+        "/report",
+        data={"title": "t", "console": "not json", "network": _NETWORK},
+        headers={"origin": "http://test"},
+    )
+    assert resp.status_code == 200, resp.text
+    report = Report.model_validate_json(store[resp.json()["id"]])
+    assert report.console is None and report.network is None
+
+
+def test_router_redacts_accepted_capture():
+    """Accepted capture is masked on the server whatever the widget sent."""
+    client, store = _capture_client(accept_console=True, accept_network=True)
+    resp = client.post(
+        "/report",
+        data={"title": "t", "console": _CONSOLE, "network": _NETWORK},
+        headers={"origin": "http://test"},
+    )
+    assert resp.status_code == 200, resp.text
+    report = Report.model_validate_json(store[resp.json()["id"]])
+    assert report.console[0].message == "auth failed for [email] token=[redacted]"
+    assert report.network[0].url == "https://api.ex/me?session=[redacted]"
+    assert report.network[0].status == 401
+
+
+def test_router_rejects_malformed_capture():
+    """An accepted capture field that is not a JSON array is a 422 naming the field."""
+    client, _ = _capture_client(accept_console=True)
+    resp = client.post(
+        "/report",
+        data={"title": "t", "console": '{"level": "x"}'},
+        headers={"origin": "http://test"},
+    )
+    assert resp.status_code == 422
+    assert resp.json()["detail"] == "invalid console: must be a JSON array"
+
+
+def test_process_submission_uses_injected_redactor():
+    """The redactor is a seam: a stricter one replaces the default."""
+    from heed import LogEntry
+
+    sub = ReportSubmission(title="x", console=[LogEntry(level="log", message="hello")])
+    report, _ = process_submission(
+        sub,
+        StoreSink({}),
+        config=HeedConfig(accept_console=True),
+        redactor=lambda text: "*" * len(text),
+    )
+    assert report.console[0].message == "*****"

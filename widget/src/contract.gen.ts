@@ -8,6 +8,8 @@ export const CONTRACT = {
     "page_url": "page_url",
     "env": "env",
     "anon_id": "anon_id",
+    "console": "console",
+    "network": "network",
     "screenshot": "screenshot",
     "bot_token": "bot_token",
     "honeypot": "hp_website"
@@ -26,6 +28,8 @@ export const CONTRACT = {
     "extra_items": 32,
     "extra_key_chars": 64,
     "anon_id_chars": 128,
+    "log_entries": 200,
+    "log_message_chars": 2000,
     "field_bytes": 100000,
     "screenshot_bytes": 5000000,
     "screenshot_pixels": 25000000
