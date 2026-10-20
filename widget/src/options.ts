@@ -205,7 +205,7 @@ function cleanValue(value: unknown, spec: OptionSpec<unknown>): unknown {
   const dflt = spec.default;
   if (spec.clean) return spec.clean(value);
   if (dflt === null) return value === null || typeof value === "function" ? value : undefined;
-  if (Array.isArray(dflt)) return Array.isArray(value) ? spec.parse?.(value.join(",")) : undefined;
+  if (Array.isArray(dflt)) return Array.isArray(value) || typeof value === "string" ? spec.parse?.(String(value).trim()) : undefined;
   if (typeof value !== typeof dflt) return undefined;
   return spec.parse && typeof value !== "boolean" ? spec.parse(String(value)) : value;
 }

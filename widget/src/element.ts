@@ -238,7 +238,7 @@ export class HeedFeedbackElement extends Base {
     const error = h(doc, "p", { class: "status error", role: "alert" });
     const submit = h(doc, "button", { type: "submit", class: "primary", part: "submit" }, tx("send"));
     const cancel = h(doc, "button", { type: "button", value: "cancel" }, tx("cancel"));
-    const note = h(doc, "p", { class: "note" });
+    const note = h(doc, "p", { class: "note", role: "status" });
     const shotBox = h(doc, "input", { type: "checkbox", checked: true });
     const shotState = h(doc, "p", { class: "note", role: "status" });
     const preview = h(doc, "img", { class: "preview", hidden: true, part: "preview" });

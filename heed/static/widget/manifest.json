@@ -4,8 +4,8 @@
     "raster": "heed-raster-98648ba451.js",
     "locales": "heed-locales-888fd202bc.js",
     "recorder": "heed-recorder-7f903d016c.js",
-    "widget": "heed-widget-b4bd2405d6.js",
-    "loader": "heed-bca6c3df62.js"
+    "widget": "heed-widget-b0eff6883e.js",
+    "loader": "heed-e5f02d8191.js"
   },
   "files": {
     "heed-raster-98648ba451.js": {
@@ -29,20 +29,20 @@
       "bytes": 7753,
       "gzip_bytes": 3817
     },
-    "heed-widget-b4bd2405d6.js": {
-      "integrity": "sha384-Mij8YAMt+9UZqLfxdiMWWlz+5Fzxlg2o7Mw33W0VeTHYoQYp+0AVhvawIJFnMk4N",
+    "heed-widget-b0eff6883e.js": {
+      "integrity": "sha384-Ca+2r56NrFGdLglpFF/3Di1zM7gTVOpPSSkCA2ooGxXaRSNzXEqjG+EPm9dN3Crk",
       "immutable": true,
       "version": "0.9.1",
-      "bytes": 35265,
-      "gzip_bytes": 13403
+      "bytes": 35304,
+      "gzip_bytes": 13405
     },
     "heed-widget.js": {
       "immutable": false,
-      "bytes": 35265,
-      "gzip_bytes": 13403
+      "bytes": 35304,
+      "gzip_bytes": 13405
     },
-    "heed-bca6c3df62.js": {
-      "integrity": "sha384-9rIzYSSyEmfS/QrZmEjmcAdXJbfK2brywhfZyKGIoGfnBtRrUN3zrKDGzVO+R6ZY",
+    "heed-e5f02d8191.js": {
+      "integrity": "sha384-GNz4jTZgPODfKD9sxxQuKTu5Ai3nzroC2XNnI4+NMPV605wMEYFwmquYn2FZmPUm",
       "immutable": true,
       "version": "0.9.1",
       "bytes": 2361,

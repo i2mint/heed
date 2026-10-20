@@ -148,6 +148,15 @@ describe("light intake for feature requests", () => {
     expect(envOf(fetch).user_agent).toBeTruthy();
   });
 
+  it("accepts an empty string for lightCategories in configure(), and announces the note", () => {
+    const el = mount(vi.fn(async () => png()));
+    el.configure({ lightCategories: "" });
+    expect(el.options.lightCategories).toEqual([]);
+    el.configure({ lightCategories: " bug " });
+    expect(el.options.lightCategories).toEqual(["bug"]);
+    expect(el.shadowRoot!.querySelector("p.note")!.getAttribute("role")).toBe("status");
+  });
+
   it("takes the screenshot when light-categories is emptied while open on a feature", async () => {
     const fetch = ok();
     vi.stubGlobal("fetch", fetch);
