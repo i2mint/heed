@@ -629,6 +629,9 @@ def make_router(
 
         shot = fields.get("screenshot") or None
         shot_type = "image/png"
+        if shot is not None and submission.category.value in cfg.light_categories:
+            # a light report never keeps one: drop it before a 415 or a re-encode
+            shot = None
         if shot is not None:
             if len(shot) > cfg.max_screenshot_bytes:
                 raise _fail(413, "screenshot too large", origin)

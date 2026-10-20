@@ -186,3 +186,25 @@ def test_unparseable_page_url_is_dropped():
     from heed import redact_text
 
     assert _page_url("http://[::1?t=secret", HeedConfig(), redact_text) == ""
+
+
+def test_a_light_report_drops_its_screenshot_before_it_is_checked():
+    """heed#52: a feature request's screenshot is never kept, so a malformed one is no 415."""
+    app = FastAPI()
+    app.include_router(make_router(StoreSink({}), config=HeedConfig()))
+    client = TestClient(app)
+    junk = {"screenshot": ("s.png", b"not an image", "image/png")}
+    light = client.post(
+        "/report",
+        data={"title": "idea", "category": "feature"},
+        files=junk,
+        headers={"origin": "http://test"},
+    )
+    assert light.status_code == 200, light.text
+    bug = client.post(
+        "/report",
+        data={"title": "broken", "category": "bug"},
+        files=junk,
+        headers={"origin": "http://test"},
+    )
+    assert bug.status_code == 415
