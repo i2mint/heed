@@ -39,3 +39,29 @@ def test_github_sink_uses_injected_create_issue():
     assert calls["title"] == "Login broken"
     assert "bug" in calls["labels"]
     assert "it broke" in calls["body"]
+
+
+def test_github_sink_neutralises_mentions_and_refs():
+    """@user and #123 in untrusted text get a zero-width joiner; stored report is intact."""
+    calls: dict = {}
+
+    def fake_create_issue(*, title, body, labels):
+        calls.update(title=title, body=body)
+        return {"number": 1, "html_url": "u"}
+
+    r = _report(title="hi @octocat #5", body="ping @someone, see #123")
+    GitHubIssuesSink(fake_create_issue).submit(r)
+    for text in (calls["title"], calls["body"]):
+        assert "@octocat" not in text and "@someone" not in text
+        assert "#5" not in text and "#123" not in text
+    assert "@‍someone" in calls["body"]
+    assert r.body == "ping @someone, see #123"
+
+
+def test_github_sink_fence_cannot_be_closed_by_console_text():
+    """Console text containing ``` does not break out of the code fence."""
+    from heed.sinks.github import render_issue_body
+
+    r = _report(console=[{"level": "log", "message": "```\n<img src=x>"}])
+    body = render_issue_body(r)
+    assert "````\n[log] ```" in body
