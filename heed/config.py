@@ -115,6 +115,19 @@ class HeedConfig:
                 "list; reflecting any origin with credentials lets every site on the "
                 "web submit as your logged-in users"
             )
+        for name, low in (
+            ("rate_limit_max_keys", 1),  # 0 evicts every key at once: no limit at all
+            ("max_concurrent_reencodes", 1),
+            ("reencode_busy_wait_seconds", 0),
+            ("reencode_retry_after_seconds", 0),
+        ):
+            if getattr(self, name) < low:
+                raise ValueError(f"{name} must be at least {low}, got {getattr(self, name)}")
+        if self.redis_socket_timeout_seconds <= 0:
+            raise ValueError(
+                "redis_socket_timeout_seconds must be positive, "
+                f"got {self.redis_socket_timeout_seconds}"
+            )
         if not 0 <= self.ipv6_rate_limit_prefix <= 128:
             raise ValueError(
                 f"ipv6_rate_limit_prefix must be in 0..128, "

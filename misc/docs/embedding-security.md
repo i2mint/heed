@@ -39,7 +39,7 @@ Every knob is a keyword of `HeedConfig` and can also come from a `HEED_<NAME>` e
 | `max_body_bytes` | 6 MB | Whole request. Must be at least `max_screenshot_bytes`. |
 | `max_screenshot_bytes` | 5 MB | The screenshot file. |
 | `screenshot_sanitizer` | `"auto"` | `"reencode"` (strip, then decode and re-save with Pillow, `pip install heed[images]`), `"strip"` (pure Python: allow-listed, length-checked chunks only, truncated at the end marker; the compressed pixel data and the JPEG quantisation and Huffman tables are kept as sent, so arbitrary bytes can survive in them: use `"reencode"` where a stored screenshot might be served to a browser), `"auto"` (re-encode if Pillow is installed, else strip with a startup warning), `"none"` (store as received). |
-| `max_screenshot_pixels` | 8.5 M | Re-encode refuses larger canvases before decoding (a 1.5 KB WebP can declare 40 M pixels and need 700 MB to decode; an 84 KB 25 M-pixel PNG costs ~1 s of CPU). The widget never renders more than 8 M. |
+| `max_screenshot_pixels` | 8.5 M | Re-encode refuses larger canvases before decoding (a 1.5 KB WebP can declare 40 M pixels and need 700 MB to decode; an 84 KB 25 M-pixel PNG costs ~1 s of CPU). The widget never renders more than 8 M, so raising this past 8 M only admits other clients' larger images. |
 | `max_concurrent_reencodes` | 2 | Re-encodes in flight per process; a request that waits more than 2 s for a slot gets `503`. |
 | `reencode_busy_wait_seconds` | 2 | How long a submission waits for a free re-encode slot before its 503. |
 | `reencode_retry_after_seconds` | 5 | `Retry-After` sent with that 503. |

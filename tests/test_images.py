@@ -362,8 +362,32 @@ def test_config_is_the_single_source_of_the_sanitizer_and_limiter_defaults():
     assert cfg.reencode_retry_after_seconds == images.BUSY_RETRY_AFTER_SECONDS
     assert cfg.rate_limit_max_keys == security.DEFAULT_MAX_KEYS
     assert cfg.redis_socket_timeout_seconds == security.DEFAULT_REDIS_SOCKET_TIMEOUT
-    # the widget never renders more than 8M pixels; the cap leaves it room
-    assert 8_000_000 < images.DEFAULT_MAX_PIXELS < 25_000_000
+    # the widget never renders more than its own pixel ceiling; the cap leaves it room
+    import re
+    from pathlib import Path
+
+    raster = Path(__file__).parents[1] / "widget" / "src" / "raster.ts"
+    ceiling = int(
+        re.search(r"Math\.min\(o\.maxPixels, ([\d_]+)\)", raster.read_text())
+        .group(1)
+        .replace("_", "")
+    )
+    assert ceiling < images.DEFAULT_MAX_PIXELS < 25_000_000
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [
+        {"rate_limit_max_keys": 0},
+        {"max_concurrent_reencodes": 0},
+        {"reencode_busy_wait_seconds": -1},
+        {"reencode_retry_after_seconds": -1},
+        {"redis_socket_timeout_seconds": 0},
+    ],
+)
+def test_config_refuses_knobs_that_disable_a_protection(bad):
+    with pytest.raises(ValueError, match=next(iter(bad))):
+        HeedConfig(**bad)
 
 
 def test_limiter_knobs_reach_the_limiters():

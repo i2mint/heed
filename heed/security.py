@@ -214,6 +214,8 @@ class InMemoryRateLimiter:
         max_keys: int = DEFAULT_MAX_KEYS,
         clock: Callable[[], float] = time.monotonic,
     ):
+        if max_keys < 1:
+            raise ValueError(f"max_keys must be at least 1, got {max_keys}")
         self.max_per_window = max_per_window
         self.window_seconds = window_seconds
         self.max_keys = max_keys
