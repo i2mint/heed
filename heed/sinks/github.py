@@ -13,6 +13,7 @@ embed it in the body; base64 data-URIs do not render.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 from typing import Any
@@ -135,7 +136,7 @@ class GitHubIssuesSink(BaseSink):
         url = self._screenshot_url(report) if self._screenshot_url else None
         body = render_issue_body(report, screenshot_url=url, light=light)
         issue = self._create_issue(
-            title=treatment.title_prefix + report.title, body=body, labels=labels
+            title=neutralise_refs(treatment.title_prefix + report.title), body=body, labels=labels
         )
         number = issue.get("number")
         return SinkResult(
@@ -242,6 +243,19 @@ def _votes(issue: Mapping[str, Any]) -> int:
     return plus if isinstance(plus, int) and plus > 0 else 0
 
 
+_REF_CHARS = re.compile(r"(?<![\w`])([@#])(?=\w)")
+
+
+def neutralise_refs(text: str) -> str:
+    """Defuse GitHub ``@mention`` and ``#123`` references in untrusted text.
+
+    A zero-width joiner after ``@``/``#`` stops GitHub notifying a user or cross-linking
+    an issue from the tracker's account. Only the rendered issue is changed; the stored
+    report keeps the original text.
+    """
+    return _REF_CHARS.sub("\\1\u200d", text)
+
+
 def render_issue_body(
     report: Report, *, screenshot_url: str | None = None, light: bool = False
 ) -> str:
@@ -253,16 +267,18 @@ def render_issue_body(
     """
     lines: list[str] = []
     if report.body:
-        lines += [report.body, ""]
+        lines += [neutralise_refs(report.body), ""]
 
-    reporter = report.identity.user or f"anonymous ({report.identity.anon_id[:8]}…)"
+    reporter = neutralise_refs(report.identity.user or "") or f"anonymous ({report.identity.anon_id[:8]}…)"
     meta = [f"- **Category**: {report.category.value}"]
     if report.page_url:
-        meta.append(f"- **URL**: {report.page_url}")
+        meta.append(f"- **URL**: {neutralise_refs(report.page_url)}")
     if not light and (report.env.browser or report.env.os):
-        env_line = f"- **Env**: {report.env.browser or '?'} on {report.env.os or '?'}"
+        env_line = neutralise_refs(
+            f"- **Env**: {report.env.browser or '?'} on {report.env.os or '?'}"
+        )
         if report.env.viewport:
-            env_line += f" ({report.env.viewport})"
+            env_line += neutralise_refs(f" ({report.env.viewport})")
         meta.append(env_line)
     meta.append(f"- **Reporter**: {reporter}")
     lines += meta + [""]
@@ -273,27 +289,34 @@ def render_issue_body(
         return "\n".join(lines).rstrip() + "\n"
     if report.console:
         lines += _collapsible(
-            "Console", "\n".join(f"[{e.level}] {e.message}" for e in report.console)
+            "Console",
+            neutralise_refs("\n".join(f"[{e.level}] {e.message}" for e in report.console)),
         )
     if report.network:
         lines += _collapsible(
             "Network",
-            "\n".join(
-                f"{e.method} {e.url} -> {e.status if e.status is not None else '?'}"
-                for e in report.network
+            neutralise_refs(
+                "\n".join(
+                    f"{e.method} {e.url} -> {e.status if e.status is not None else '?'}"
+                    for e in report.network
+                )
             ),
         )
     return "\n".join(lines).rstrip() + "\n"
 
 
 def _collapsible(summary: str, content: str) -> list[str]:
+    # A fence longer than any backtick run in the (untrusted) content cannot be closed
+    # early by it.
+    longest = max((len(m) for m in re.findall(r"`+", content)), default=0)
+    fence = "`" * max(3, longest + 1)
     return [
         "<details>",
         f"<summary>{summary}</summary>",
         "",
-        "```",
+        fence,
         content,
-        "```",
+        fence,
         "",
         "</details>",
         "",
