@@ -997,7 +997,7 @@ window.runMermaid = runMermaid;</script>
 <span class="k">def</span><span class="w"> </span><span class="nf">_leaf_sinks</span><span class="p">(</span><span class="n">sink</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">"""``sink``, or the sinks inside a composite one (e.g. a ``CategorySink``)."""</span>
     <span class="n">members</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">sink</span><span class="p">,</span> <span class="s2">"sinks"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
-    <span class="k">if</span> <span class="nb">callable</span><span class="p">(</span><span class="n">members</span><span class="p">):</span>
+    <span class="k">if</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">sink</span><span class="p">,</span> <span class="s2">"is_composite_sink"</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">callable</span><span class="p">(</span><span class="n">members</span><span class="p">):</span>
         <span class="k">for</span> <span class="n">inner</span> <span class="ow">in</span> <span class="n">members</span><span class="p">():</span>
             <span class="k">yield from</span> <span class="n">_leaf_sinks</span><span class="p">(</span><span class="n">inner</span><span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>

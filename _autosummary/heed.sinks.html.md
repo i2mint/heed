@@ -70,6 +70,11 @@ Return likely duplicates of `report` (default: none).
 * **Return type:**
   [`list`](https://docs.python.org/3/builtins/stdtypes.html#list)[[`DupCandidate`](heed.sinks.base.html.md#heed.sinks.base.DupCandidate)]
 
+#### is_composite_sink *: [ClassVar](https://docs.python.org/3/library/typing.html#typing.ClassVar)[[bool](https://docs.python.org/3/builtins/functions.html#bool)]* *= True*
+
+Marks a sink that holds other sinks, so code walking a sink tree (the
+held-report release guard) does not mistake any sink with a `sinks` method.
+
 #### public_items(, category=None)
 
 Every distinct member sink’s public items (a shared link once).

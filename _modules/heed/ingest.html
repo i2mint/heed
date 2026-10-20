@@ -1351,6 +1351,9 @@ window.runMermaid = runMermaid;</script>
 
         <span class="n">shot</span> <span class="o">=</span> <span class="n">fields</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"screenshot"</span><span class="p">)</span> <span class="ow">or</span> <span class="kc">None</span>
         <span class="n">shot_type</span> <span class="o">=</span> <span class="s2">"image/png"</span>
+        <span class="k">if</span> <span class="n">shot</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">submission</span><span class="o">.</span><span class="n">category</span><span class="o">.</span><span class="n">value</span> <span class="ow">in</span> <span class="n">cfg</span><span class="o">.</span><span class="n">light_categories</span><span class="p">:</span>
+            <span class="c1"># a light report never keeps one: drop it before a 415 or a re-encode</span>
+            <span class="n">shot</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">if</span> <span class="n">shot</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">shot</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">cfg</span><span class="o">.</span><span class="n">max_screenshot_bytes</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="n">_fail</span><span class="p">(</span><span class="mi">413</span><span class="p">,</span> <span class="s2">"screenshot too large"</span><span class="p">,</span> <span class="n">origin</span><span class="p">)</span>

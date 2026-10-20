@@ -2,7 +2,7 @@
 
 # About this build
 
-This documentation was built on **2026-10-20 10:32 UTC** from commit <a href="https://github.com/i2mint/heed/commit/cf00921788e4940ec8bed18c19ff04150e5bf0df"><code>cf00921</code></a> on branch <code>main</code>, for **heed 0.0.1** (from <code>pyproject.toml</code>).
+This documentation was built on **2026-10-20 10:54 UTC** from commit <a href="https://github.com/i2mint/heed/commit/3286250b57dae4218ae2485887acaa63970e8e86"><code>3286250</code></a> on branch <code>main</code>, for **heed 0.0.1** (from <code>pyproject.toml</code>).
 
 #### WARNING
 The documentation and the package may be misaligned:
@@ -13,7 +13,7 @@ The documentation and the package may be misaligned:
 
 |                     |                                                                                                                                                    |
 |---------------------|----------------------------------------------------------------------------------------------------------------------------------------------------|
-| Commit              | <a href="https://github.com/i2mint/heed/commit/cf00921788e4940ec8bed18c19ff04150e5bf0df"><code>cf00921788e4940ec8bed18c19ff04150e5bf0df</code></a> |
+| Commit              | <a href="https://github.com/i2mint/heed/commit/3286250b57dae4218ae2485887acaa63970e8e86"><code>3286250b57dae4218ae2485887acaa63970e8e86</code></a> |
 | Branch              | <code>main</code>                                                                                                                                  |
 | Tags at this commit | none                                                                                                                                               |
 | Working tree        | clean                                                                                                                                              |
@@ -24,15 +24,15 @@ The documentation and the package may be misaligned:
 |              |                                                                                            |
 |--------------|--------------------------------------------------------------------------------------------|
 | Repository   | <code>i2mint/heed</code>                                                                   |
-| Run          | <a href="https://github.com/i2mint/heed/actions/runs/39408449393">39408449393</a>          |
+| Run          | <a href="https://github.com/i2mint/heed/actions/runs/39411070458">39411070458</a>          |
 | Ref          | <code>refs/heads/main</code>                                                               |
-| Event commit | <code>cf00921788e4940ec8bed18c19ff04150e5bf0df</code> (in the history of the built commit) |
+| Event commit | <code>3286250b57dae4218ae2485887acaa63970e8e86</code> (in the history of the built commit) |
 
 ## Tools
 
 |          |         |
 |----------|---------|
-| epythet  | 0.2.18  |
+| epythet  | 0.2.19  |
 | Sphinx   | 9.1.1   |
 | docutils | 0.22.4  |
 | Python   | 3.12.15 |
@@ -57,8 +57,8 @@ Latest release: <a href="https://pypi.org/project/heed/0.1.0/">0.1.0</a>, newer 
 
 ```bash
 git clone https://github.com/i2mint/heed && cd heed
-git checkout cf00921788e4940ec8bed18c19ff04150e5bf0df
-pip install "epythet==0.2.18"
+git checkout 3286250b57dae4218ae2485887acaa63970e8e86
+pip install "epythet==0.2.19"
 epythet quickstart . --ignore tests/ scrap/ examples/
 ```
 

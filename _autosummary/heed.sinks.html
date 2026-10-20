@@ -523,6 +523,13 @@
 </dl>
 </dd></dl>
 
+<dl class="py attribute">
+<dt class="sig sig-object py" id="heed.sinks.CategorySink.is_composite_sink">
+<span class="sig-name descname"><span class="pre">is_composite_sink</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.ClassVar" title="(in Python v3.15)"><span class="pre">ClassVar</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><span class="pre">bool</span></a><span class="p"><span class="pre">]</span></span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">True</span></span><a class="headerlink" href="#heed.sinks.CategorySink.is_composite_sink" title="Link to this definition">#</a></dt>
+<dd><p>Marks a sink that holds other sinks, so code walking a sink tree (the
+held-report release guard) does not mistake any sink with a <code class="docutils literal notranslate"><span class="pre">sinks</span></code> method.</p>
+</dd></dl>
+
 <dl class="py method">
 <dt class="sig sig-object py" id="heed.sinks.CategorySink.public_items">
 <span class="sig-name descname"><span class="pre">public_items</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">category</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/sinks/category.html#CategorySink.public_items"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.sinks.CategorySink.public_items" title="Link to this definition">#</a></dt>
@@ -783,6 +790,7 @@ from, and who asked.</p>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.sinks.CategorySink"><code class="docutils literal notranslate"><span class="pre">CategorySink</span></code></a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.sinks.CategorySink.acknowledge"><code class="docutils literal notranslate"><span class="pre">CategorySink.acknowledge()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.sinks.CategorySink.find_duplicates"><code class="docutils literal notranslate"><span class="pre">CategorySink.find_duplicates()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.sinks.CategorySink.is_composite_sink"><code class="docutils literal notranslate"><span class="pre">CategorySink.is_composite_sink</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.sinks.CategorySink.public_items"><code class="docutils literal notranslate"><span class="pre">CategorySink.public_items()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.sinks.CategorySink.sink_for"><code class="docutils literal notranslate"><span class="pre">CategorySink.sink_for()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.sinks.CategorySink.sinks"><code class="docutils literal notranslate"><span class="pre">CategorySink.sinks()</span></code></a></li>
