@@ -477,3 +477,23 @@ def test_string_labels_are_one_label_and_light_categories_are_a_list():
     assert CategoryTreatment("bug").labels == ("bug",)
     assert HeedConfig(light_categories=("feature",)).light_categories == ["feature"]
     assert HeedConfig(light_categories=(c for c in ["bug"])).light_categories == ["bug"]
+
+
+def test_reporter_labels_are_dropped_unless_allow_listed_and_never_reserved():
+    gh = FakeGitHub()
+    report = _report(labels=["public", "wontfix", "ui", "x"])
+    GitHubIssuesSink(gh.create_issue).submit(report)
+    assert "ui" not in gh.created[-1]["labels"] and "public" not in gh.created[-1]["labels"]
+    sink = GitHubIssuesSink(gh.create_issue, allowed_report_labels=["ui", "public", "wontfix"])
+    sink.submit(report)
+    labels = gh.created[-1]["labels"]
+    assert "ui" in labels and "x" not in labels
+    assert "public" not in labels and "wontfix" not in labels
+
+
+def test_issue_urls_and_shas_are_defanged():
+    from heed.sinks.github import neutralise_refs
+
+    out = neutralise_refs("see https://github.com/o/r/issues/3 and 0123abc4567def")
+    assert "github.com/o/r/issues" not in out and "0123abc4567def" not in out
+    assert neutralise_refs("https://example.com/a") == "https://example.com/a"
