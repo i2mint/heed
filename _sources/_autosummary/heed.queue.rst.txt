@@ -1,0 +1,18 @@
+heed.queue
+==========
+
+.. automodule:: heed.queue
+
+   
+   .. rubric:: Module Attributes
+
+   .. autosummary::
+   
+      CLOSING_STATUSES
+   
+   .. rubric:: Classes
+
+   .. autosummary::
+   
+      FeedbackQueue
+   

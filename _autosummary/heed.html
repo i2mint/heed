@@ -326,6 +326,8 @@
 <li class="toctree-l2"><a class="reference internal" href="heed.dedup.html">heed.dedup</a></li>
 <li class="toctree-l2"><a class="reference internal" href="heed.images.html">heed.images</a></li>
 <li class="toctree-l2"><a class="reference internal" href="heed.ingest.html">heed.ingest</a></li>
+<li class="toctree-l2"><a class="reference internal" href="heed.mcp.html">heed.mcp</a></li>
+<li class="toctree-l2"><a class="reference internal" href="heed.queue.html">heed.queue</a></li>
 <li class="toctree-l2"><a class="reference internal" href="heed.redact.html">heed.redact</a></li>
 <li class="toctree-l2"><a class="reference internal" href="heed.review.html">heed.review</a></li>
 <li class="toctree-l2"><a class="reference internal" href="heed.routing.html">heed.routing</a></li>
@@ -448,7 +450,8 @@ make_thread_router (a public, persistent comment thread per key)</p>
 </dd>
 <dt>Triage    triage, Triage, Severity (a proposal per report: injected LLM,</dt><dd><p>fenced and whitelisted, or keyword rules without one);
 find_duplicates, mark_duplicate (retrieval + optional confirmation;
-marking is explicit, never a silent merge)</p>
+marking is explicit, never a silent merge); FeedbackQueue (list / get /
+triage / dedup / create / close; <code class="docutils literal notranslate"><span class="pre">heed.mcp</span></code> serves it over MCP)</p>
 </dd>
 </dl>
 </dd>
@@ -690,6 +693,9 @@ marking is explicit, never a silent merge)</p>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="#heed.Severity" title="heed.Severity"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Severity</span></code></a>(*values)</p></td>
 <td><p>How bad a report is, as triage sees it.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#heed.FeedbackQueue" title="heed.FeedbackQueue"><code class="xref py py-obj docutils literal notranslate"><span class="pre">FeedbackQueue</span></code></a>(store, *[, llm, confirm])</p></td>
+<td><p>The queue's core operations over a report store.</p></td>
 </tr>
 </tbody>
 </table>
@@ -964,6 +970,100 @@ for the owner’s.</p>
 <dt class="sig sig-object py" id="heed.Environment.model_config">
 <span class="sig-name descname"><span class="pre">model_config</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.ClassVar" title="(in Python v3.15)"><span class="pre">ClassVar</span></a><span class="p"><span class="pre">[</span></span><span class="pre">ConfigDict</span><span class="p"><span class="pre">]</span></span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{}</span></span><a class="headerlink" href="#heed.Environment.model_config" title="Link to this definition">#</a></dt>
 <dd><p>Configuration for the model, should be a dictionary conforming to [<code class="code docutils literal notranslate"><span class="pre">ConfigDict</span></code>][pydantic.config.ConfigDict].</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="heed.FeedbackQueue">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">heed.</span></span><span class="sig-name descname"><span class="pre">FeedbackQueue</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">store</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">llm</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">confirm</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/queue.html#FeedbackQueue"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.FeedbackQueue" title="Link to this definition">#</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/builtins/functions.html#object" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>The queue’s core operations over a report store.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>store</strong> (<span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.MutableMapping" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">MutableMapping</span></code></a>[<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>]</span>) – <code class="docutils literal notranslate"><span class="pre">report</span> <span class="pre">id</span> <span class="pre">-&gt;</span> <span class="pre">report</span> <span class="pre">JSON</span></code> (a StoreSink’s store).</p></li>
+<li><p><strong>llm</strong> (<span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Callable" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Callable</span></code></a>[[<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>], <a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>] | <span class="highlight sphinx_autodoc_typehints-value"><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><code class="xref py py-obj docutils literal notranslate"><span class="kc"><span class="pre">None</span></span></code></a></span></span>) – for <a class="reference internal" href="#heed.triage" title="heed.triage"><code class="xref py py-meth docutils literal notranslate"><span class="pre">triage()</span></code></a> (<code class="docutils literal notranslate"><span class="pre">prompt</span> <span class="pre">-&gt;</span> <span class="pre">text</span></code>); keyword rules without it.</p></li>
+<li><p><strong>confirm</strong> (<span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Callable" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Callable</span></code></a>[[<a class="reference internal" href="heed.base.html#heed.base.Report" title="heed.base.Report"><code class="xref py py-class docutils literal notranslate"><span class="pre">Report</span></code></a>, <a class="reference internal" href="heed.base.html#heed.base.Report" title="heed.base.Report"><code class="xref py py-class docutils literal notranslate"><span class="pre">Report</span></code></a>], <a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>] | <span class="highlight sphinx_autodoc_typehints-value"><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><code class="xref py py-obj docutils literal notranslate"><span class="kc"><span class="pre">None</span></span></code></a></span></span>) – the dedup judge for <a class="reference internal" href="#heed.FeedbackQueue.duplicates" title="heed.FeedbackQueue.duplicates"><code class="xref py py-meth docutils literal notranslate"><span class="pre">duplicates()</span></code></a> (optional).</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="heed.FeedbackQueue.close">
+<span class="sig-name descname"><span class="pre">close</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">report_id</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">status</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'completed'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">duplicate_of</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/queue.html#FeedbackQueue.close"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.FeedbackQueue.close" title="Link to this definition">#</a></dt>
+<dd><p>Close a report: <code class="docutils literal notranslate"><span class="pre">completed</span></code>, <code class="docutils literal notranslate"><span class="pre">declined</span></code> or <code class="docutils literal notranslate"><span class="pre">duplicate</span></code> (of another).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#dict" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">dict</span></code></a>[<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.15)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Any</span></code></a>]</span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="heed.FeedbackQueue.create">
+<span class="sig-name descname"><span class="pre">create</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">title</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">body</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">category</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'bug'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/queue.html#FeedbackQueue.create"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.FeedbackQueue.create" title="Link to this definition">#</a></dt>
+<dd><p>File a report through the widget’s own submission path.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#dict" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">dict</span></code></a>[<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.15)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Any</span></code></a>]</span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="heed.FeedbackQueue.duplicates">
+<span class="sig-name descname"><span class="pre">duplicates</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">report_id</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">k</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/queue.html#FeedbackQueue.duplicates"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.FeedbackQueue.duplicates" title="Link to this definition">#</a></dt>
+<dd><p>Likely duplicates of a stored report (nothing is marked).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference internal" href="#heed.FeedbackQueue.list" title="heed.FeedbackQueue.list"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a>[<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#dict" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">dict</span></code></a>[<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.15)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Any</span></code></a>]]</span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="heed.FeedbackQueue.get">
+<span class="sig-name descname"><span class="pre">get</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">report_id</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/queue.html#FeedbackQueue.get"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.FeedbackQueue.get" title="Link to this definition">#</a></dt>
+<dd><p>One report in full (JSON-ready).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#dict" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">dict</span></code></a>[<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.15)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Any</span></code></a>]</span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="heed.FeedbackQueue.list">
+<span class="sig-name descname"><span class="pre">list</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">status</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">category</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">limit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">50</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/queue.html#FeedbackQueue.list"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.FeedbackQueue.list" title="Link to this definition">#</a></dt>
+<dd><p>Reports, newest first, optionally of one <code class="docutils literal notranslate"><span class="pre">status</span></code> and <code class="docutils literal notranslate"><span class="pre">category</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference internal" href="#heed.FeedbackQueue.list" title="heed.FeedbackQueue.list"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a>[<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#dict" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">dict</span></code></a>[<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.15)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Any</span></code></a>]]</span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="heed.FeedbackQueue.tools">
+<span class="sig-name descname"><span class="pre">tools</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/queue.html#FeedbackQueue.tools"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.FeedbackQueue.tools" title="Link to this definition">#</a></dt>
+<dd><p>The operations as named functions (the MCP tools, one per operation).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference internal" href="#heed.FeedbackQueue.list" title="heed.FeedbackQueue.list"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Callable" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Callable</span></code></a>[<a class="reference external" href="https://docs.python.org/3/builtins/constants.html#Ellipsis" title="(in Python v3.15)"><code class="xref py py-data docutils literal notranslate"><span class="pre">...</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.15)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Any</span></code></a>]]</span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="heed.FeedbackQueue.triage">
+<span class="sig-name descname"><span class="pre">triage</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">report_id</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">apply</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/queue.html#FeedbackQueue.triage"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.FeedbackQueue.triage" title="Link to this definition">#</a></dt>
+<dd><p>A triage proposal; with <code class="docutils literal notranslate"><span class="pre">apply</span></code>, its category and labels are recorded and
+the status becomes <code class="docutils literal notranslate"><span class="pre">triaged</span></code> (a report already closed is left as it is).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#dict" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">dict</span></code></a>[<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.15)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Any</span></code></a>]</span></p>
+</dd>
+</dl>
 </dd></dl>
 
 </dd></dl>
@@ -2045,6 +2145,12 @@ overrides them.</p>
 <tr class="row-even"><td><p><a class="reference internal" href="heed.ingest.html#module-heed.ingest" title="heed.ingest"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ingest</span></code></a></p></td>
 <td><p>The ingest layer — build a Report from a submission and route it to a sink.</p></td>
 </tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="heed.mcp.html#module-heed.mcp" title="heed.mcp"><code class="xref py py-obj docutils literal notranslate"><span class="pre">mcp</span></code></a></p></td>
+<td><p>The feedback queue as an MCP server (<code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">'heed[mcp]'</span></code>) (#8).</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="heed.queue.html#module-heed.queue" title="heed.queue"><code class="xref py py-obj docutils literal notranslate"><span class="pre">queue</span></code></a></p></td>
+<td><p>The feedback queue as plain functions: list, get, triage, dedup, create, close (#8).</p></td>
+</tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="heed.redact.html#module-heed.redact" title="heed.redact"><code class="xref py py-obj docutils literal notranslate"><span class="pre">redact</span></code></a></p></td>
 <td><p>Redaction of personal data and secrets in captured console and network entries.</p></td>
 </tr>
@@ -2164,6 +2270,16 @@ overrides them.</p>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.Environment"><code class="docutils literal notranslate"><span class="pre">Environment</span></code></a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.Environment.model_config"><code class="docutils literal notranslate"><span class="pre">Environment.model_config</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.FeedbackQueue"><code class="docutils literal notranslate"><span class="pre">FeedbackQueue</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.FeedbackQueue.close"><code class="docutils literal notranslate"><span class="pre">FeedbackQueue.close()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.FeedbackQueue.create"><code class="docutils literal notranslate"><span class="pre">FeedbackQueue.create()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.FeedbackQueue.duplicates"><code class="docutils literal notranslate"><span class="pre">FeedbackQueue.duplicates()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.FeedbackQueue.get"><code class="docutils literal notranslate"><span class="pre">FeedbackQueue.get()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.FeedbackQueue.list"><code class="docutils literal notranslate"><span class="pre">FeedbackQueue.list()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.FeedbackQueue.tools"><code class="docutils literal notranslate"><span class="pre">FeedbackQueue.tools()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.FeedbackQueue.triage"><code class="docutils literal notranslate"><span class="pre">FeedbackQueue.triage()</span></code></a></li>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.GitHubIssuesSink"><code class="docutils literal notranslate"><span class="pre">GitHubIssuesSink</span></code></a><ul class="nav section-nav flex-column">

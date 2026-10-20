@@ -49,7 +49,8 @@ Public API (Phase 1):
   Triage    triage, Triage, Severity (a proposal per report: injected LLM,
   : fenced and whitelisted, or keyword rules without one);
     find_duplicates, mark_duplicate (retrieval + optional confirmation;
-    marking is explicit, never a silent merge)
+    marking is explicit, never a silent merge); FeedbackQueue (list / get /
+    triage / dedup / create / close; `heed.mcp` serves it over MCP)
 
 ### Example
 
@@ -143,6 +144,7 @@ True
 | [`ReviewPage`](#heed.ReviewPage)(\*, id, title[, note, media, ...])     | A published review page (its comments live beside it, in the thread store).    |
 | [`Triage`](#heed.Triage)(\*, category[, labels, severity, ...])     | A triage proposal for one report (a suggestion, never applied silently).       |
 | [`Severity`](#heed.Severity)(\*values)                                | How bad a report is, as triage sees it.                                        |
+| [`FeedbackQueue`](#heed.FeedbackQueue)(store, \*[, llm, confirm])          | The queue's core operations over a report store.                               |
 
 ### *class* heed.Attachment(, kind='screenshot', media_type='image/png', ref, size=None)
 
@@ -334,6 +336,67 @@ Client environment captured by default (no PII beyond the user agent).
 #### model_config *: [ClassVar](https://docs.python.org/3/library/typing.html#typing.ClassVar)[ConfigDict]* *= {}*
 
 Configuration for the model, should be a dictionary conforming to [`ConfigDict`][pydantic.config.ConfigDict].
+
+### *class* heed.FeedbackQueue(store, , llm=None, confirm=None)
+
+Bases: [`object`](https://docs.python.org/3/builtins/functions.html#object)
+
+The queue’s core operations over a report store.
+
+* **Parameters:**
+  * **store** ([`MutableMapping`](https://docs.python.org/3/library/collections.abc.html#collections.abc.MutableMapping)[[`str`](https://docs.python.org/3/builtins/stdtypes.html#str), [`str`](https://docs.python.org/3/builtins/stdtypes.html#str)]) – `report id -> report JSON` (a StoreSink’s store).
+  * **llm** ([`Callable`](https://docs.python.org/3/library/collections.abc.html#collections.abc.Callable)[[[`str`](https://docs.python.org/3/builtins/stdtypes.html#str)], [`str`](https://docs.python.org/3/builtins/stdtypes.html#str)] | [`None`](https://docs.python.org/3/builtins/constants.html#None)) – for [`triage()`](#heed.triage) (`prompt -> text`); keyword rules without it.
+  * **confirm** ([`Callable`](https://docs.python.org/3/library/collections.abc.html#collections.abc.Callable)[[[`Report`](heed.base.html.md#heed.base.Report), [`Report`](heed.base.html.md#heed.base.Report)], [`float`](https://docs.python.org/3/builtins/functions.html#float)] | [`None`](https://docs.python.org/3/builtins/constants.html#None)) – the dedup judge for [`duplicates()`](#heed.FeedbackQueue.duplicates) (optional).
+
+#### close(report_id, , status='completed', duplicate_of=None)
+
+Close a report: `completed`, `declined` or `duplicate` (of another).
+
+* **Return type:**
+  [`dict`](https://docs.python.org/3/builtins/stdtypes.html#dict)[[`str`](https://docs.python.org/3/builtins/stdtypes.html#str), [`Any`](https://docs.python.org/3/library/typing.html#typing.Any)]
+
+#### create(title, , body='', category='bug')
+
+File a report through the widget’s own submission path.
+
+* **Return type:**
+  [`dict`](https://docs.python.org/3/builtins/stdtypes.html#dict)[[`str`](https://docs.python.org/3/builtins/stdtypes.html#str), [`Any`](https://docs.python.org/3/library/typing.html#typing.Any)]
+
+#### duplicates(report_id, , k=5)
+
+Likely duplicates of a stored report (nothing is marked).
+
+* **Return type:**
+  [`list`](#heed.FeedbackQueue.list)[[`dict`](https://docs.python.org/3/builtins/stdtypes.html#dict)[[`str`](https://docs.python.org/3/builtins/stdtypes.html#str), [`Any`](https://docs.python.org/3/library/typing.html#typing.Any)]]
+
+#### get(report_id)
+
+One report in full (JSON-ready).
+
+* **Return type:**
+  [`dict`](https://docs.python.org/3/builtins/stdtypes.html#dict)[[`str`](https://docs.python.org/3/builtins/stdtypes.html#str), [`Any`](https://docs.python.org/3/library/typing.html#typing.Any)]
+
+#### list(, status=None, category=None, limit=50)
+
+Reports, newest first, optionally of one `status` and `category`.
+
+* **Return type:**
+  [`list`](#heed.FeedbackQueue.list)[[`dict`](https://docs.python.org/3/builtins/stdtypes.html#dict)[[`str`](https://docs.python.org/3/builtins/stdtypes.html#str), [`Any`](https://docs.python.org/3/library/typing.html#typing.Any)]]
+
+#### tools()
+
+The operations as named functions (the MCP tools, one per operation).
+
+* **Return type:**
+  [`list`](#heed.FeedbackQueue.list)[[`Callable`](https://docs.python.org/3/library/collections.abc.html#collections.abc.Callable)[[`...`](https://docs.python.org/3/builtins/constants.html#Ellipsis), [`Any`](https://docs.python.org/3/library/typing.html#typing.Any)]]
+
+#### triage(report_id, , apply=False)
+
+A triage proposal; with `apply`, its category and labels are recorded and
+the status becomes `triaged` (a report already closed is left as it is).
+
+* **Return type:**
+  [`dict`](https://docs.python.org/3/builtins/stdtypes.html#dict)[[`str`](https://docs.python.org/3/builtins/stdtypes.html#str), [`Any`](https://docs.python.org/3/library/typing.html#typing.Any)]
 
 ### *class* heed.GitHubIssuesSink(create_issue, , label_map=None, screenshot_url=None, treatments=None, list_issues=None, public_label='public', status_labels=None, allowed_report_labels=())
 
@@ -1187,19 +1250,21 @@ overrides them.
 
 ### Modules
 
-| [`base`](heed.base.html.md#module-heed.base)         | Domain model for heed — the single source of truth shared by widget and backend.   |
-|--------------------------------------------------------------------------------|------------------------------------------------------------------------------------|
-| [`board`](heed.board.html.md#module-heed.board)       | The read side of a feedback inbox: what a public board may show.                   |
-| [`config`](heed.config.html.md#module-heed.config)     | Configuration for the heed backend (smart defaults; keyword-only).                 |
-| [`dedup`](heed.dedup.html.md#module-heed.dedup)       | Duplicate detection in two stages: cheap retrieval, then confirmation (#8).        |
-| [`images`](heed.images.html.md#module-heed.images)     | Neutralise uploaded screenshots before they are stored (issue #15).                |
-| [`ingest`](heed.ingest.html.md#module-heed.ingest)     | The ingest layer — build a Report from a submission and route it to a sink.        |
-| [`redact`](heed.redact.html.md#module-heed.redact)     | Redaction of personal data and secrets in captured console and network entries.    |
-| [`review`](heed.review.html.md#module-heed.review)     | Review pages: media (a video, audio, images) with a comment thread under it.       |
-| [`routing`](heed.routing.html.md#module-heed.routing)   | Where a report goes: server-side site resolution and moderation (holding state).   |
-| [`security`](heed.security.html.md#module-heed.security) | Public-endpoint hardening (the ingest endpoint is unauthenticated and hostile).    |
-| [`serving`](heed.serving.html.md#module-heed.serving)   | Serve stored screenshots: a read-only route meant for its own origin (issue #19).  |
-| [`sinks`](heed.sinks.html.md#module-heed.sinks)       | Sinks: pluggable report destinations (strategy pattern).                           |
-| [`storage`](heed.storage.html.md#module-heed.storage)   | Storage helpers — dol-backed stores for reports and binary attachments.            |
-| [`threads`](heed.threads.html.md#module-heed.threads)   | Comment threads: a persistent, public, append-mostly conversation per key.         |
-| [`widget`](heed.widget.html.md#module-heed.widget)     | Serve the embeddable widget, and state the contract it is built against.           |
+| [`base`](heed.base.html.md#module-heed.base)         | Domain model for heed — the single source of truth shared by widget and backend.     |
+|--------------------------------------------------------------------------------|--------------------------------------------------------------------------------------|
+| [`board`](heed.board.html.md#module-heed.board)       | The read side of a feedback inbox: what a public board may show.                     |
+| [`config`](heed.config.html.md#module-heed.config)     | Configuration for the heed backend (smart defaults; keyword-only).                   |
+| [`dedup`](heed.dedup.html.md#module-heed.dedup)       | Duplicate detection in two stages: cheap retrieval, then confirmation (#8).          |
+| [`images`](heed.images.html.md#module-heed.images)     | Neutralise uploaded screenshots before they are stored (issue #15).                  |
+| [`ingest`](heed.ingest.html.md#module-heed.ingest)     | The ingest layer — build a Report from a submission and route it to a sink.          |
+| [`mcp`](heed.mcp.html.md#module-heed.mcp)           | The feedback queue as an MCP server (`pip install 'heed[mcp]'`) (#8).                |
+| [`queue`](heed.queue.html.md#module-heed.queue)       | The feedback queue as plain functions: list, get, triage, dedup, create, close (#8). |
+| [`redact`](heed.redact.html.md#module-heed.redact)     | Redaction of personal data and secrets in captured console and network entries.      |
+| [`review`](heed.review.html.md#module-heed.review)     | Review pages: media (a video, audio, images) with a comment thread under it.         |
+| [`routing`](heed.routing.html.md#module-heed.routing)   | Where a report goes: server-side site resolution and moderation (holding state).     |
+| [`security`](heed.security.html.md#module-heed.security) | Public-endpoint hardening (the ingest endpoint is unauthenticated and hostile).      |
+| [`serving`](heed.serving.html.md#module-heed.serving)   | Serve stored screenshots: a read-only route meant for its own origin (issue #19).    |
+| [`sinks`](heed.sinks.html.md#module-heed.sinks)       | Sinks: pluggable report destinations (strategy pattern).                             |
+| [`storage`](heed.storage.html.md#module-heed.storage)   | Storage helpers — dol-backed stores for reports and binary attachments.              |
+| [`threads`](heed.threads.html.md#module-heed.threads)   | Comment threads: a persistent, public, append-mostly conversation per key.           |
+| [`widget`](heed.widget.html.md#module-heed.widget)     | Serve the embeddable widget, and state the contract it is built against.             |

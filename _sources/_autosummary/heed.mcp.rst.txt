@@ -1,0 +1,13 @@
+heed.mcp
+========
+
+.. automodule:: heed.mcp
+
+   
+   .. rubric:: Functions
+
+   .. autosummary::
+   
+      main
+      mk_feedback_mcp
+   

@@ -1,4 +1,4 @@
-> built 2026-10-20 14:55 UTC from ce93af6 (main) · heed 0.0.1. Details: build_info.json
+> built 2026-10-20 14:59 UTC from 8a026e5 (main) · heed 0.0.1. Details: build_info.json
 
 # index.html.md
 
@@ -569,7 +569,8 @@ Public API (Phase 1):
   Triage    triage, Triage, Severity (a proposal per report: injected LLM,
   : fenced and whitelisted, or keyword rules without one);
     find_duplicates, mark_duplicate (retrieval + optional confirmation;
-    marking is explicit, never a silent merge)
+    marking is explicit, never a silent merge); FeedbackQueue (list / get /
+    triage / dedup / create / close; `heed.mcp` serves it over MCP)
 
 ### Example
 
@@ -663,6 +664,7 @@ True
 | [`ReviewPage`](_autosummary/heed.html.md#heed.ReviewPage)(\*, id, title[, note, media, ...])     | A published review page (its comments live beside it, in the thread store).    |
 | [`Triage`](_autosummary/heed.html.md#heed.Triage)(\*, category[, labels, severity, ...])     | A triage proposal for one report (a suggestion, never applied silently).       |
 | [`Severity`](_autosummary/heed.html.md#heed.Severity)(\*values)                                | How bad a report is, as triage sees it.                                        |
+| [`FeedbackQueue`](_autosummary/heed.html.md#heed.FeedbackQueue)(store, \*[, llm, confirm])          | The queue's core operations over a report store.                               |
 
 ### *class* heed.Attachment(, kind='screenshot', media_type='image/png', ref, size=None)
 
@@ -854,6 +856,67 @@ Client environment captured by default (no PII beyond the user agent).
 #### model_config *: [ClassVar](https://docs.python.org/3/library/typing.html#typing.ClassVar)[ConfigDict]* *= {}*
 
 Configuration for the model, should be a dictionary conforming to [`ConfigDict`][pydantic.config.ConfigDict].
+
+### *class* heed.FeedbackQueue(store, , llm=None, confirm=None)
+
+Bases: [`object`](https://docs.python.org/3/builtins/functions.html#object)
+
+The queue’s core operations over a report store.
+
+* **Parameters:**
+  * **store** ([`MutableMapping`](https://docs.python.org/3/library/collections.abc.html#collections.abc.MutableMapping)[[`str`](https://docs.python.org/3/builtins/stdtypes.html#str), [`str`](https://docs.python.org/3/builtins/stdtypes.html#str)]) – `report id -> report JSON` (a StoreSink’s store).
+  * **llm** ([`Callable`](https://docs.python.org/3/library/collections.abc.html#collections.abc.Callable)[[[`str`](https://docs.python.org/3/builtins/stdtypes.html#str)], [`str`](https://docs.python.org/3/builtins/stdtypes.html#str)] | [`None`](https://docs.python.org/3/builtins/constants.html#None)) – for [`triage()`](_autosummary/heed.html.md#heed.triage) (`prompt -> text`); keyword rules without it.
+  * **confirm** ([`Callable`](https://docs.python.org/3/library/collections.abc.html#collections.abc.Callable)[[[`Report`](_autosummary/heed.base.html.md#heed.base.Report), [`Report`](_autosummary/heed.base.html.md#heed.base.Report)], [`float`](https://docs.python.org/3/builtins/functions.html#float)] | [`None`](https://docs.python.org/3/builtins/constants.html#None)) – the dedup judge for [`duplicates()`](_autosummary/heed.html.md#heed.FeedbackQueue.duplicates) (optional).
+
+#### close(report_id, , status='completed', duplicate_of=None)
+
+Close a report: `completed`, `declined` or `duplicate` (of another).
+
+* **Return type:**
+  [`dict`](https://docs.python.org/3/builtins/stdtypes.html#dict)[[`str`](https://docs.python.org/3/builtins/stdtypes.html#str), [`Any`](https://docs.python.org/3/library/typing.html#typing.Any)]
+
+#### create(title, , body='', category='bug')
+
+File a report through the widget’s own submission path.
+
+* **Return type:**
+  [`dict`](https://docs.python.org/3/builtins/stdtypes.html#dict)[[`str`](https://docs.python.org/3/builtins/stdtypes.html#str), [`Any`](https://docs.python.org/3/library/typing.html#typing.Any)]
+
+#### duplicates(report_id, , k=5)
+
+Likely duplicates of a stored report (nothing is marked).
+
+* **Return type:**
+  [`list`](_autosummary/heed.html.md#heed.FeedbackQueue.list)[[`dict`](https://docs.python.org/3/builtins/stdtypes.html#dict)[[`str`](https://docs.python.org/3/builtins/stdtypes.html#str), [`Any`](https://docs.python.org/3/library/typing.html#typing.Any)]]
+
+#### get(report_id)
+
+One report in full (JSON-ready).
+
+* **Return type:**
+  [`dict`](https://docs.python.org/3/builtins/stdtypes.html#dict)[[`str`](https://docs.python.org/3/builtins/stdtypes.html#str), [`Any`](https://docs.python.org/3/library/typing.html#typing.Any)]
+
+#### list(, status=None, category=None, limit=50)
+
+Reports, newest first, optionally of one `status` and `category`.
+
+* **Return type:**
+  [`list`](_autosummary/heed.html.md#heed.FeedbackQueue.list)[[`dict`](https://docs.python.org/3/builtins/stdtypes.html#dict)[[`str`](https://docs.python.org/3/builtins/stdtypes.html#str), [`Any`](https://docs.python.org/3/library/typing.html#typing.Any)]]
+
+#### tools()
+
+The operations as named functions (the MCP tools, one per operation).
+
+* **Return type:**
+  [`list`](_autosummary/heed.html.md#heed.FeedbackQueue.list)[[`Callable`](https://docs.python.org/3/library/collections.abc.html#collections.abc.Callable)[[`...`](https://docs.python.org/3/builtins/constants.html#Ellipsis), [`Any`](https://docs.python.org/3/library/typing.html#typing.Any)]]
+
+#### triage(report_id, , apply=False)
+
+A triage proposal; with `apply`, its category and labels are recorded and
+the status becomes `triaged` (a report already closed is left as it is).
+
+* **Return type:**
+  [`dict`](https://docs.python.org/3/builtins/stdtypes.html#dict)[[`str`](https://docs.python.org/3/builtins/stdtypes.html#str), [`Any`](https://docs.python.org/3/library/typing.html#typing.Any)]
 
 ### *class* heed.GitHubIssuesSink(create_issue, , label_map=None, screenshot_url=None, treatments=None, list_issues=None, public_label='public', status_labels=None, allowed_report_labels=())
 
@@ -1707,22 +1770,24 @@ overrides them.
 
 ### Modules
 
-| [`base`](_autosummary/heed.base.html.md#module-heed.base)         | Domain model for heed — the single source of truth shared by widget and backend.   |
-|--------------------------------------------------------------------------------|------------------------------------------------------------------------------------|
-| [`board`](_autosummary/heed.board.html.md#module-heed.board)       | The read side of a feedback inbox: what a public board may show.                   |
-| [`config`](_autosummary/heed.config.html.md#module-heed.config)     | Configuration for the heed backend (smart defaults; keyword-only).                 |
-| [`dedup`](_autosummary/heed.dedup.html.md#module-heed.dedup)       | Duplicate detection in two stages: cheap retrieval, then confirmation (#8).        |
-| [`images`](_autosummary/heed.images.html.md#module-heed.images)     | Neutralise uploaded screenshots before they are stored (issue #15).                |
-| [`ingest`](_autosummary/heed.ingest.html.md#module-heed.ingest)     | The ingest layer — build a Report from a submission and route it to a sink.        |
-| [`redact`](_autosummary/heed.redact.html.md#module-heed.redact)     | Redaction of personal data and secrets in captured console and network entries.    |
-| [`review`](_autosummary/heed.review.html.md#module-heed.review)     | Review pages: media (a video, audio, images) with a comment thread under it.       |
-| [`routing`](_autosummary/heed.routing.html.md#module-heed.routing)   | Where a report goes: server-side site resolution and moderation (holding state).   |
-| [`security`](_autosummary/heed.security.html.md#module-heed.security) | Public-endpoint hardening (the ingest endpoint is unauthenticated and hostile).    |
-| [`serving`](_autosummary/heed.serving.html.md#module-heed.serving)   | Serve stored screenshots: a read-only route meant for its own origin (issue #19).  |
-| [`sinks`](_autosummary/heed.sinks.html.md#module-heed.sinks)       | Sinks: pluggable report destinations (strategy pattern).                           |
-| [`storage`](_autosummary/heed.storage.html.md#module-heed.storage)   | Storage helpers — dol-backed stores for reports and binary attachments.            |
-| [`threads`](_autosummary/heed.threads.html.md#module-heed.threads)   | Comment threads: a persistent, public, append-mostly conversation per key.         |
-| [`widget`](_autosummary/heed.widget.html.md#module-heed.widget)     | Serve the embeddable widget, and state the contract it is built against.           |
+| [`base`](_autosummary/heed.base.html.md#module-heed.base)         | Domain model for heed — the single source of truth shared by widget and backend.     |
+|--------------------------------------------------------------------------------|--------------------------------------------------------------------------------------|
+| [`board`](_autosummary/heed.board.html.md#module-heed.board)       | The read side of a feedback inbox: what a public board may show.                     |
+| [`config`](_autosummary/heed.config.html.md#module-heed.config)     | Configuration for the heed backend (smart defaults; keyword-only).                   |
+| [`dedup`](_autosummary/heed.dedup.html.md#module-heed.dedup)       | Duplicate detection in two stages: cheap retrieval, then confirmation (#8).          |
+| [`images`](_autosummary/heed.images.html.md#module-heed.images)     | Neutralise uploaded screenshots before they are stored (issue #15).                  |
+| [`ingest`](_autosummary/heed.ingest.html.md#module-heed.ingest)     | The ingest layer — build a Report from a submission and route it to a sink.          |
+| [`mcp`](_autosummary/heed.mcp.html.md#module-heed.mcp)           | The feedback queue as an MCP server (`pip install 'heed[mcp]'`) (#8).                |
+| [`queue`](_autosummary/heed.queue.html.md#module-heed.queue)       | The feedback queue as plain functions: list, get, triage, dedup, create, close (#8). |
+| [`redact`](_autosummary/heed.redact.html.md#module-heed.redact)     | Redaction of personal data and secrets in captured console and network entries.      |
+| [`review`](_autosummary/heed.review.html.md#module-heed.review)     | Review pages: media (a video, audio, images) with a comment thread under it.         |
+| [`routing`](_autosummary/heed.routing.html.md#module-heed.routing)   | Where a report goes: server-side site resolution and moderation (holding state).     |
+| [`security`](_autosummary/heed.security.html.md#module-heed.security) | Public-endpoint hardening (the ingest endpoint is unauthenticated and hostile).      |
+| [`serving`](_autosummary/heed.serving.html.md#module-heed.serving)   | Serve stored screenshots: a read-only route meant for its own origin (issue #19).    |
+| [`sinks`](_autosummary/heed.sinks.html.md#module-heed.sinks)       | Sinks: pluggable report destinations (strategy pattern).                             |
+| [`storage`](_autosummary/heed.storage.html.md#module-heed.storage)   | Storage helpers — dol-backed stores for reports and binary attachments.              |
+| [`threads`](_autosummary/heed.threads.html.md#module-heed.threads)   | Comment threads: a persistent, public, append-mostly conversation per key.           |
+| [`widget`](_autosummary/heed.widget.html.md#module-heed.widget)     | Serve the embeddable widget, and state the contract it is built against.             |
 
 
 # _autosummary/heed.images.html.md
@@ -1934,6 +1999,154 @@ has no length header), so an oversized body is never buffered whole.
 
 * **Return type:**
   [`Optional`](https://docs.python.org/3/library/typing.html#typing.Optional)[[`bytes`](https://docs.python.org/3/builtins/stdtypes.html#bytes)]
+
+
+# _autosummary/heed.mcp.html.md
+
+# heed.mcp
+
+The feedback queue as an MCP server (`pip install 'heed[mcp]'`) (#8).
+
+Each [`FeedbackQueue`](_autosummary/heed.queue.html.md#heed.queue.FeedbackQueue) operation becomes one MCP tool through
+`py2mcp` (imported only here, on use), so an agent such as Claude Code can list,
+read, triage, deduplicate, file and close reports. The tools are the queue’s own
+functions, the same ones any other surface calls.
+
+Run it over a report directory:
+
+```default
+python -m heed.mcp /path/to/reports        # stdio transport
+```
+
+The report text the tools return was written by anonymous users: an agent reading it
+must treat it as data, never as instructions (the server says so in its
+instructions).
+
+### Functions
+
+| [`main`](_autosummary/heed.mcp.html.md#heed.mcp.main)([argv])                                | `python -m heed.mcp REPORT_DIR`: serve the queue over stdio.      |
+|----------------------------------------------------------------------------------------------|-------------------------------------------------------------------|
+| [`mk_feedback_mcp`](_autosummary/heed.mcp.html.md#heed.mcp.mk_feedback_mcp)([store, rootdir, llm, ...]) | A FastMCP server whose tools are the feedback queue's operations. |
+
+### heed.mcp.main(argv=None)
+
+`python -m heed.mcp REPORT_DIR`: serve the queue over stdio.
+
+* **Return type:**
+  [`None`](https://docs.python.org/3/builtins/constants.html#None)
+
+### heed.mcp.mk_feedback_mcp(store=None, , rootdir=None, llm=None, confirm=None, name='heed feedback queue')
+
+A FastMCP server whose tools are the feedback queue’s operations.
+
+Give the report `store` itself, or the `rootdir` of a report directory.
+
+* **Return type:**
+  [`Any`](https://docs.python.org/3/library/typing.html#typing.Any)
+
+
+# _autosummary/heed.queue.html.md
+
+# heed.queue
+
+The feedback queue as plain functions: list, get, triage, dedup, create, close (#8).
+
+One set of core functions over a report store (the `MutableMapping` a
+[`StoreSink`](_autosummary/heed.sinks.store.html.md#heed.sinks.store.StoreSink) writes, e.g.
+[`heed.storage.make_report_store()`](_autosummary/heed.storage.html.md#heed.storage.make_report_store)),
+shared by every surface: [`heed.mcp`](_autosummary/heed.mcp.html.md#module-heed.mcp) exposes them as MCP tools, and a CLI or an
+admin page would call the same ones. Arguments are flat and results are JSON-ready
+dicts, so a tool layer adds nothing but transport.
+
+`create` goes through [`heed.ingest.process_submission()`](_autosummary/heed.ingest.html.md#heed.ingest.process_submission), the same path as a
+widget submission (validation, enrichment), so an agent cannot write a report the
+HTTP router would not.
+
+```pycon
+>>> q = FeedbackQueue({})
+>>> rid = q.create("Export to CSV fails", body="the button errors")["id"]
+>>> [r["title"] for r in q.list()]
+['Export to CSV fails']
+>>> q.triage(rid)["severity"]
+'high'
+>>> q.close(rid, status="completed")["status"]
+'completed'
+```
+
+### Module Attributes
+
+| [`CLOSING_STATUSES`](_autosummary/heed.queue.html.md#heed.queue.CLOSING_STATUSES)   | Statuses a report can be closed with (`duplicate` needs `duplicate_of`).   |
+|---------------------------------------------------------------------|----------------------------------------------------------------------------|
+
+### Classes
+
+| [`FeedbackQueue`](_autosummary/heed.queue.html.md#heed.queue.FeedbackQueue)(store, \*[, llm, confirm])   | The queue's core operations over a report store.   |
+|---------------------------------------------------------------------------------------------|----------------------------------------------------|
+
+### heed.queue.CLOSING_STATUSES *= (Status.completed, Status.declined, Status.duplicate)*
+
+Statuses a report can be closed with (`duplicate` needs `duplicate_of`).
+
+### *class* heed.queue.FeedbackQueue(store, , llm=None, confirm=None)
+
+Bases: [`object`](https://docs.python.org/3/builtins/functions.html#object)
+
+The queue’s core operations over a report store.
+
+* **Parameters:**
+  * **store** ([`MutableMapping`](https://docs.python.org/3/library/collections.abc.html#collections.abc.MutableMapping)[[`str`](https://docs.python.org/3/builtins/stdtypes.html#str), [`str`](https://docs.python.org/3/builtins/stdtypes.html#str)]) – `report id -> report JSON` (a StoreSink’s store).
+  * **llm** ([`Callable`](https://docs.python.org/3/library/collections.abc.html#collections.abc.Callable)[[[`str`](https://docs.python.org/3/builtins/stdtypes.html#str)], [`str`](https://docs.python.org/3/builtins/stdtypes.html#str)] | [`None`](https://docs.python.org/3/builtins/constants.html#None)) – for [`triage()`](_autosummary/heed.queue.html.md#heed.queue.FeedbackQueue.triage) (`prompt -> text`); keyword rules without it.
+  * **confirm** ([`Callable`](https://docs.python.org/3/library/collections.abc.html#collections.abc.Callable)[[[`Report`](_autosummary/heed.base.html.md#heed.base.Report), [`Report`](_autosummary/heed.base.html.md#heed.base.Report)], [`float`](https://docs.python.org/3/builtins/functions.html#float)] | [`None`](https://docs.python.org/3/builtins/constants.html#None)) – the dedup judge for [`duplicates()`](_autosummary/heed.queue.html.md#heed.queue.FeedbackQueue.duplicates) (optional).
+
+#### close(report_id, , status='completed', duplicate_of=None)
+
+Close a report: `completed`, `declined` or `duplicate` (of another).
+
+* **Return type:**
+  [`dict`](https://docs.python.org/3/builtins/stdtypes.html#dict)[[`str`](https://docs.python.org/3/builtins/stdtypes.html#str), [`Any`](https://docs.python.org/3/library/typing.html#typing.Any)]
+
+#### create(title, , body='', category='bug')
+
+File a report through the widget’s own submission path.
+
+* **Return type:**
+  [`dict`](https://docs.python.org/3/builtins/stdtypes.html#dict)[[`str`](https://docs.python.org/3/builtins/stdtypes.html#str), [`Any`](https://docs.python.org/3/library/typing.html#typing.Any)]
+
+#### duplicates(report_id, , k=5)
+
+Likely duplicates of a stored report (nothing is marked).
+
+* **Return type:**
+  [`list`](_autosummary/heed.queue.html.md#heed.queue.FeedbackQueue.list)[[`dict`](https://docs.python.org/3/builtins/stdtypes.html#dict)[[`str`](https://docs.python.org/3/builtins/stdtypes.html#str), [`Any`](https://docs.python.org/3/library/typing.html#typing.Any)]]
+
+#### get(report_id)
+
+One report in full (JSON-ready).
+
+* **Return type:**
+  [`dict`](https://docs.python.org/3/builtins/stdtypes.html#dict)[[`str`](https://docs.python.org/3/builtins/stdtypes.html#str), [`Any`](https://docs.python.org/3/library/typing.html#typing.Any)]
+
+#### list(, status=None, category=None, limit=50)
+
+Reports, newest first, optionally of one `status` and `category`.
+
+* **Return type:**
+  [`list`](_autosummary/heed.queue.html.md#heed.queue.FeedbackQueue.list)[[`dict`](https://docs.python.org/3/builtins/stdtypes.html#dict)[[`str`](https://docs.python.org/3/builtins/stdtypes.html#str), [`Any`](https://docs.python.org/3/library/typing.html#typing.Any)]]
+
+#### tools()
+
+The operations as named functions (the MCP tools, one per operation).
+
+* **Return type:**
+  [`list`](_autosummary/heed.queue.html.md#heed.queue.FeedbackQueue.list)[[`Callable`](https://docs.python.org/3/library/collections.abc.html#collections.abc.Callable)[[`...`](https://docs.python.org/3/builtins/constants.html#Ellipsis), [`Any`](https://docs.python.org/3/library/typing.html#typing.Any)]]
+
+#### triage(report_id, , apply=False)
+
+A triage proposal; with `apply`, its category and labels are recorded and
+the status becomes `triaged` (a report already closed is left as it is).
+
+* **Return type:**
+  [`dict`](https://docs.python.org/3/builtins/stdtypes.html#dict)[[`str`](https://docs.python.org/3/builtins/stdtypes.html#str), [`Any`](https://docs.python.org/3/library/typing.html#typing.Any)]
 
 
 # _autosummary/heed.redact.html.md
@@ -3899,7 +4112,7 @@ overrides them.
 
 # About this build
 
-This documentation was built on **2026-10-20 14:55 UTC** from commit <a href="https://github.com/i2mint/heed/commit/ce93af6fb548df192793416d020fb1808e961406"><code>ce93af6</code></a> on branch <code>main</code>, for **heed 0.0.1** (from <code>pyproject.toml</code>).
+This documentation was built on **2026-10-20 14:59 UTC** from commit <a href="https://github.com/i2mint/heed/commit/8a026e580f7e66a48a6b44ad90bf74f995ffea1f"><code>8a026e5</code></a> on branch <code>main</code>, for **heed 0.0.1** (from <code>pyproject.toml</code>).
 
 #### WARNING
 The documentation and the package may be misaligned:
@@ -3910,7 +4123,7 @@ The documentation and the package may be misaligned:
 
 |                     |                                                                                                                                                    |
 |---------------------|----------------------------------------------------------------------------------------------------------------------------------------------------|
-| Commit              | <a href="https://github.com/i2mint/heed/commit/ce93af6fb548df192793416d020fb1808e961406"><code>ce93af6fb548df192793416d020fb1808e961406</code></a> |
+| Commit              | <a href="https://github.com/i2mint/heed/commit/8a026e580f7e66a48a6b44ad90bf74f995ffea1f"><code>8a026e580f7e66a48a6b44ad90bf74f995ffea1f</code></a> |
 | Branch              | <code>main</code>                                                                                                                                  |
 | Tags at this commit | none                                                                                                                                               |
 | Working tree        | clean                                                                                                                                              |
@@ -3921,9 +4134,9 @@ The documentation and the package may be misaligned:
 |              |                                                                                            |
 |--------------|--------------------------------------------------------------------------------------------|
 | Repository   | <code>i2mint/heed</code>                                                                   |
-| Run          | <a href="https://github.com/i2mint/heed/actions/runs/39443407035">39443407035</a>          |
+| Run          | <a href="https://github.com/i2mint/heed/actions/runs/39444070926">39444070926</a>          |
 | Ref          | <code>refs/heads/main</code>                                                               |
-| Event commit | <code>ce93af6fb548df192793416d020fb1808e961406</code> (in the history of the built commit) |
+| Event commit | <code>8a026e580f7e66a48a6b44ad90bf74f995ffea1f</code> (in the history of the built commit) |
 
 ## Tools
 
@@ -3954,7 +4167,7 @@ Latest release: <a href="https://pypi.org/project/heed/0.1.0/">0.1.0</a>, newer 
 
 ```bash
 git clone https://github.com/i2mint/heed && cd heed
-git checkout ce93af6fb548df192793416d020fb1808e961406
+git checkout 8a026e580f7e66a48a6b44ad90bf74f995ffea1f
 pip install "epythet==0.2.21"
 epythet quickstart . --ignore tests/ scrap/ examples/
 ```

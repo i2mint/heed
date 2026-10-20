@@ -86,6 +86,7 @@
       ReviewPage
       Triage
       Severity
+      FeedbackQueue
    
 .. rubric:: Modules
 
@@ -99,6 +100,8 @@
    dedup
    images
    ingest
+   mcp
+   queue
    redact
    review
    routing
