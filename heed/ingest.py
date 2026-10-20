@@ -49,6 +49,7 @@ from heed.images import (
     SanitizerBusy,
     make_image_sanitizer,
 )
+from heed.redact import Redactor, redact_console, redact_network, redact_text
 from heed.routing import Moderator, SinkResolver, Verdict, accept_all
 from heed.security import (
     IMAGE_EXTENSIONS,
@@ -69,7 +70,9 @@ from heed.sinks.base import Sink, SinkResult
 from heed.widget import make_widget_router
 
 _FORM_MEDIA_TYPES = ("multipart/form-data", "application/x-www-form-urlencoded")
-_TEXT_FIELDS = ("title", "body", "category", "page_url", "env", "anon_id")
+_TEXT_FIELDS = (
+    "title", "body", "category", "page_url", "env", "anon_id", "console", "network"
+)
 _MAX_LOC_CHARS = 64
 logger = logging.getLogger("heed.ingest")
 # Sent on every /report response, success or error.
@@ -90,12 +93,15 @@ def process_submission(
     clock: Callable[[], Any] = utcnow,
     moderator: Moderator = accept_all,
     holding_sink: Optional[Sink] = None,
+    redactor: Redactor = redact_text,
 ) -> tuple[Report, SinkResult]:
     """Enrich ``submission`` into a Report, store any screenshot, and route to ``sink``.
 
     Returns the (report, sink-result) pair. The server owns id/created_at/identity/
     origin/status — never the client. Opt-in capture (console/network) is dropped
-    unless enabled in ``config``. ``moderator`` decides first: ``hold`` sends the report
+    unless enabled in ``config``, and what is kept is passed through ``redactor``
+    (personal data and secrets masked, see ``redact.py``) whatever the widget did.
+    ``moderator`` decides first: ``hold`` sends the report
     (status ``held``) to ``holding_sink`` instead, ``reject`` drops it (status
     ``declined``).
     """
@@ -130,6 +136,7 @@ def process_submission(
             user=user,
             config=config,
             clock=clock,
+            redactor=redactor,
         )
     except Exception:  # nothing will reference the screenshot: don't keep it
         _discard_attachments(attachments, attachment_store)
@@ -158,9 +165,17 @@ def process_submission(
 
 
 def _new_report(
-    submission, report_id, attachments, *, origin, user, config, clock
+    submission, report_id, attachments, *, origin, user, config, clock, redactor
 ) -> Report:
     """The Report for ``submission``. The server owns id, time, identity and origin."""
+    console = submission.console if config.accept_console else None
+    network = submission.network if config.accept_network else None
+    try:
+        console = redact_console(console, redactor=redactor) if console else None
+        network = redact_network(network, redactor=redactor) if network else None
+    except Exception:  # noqa: BLE001 - fail closed: no capture rather than unmasked
+        logger.exception("heed: the redactor failed; dropping console/network capture")
+        console = network = None
     return Report(
         id=report_id,
         created_at=clock(),
@@ -170,8 +185,8 @@ def _new_report(
         page_url=submission.page_url,
         env=submission.env,
         attachments=attachments,
-        console=submission.console if config.accept_console else None,
-        network=submission.network if config.accept_network else None,
+        console=console,
+        network=network,
         identity=Identity(anon_id=submission.anon_id or report_id, user=user),
         origin=origin,
         status=Status.received,
@@ -200,18 +215,38 @@ def _build_submission(
     page_url: str,
     env: str,
     anon_id: Optional[str],
+    console: Optional[str] = None,
+    network: Optional[str] = None,
 ) -> ReportSubmission:
-    env_obj = json.loads(env) if env else {}
-    if not isinstance(env_obj, dict):
-        raise ValueError("env must be a JSON object")
+    """The submission for the form's text fields. A malformed JSON field raises
+    ``_BadJsonField`` naming it; a well-formed one that breaks the model raises
+    ``ValidationError``."""
+    env_obj = _json_field("env", env, dict) if env else {}
     return ReportSubmission(
         title=title,
         body=body,
         category=category,
         page_url=page_url,
         env=env_obj,
+        console=_json_field("console", console, list) if console else None,
+        network=_json_field("network", network, list) if network else None,
         anon_id=anon_id or None,
     )
+
+
+class _BadJsonField(ValueError):
+    """A form field that should hold JSON of a given shape does not."""
+
+
+def _json_field(name: str, raw: str, kind: type) -> Any:
+    shape = "a JSON object" if kind is dict else "a JSON array"
+    try:
+        value = json.loads(raw)
+    except (ValueError, RecursionError) as e:
+        raise _BadJsonField(f"invalid {name}: must be {shape}") from e
+    if not isinstance(value, kind):
+        raise _BadJsonField(f"invalid {name}: must be {shape}")
+    return value
 
 
 async def read_capped_body(request: Request, *, max_bytes: int) -> Optional[bytes]:
@@ -279,6 +314,14 @@ _OPENAPI_REQUEST_BODY = {
                         "page_url": {"type": "string"},
                         "env": {"type": "string", "description": "JSON object"},
                         "anon_id": {"type": "string"},
+                        "console": {
+                            "type": "string",
+                            "description": "JSON array of LogEntry (opt-in capture)",
+                        },
+                        "network": {
+                            "type": "string",
+                            "description": "JSON array of NetEntry (opt-in capture)",
+                        },
                         "bot_token": {"type": "string"},
                         "screenshot": {"type": "string", "format": "binary"},
                     },
@@ -302,6 +345,7 @@ def make_router(
     moderator: Optional[Moderator] = None,
     holding_sink: Optional[Sink] = None,
     image_sanitizer: Optional[ImageSanitizer] = None,
+    redactor: Redactor = redact_text,
 ) -> APIRouter:
     """Build a FastAPI APIRouter exposing ``POST /report`` (and its CORS preflight).
 
@@ -314,6 +358,9 @@ def make_router(
     ``bot_verifier`` (by default built from ``config.bot_secret``, i.e. off until a
     secret is configured) and ``image_sanitizer`` (by default from
     ``config.screenshot_sanitizer``: re-encode with Pillow, else a pure-Python strip).
+    Opt-in console/network capture (``config.accept_console``/``accept_network``) is
+    masked by ``redactor`` before any sink sees it; a field the config does not accept
+    is never parsed.
 
     Routing is decided server-side, never by the browser: ``resolve_sink`` maps the
     validated origin to that site's sink (``sink`` is then the fallback and may be
@@ -543,12 +590,16 @@ def make_router(
                 page_url=text["page_url"] or "",
                 env=text["env"] or "{}",
                 anon_id=text["anon_id"],
+                console=text["console"] if cfg.accept_console else None,
+                network=text["network"] if cfg.accept_network else None,
             )
         except ValidationError as e:
             detail = _safe_errors(e)
             raise _fail(422, detail, origin) from e
-        except (ValueError, RecursionError) as e:
-            raise _fail(422, "invalid env: must be a JSON object", origin) from e
+        except _BadJsonField as e:
+            raise _fail(422, str(e), origin) from e
+        except RecursionError as e:  # nesting too deep for the validator
+            raise _fail(422, "invalid form data: nested too deeply", origin) from e
 
         shot = fields.get("screenshot") or None
         shot_type = "image/png"
@@ -589,6 +640,7 @@ def make_router(
                 config=cfg,
                 moderator=moderator or accept_all,
                 holding_sink=holding_sink,
+                redactor=redactor,
             )
         except Exception as e:  # the sink failed: say so with CORS, not a bare 500
             logger.exception("heed: a report could not be processed or delivered")

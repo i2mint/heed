@@ -19,6 +19,7 @@ Public API (Phase 1):
               BotVerifier, SiteverifyBotVerifier, make_bot_verifier,
               make_image_sanitizer, strip_image, reencode_image, attachment_headers
               (see misc/docs/embedding-security.md)
+    Privacy   redact_text, redact_url (masking of opt-in console/network capture)
     Routing   sinks_by_origin, Verdict, accept_all, hold_all,
               make_heuristic_moderator, chain_moderators, release_held,
               recover_claimed, discard_held
@@ -54,6 +55,7 @@ from heed.board import PublicItem, changelog, roadmap
 from heed.config import HeedConfig
 from heed.images import make_image_sanitizer, reencode_image, strip_image
 from heed.ingest import make_app, make_router, process_submission
+from heed.redact import redact_text, redact_url
 from heed.routing import (
     Verdict,
     accept_all,
@@ -147,6 +149,9 @@ __all__ = [
     "strip_image",
     "reencode_image",
     "attachment_headers",
+    # privacy (opt-in capture)
+    "redact_text",
+    "redact_url",
     # routing (site resolution + moderation)
     "sinks_by_origin",
     "Verdict",
