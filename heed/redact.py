@@ -35,7 +35,7 @@ _LONG_KEYS = (
     r"secret|token|passw|pwd|api[_-]?key|apikey|auth|session|cookie|csrf|xsrf"
     r"|credential|private[_-]?key|card[_-]?number|credit[_-]?card"
 )
-_SHORT_KEYS = r"pass|pin|sid|otp|ssn|cvv|cvc"
+_SHORT_KEYS = r"pass|pin|sid|otp|ssn|cvv|cvc|sig|signature"
 _W = "A-Za-z0-9_-"  # an identifier-ish run
 _HEX = "0-9A-Fa-f"
 
@@ -105,7 +105,7 @@ _RULES: tuple[tuple[re.Pattern[str], _Replacement], ...] = (
     (
         re.compile(
             rf"(?<![{_W}])([{_W}]+)([\"']?\s*[:=]\s*)"
-            r"(\"[^\"\n]*\"|'[^'\n]*'|[^\s\"'&,;}]+)"
+            r"(\"[^\"\n]*\"|'[^'\n]*'|[^\s\"'&,;}{\[]+)"
         ),
         _secret_value(REDACTED),
     ),
@@ -138,6 +138,7 @@ _RULES: tuple[tuple[re.Pattern[str], _Replacement], ...] = (
     (re.compile(r"(/home/|/Users/|\b[A-Za-z]:\\Users\\)[^/\\\s\"']+"), r"\1[user]"),
 )
 
+_URL_IN_TEXT = re.compile(r"\bhttps?://[^\s\"'<>`]+")
 _CARD_CANDIDATE = re.compile(r"\b\d(?:[ -]?\d){12,18}\b")
 
 
@@ -165,7 +166,13 @@ def redact_text(text: str) -> str:
     'paid with [card], order 1234567890123'
     >>> redact_text('{"password": "hunter2", "user": "ana"}')
     '{"password": "[redacted]", "user": "ana"}'
+
+    URLs in the text are masked like request URLs (:func:`redact_url`) first:
+
+    >>> redact_text("callback https://app.example/cb?code=4/0AbC&state=x failed")
+    'callback https://app.example/cb?code=[redacted]&state=[redacted] failed'
     """
+    text = _URL_IN_TEXT.sub(lambda m: redact_url(m.group()), text)
     for pattern, replacement in _RULES:
         text = pattern.sub(replacement, text)
     return _CARD_CANDIDATE.sub(_mask_card, text)

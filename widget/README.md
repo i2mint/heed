@@ -120,6 +120,8 @@ Every option has a default; set it as an element attribute, as a `data-*` attrib
 | `screenshot` (`screenshot`) | `true` | Offer a screenshot of the visible page (the visitor sees a preview and can untick it). |
 | `maskInputs` (`mask-inputs`) | `true` | In the screenshot, black out every field a visitor types into, selects, editable regions and iframes. Password-like fields always are. |
 | `maskSelector` (`mask-selector`) | `[data-heed-mask]` | Elements blacked out in the screenshot. |
+| `captureConsole` (`capture-console`) | `false` | Record recent console messages and page errors, masked, so a visitor can choose to attach them. See "Console and network capture". |
+| `captureNetwork` (`capture-network`) | `false` | Record recent requests (method, masked URL, status, timing; never bodies or headers), so a visitor can choose to attach them. |
 | `screenshotTimeoutMs` (`screenshot-timeout-ms`) | `10000` | Give up on the screenshot after this long; the report is sent without it. |
 | `screenshotMaxNodes` (`screenshot-max-nodes`) | `5000` | No screenshot of pages with more elements than this (cloning them would freeze the tab). |
 | `anonId` (`anon-id`) | none | An opaque id your app chooses to group one visitor's reports. The widget never invents or stores one. |
@@ -166,7 +168,15 @@ Off unless `bot-gate` is set; nothing is loaded from the provider until the visi
 
 ## What is sent
 
-The title, details and category the visitor typed; the page URL (without query and fragment by default); the browser environment (user agent, viewport, language, pixel ratio); and, unless the visitor unticks it, a screenshot of the visible page. Nothing is stored on the visitor's device.
+The title, details and category the visitor typed; the page URL (without query and fragment by default); the browser environment (user agent, viewport, language, pixel ratio); and, unless the visitor unticks it, a screenshot of the visible page. Nothing is stored on the visitor's device. Console and network entries are sent only when the embedder enables them and the visitor ticks the box (see below).
+
+## Console and network capture
+
+Off by default. With `capture-console` and/or `capture-network` on the element (and `HeedConfig.accept_console` / `accept_network` on the server: a field the server does not accept is ignored), the widget loads a small recorder (`heed-recorder-<hash>.js`, about 3 kB gzipped, pinned by SRI) and keeps the last 200 console messages (plus page errors and unhandled rejections) and the last 200 requests (`fetch`, `XMLHttpRequest`, and the scripts, styles and images the page loads) in page memory. Request and response bodies and headers are never read. Recording starts when the widget bundle loads (after the page's `load` event), so earlier messages are not seen.
+
+**Consent, per report**: the dialog shows an unticked "Include technical information" box; nothing recorded leaves the page unless the visitor ticks it, and it is unticked again after every send and whenever the dialog closes. Light categories (ideas, questions) never offer it.
+
+**Masked before capture, and again on the server**: every entry is masked as it is recorded (e-mail addresses, tokens and auth headers, secret `key=value` pairs, provider API keys, long ids and hashes, card numbers, IP addresses, phone numbers, home-directory user names), and URLs lose their credentials, fragment, query values and id-like path segments. The server applies the same rules again (`heed/redact.py`) whatever the client sent, so a modified widget cannot push unmasked text to a sink. Masking is greedy on purpose: some ordinary text (a long hash, a numeric id) comes out as `[id]`. Browsers without regular-expression lookbehind (Safari before 16.4) record nothing.
 
 ## Screenshots
 

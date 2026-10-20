@@ -32,6 +32,7 @@ import { CONTRACT } from "./contract.gen.js";
 import { type SubmitOutcome, sendReport } from "./submit.js";
 import { MESSAGES, type Messages, categoryLabel, ensureLocale, hasLocale, messagesFor, pickLanguage } from "./i18n.js";
 import { captureWithin, screenshotStrategy } from "./capture.js";
+import { ensureRecording, recorded } from "./record.js";
 import { applyStyles } from "./styles.js";
 import { type BotGate, createBotGate } from "./botgate.js";
 
@@ -88,6 +89,8 @@ interface Ui {
   shotBox: HTMLInputElement;
   shotState: HTMLParagraphElement;
   preview: HTMLImageElement;
+  logsRow: HTMLDivElement;
+  logsBox: HTMLInputElement;
   status: HTMLParagraphElement;
   error: HTMLParagraphElement;
   submit: HTMLButtonElement;
@@ -241,6 +244,9 @@ export class HeedFeedbackElement extends Base {
     const preview = h(doc, "img", { class: "preview", hidden: true, part: "preview" });
     const gate = h(doc, "div", { class: "gate", part: "gate" });
     const shotRow = h(doc, "div", { class: "shot" }, h(doc, "label", { class: "check" }, shotBox, tx("shotLabel")), shotState, preview);
+    // Consent for opt-in capture: unticked, per report (heed#7); nothing recorded leaves the page without it.
+    const logsBox = h(doc, "input", { type: "checkbox" });
+    const logsRow = h(doc, "div", { class: "logs", hidden: true }, h(doc, "label", { class: "check" }, logsBox, tx("logsLabel")));
     const form = h(
       doc,
       "form",
@@ -251,6 +257,7 @@ export class HeedFeedbackElement extends Base {
       h(doc, "div", { class: "hp", "aria-hidden": "true" }, h(doc, "label", {}, tx("honeypotLabel"), honeypot)),
       note,
       shotRow,
+      logsRow,
       gate,
       h(doc, "div", { class: "messages" }, status, error),
       h(doc, "div", { class: "actions" }, cancel, submit),
@@ -269,6 +276,7 @@ export class HeedFeedbackElement extends Base {
     category.addEventListener("change", () => this.#syncCapture());
     dialog.addEventListener("close", () => {
       this.#cancelToken();
+      logsBox.checked = false; // consent is per report: closing without sending withdraws it
       this.#emit("heed:close", {});
     });
     form.addEventListener("submit", (event) => {
@@ -278,7 +286,7 @@ export class HeedFeedbackElement extends Base {
     title.addEventListener("input", () => {
       if (error.textContent) this.#setStatus("", false);
     });
-    return { root: rootBox, launcher, dialog, heading, form, categoryLabel, category, title, body, honeypot, note, gate, shotRow, shotBox, shotState, preview, status, error, submit, doneClose, done, doneMessage, doneLink };
+    return { root: rootBox, launcher, dialog, heading, form, categoryLabel, category, title, body, honeypot, note, gate, shotRow, shotBox, shotState, preview, logsRow, logsBox, status, error, submit, doneClose, done, doneMessage, doneLink };
   }
 
   /** The visitor's language: `lang`, else the nearest `lang` above the element, else the browser's. */
@@ -390,6 +398,7 @@ export class HeedFeedbackElement extends Base {
         pageUrl: reportPageUrl(win.location.href, o.pageUrl),
         honeypot: ui.honeypot.value,
         screenshot,
+        recorded: !light && !ui.logsRow.hidden && ui.logsBox.checked ? recorded(win, { console: o.captureConsole, network: o.captureNetwork }) : null,
       };
       const sending = this.#withGate(o);
       outcome = await sendReport(input, sending);
@@ -510,6 +519,8 @@ export class HeedFeedbackElement extends Base {
   /**
    * Bring the note, the screenshot row and the capture in line with the chosen category: a
    * light one shows its own note and drops the screenshot, a heavy one takes it (once).
+   * Starts the console/network recorder when the options enable it, and offers its
+   * consent box for heavy categories only.
    * Runs at the end of every sync, so a changed `categories` or `lightCategories` is covered.
    */
   #syncCapture(m: Messages = this.#msgs()): void {
@@ -519,6 +530,9 @@ export class HeedFeedbackElement extends Base {
     const light = this.#isLight();
     ui.note.textContent = light ? m.noteLight : o.screenshot ? m.noteShot : m.note;
     ui.shotRow.hidden = !o.screenshot || light;
+    const kinds = { console: o.captureConsole, network: o.captureNetwork };
+    ui.logsRow.hidden = light || !(kinds.console || kinds.network);
+    if (kinds.console || kinds.network) ensureRecording(this.ownerDocument.defaultView ?? window, kinds, o.endpoint);
     // A light category only hides the row (and `#screenshotToSend` sends nothing): the capture and
     // the visitor's tick survive a round trip, and quick switching starts no second capture.
     if (!light && o.screenshot && ui.dialog.open && ui.done.hidden && !this.#shot) this.#startScreenshot();

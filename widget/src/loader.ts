@@ -72,7 +72,7 @@ type TT = { createPolicy(n: string, p: object): Policy };
   // bundle reuses it for the rasterizer and the translations).
   const url = new URL(__HEED_BUNDLE__, self.src).href;
   const dir = new URL(".", url).href;
-  const own = (u: string) => (u.startsWith(dir) && /^heed-(widget|raster|locales)-[0-9a-f]{10}\.js$/.test(u.slice(dir.length)) ? u : "");
+  const own = (u: string) => (u.startsWith(dir) && /^heed-(widget|raster|locales|recorder)-[0-9a-f]{10}\.js$/.test(u.slice(dir.length)) ? u : "");
   let policy: Policy | null = null;
   try {
     policy = w.trustedTypes?.createPolicy("heed", { createScriptURL: own }) ?? null;

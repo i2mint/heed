@@ -36,6 +36,9 @@ await build({
     // Likewise the translations: imported lazily, not fetched by URL.
     __HEED_LOCALES__: JSON.stringify(""),
     __HEED_LOCALES_INTEGRITY__: JSON.stringify(""),
+    // And the console/network recorder.
+    __HEED_RECORDER__: JSON.stringify(""),
+    __HEED_RECORDER_INTEGRITY__: JSON.stringify(""),
   },
 });
 if (!process.argv[2]) {

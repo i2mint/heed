@@ -222,6 +222,57 @@ def test_report_from_a_cross_origin_page_under_strict_csp(browser):
         assert saved["origin"] == origin
 
 
+def _capture_page(backend: str) -> str:
+    """The bundle with console and network capture on (heed#7)."""
+    bundle = load_widget_manifest()["entries"]["widget"]
+    return _page(
+        backend,
+        f'<script src="{backend}/heed/widget/{bundle}"></script>\n'
+        f'<heed-feedback endpoint="{backend}/heed/report" screenshot="false" '
+        'capture-console capture-network></heed-feedback>',
+    )
+
+
+def test_opt_in_capture_is_masked_and_sent_only_with_consent(browser):
+    with _site(
+        browser, page=_capture_page, accept_console=True, accept_network=True
+    ) as (page, problems, store, origin):
+        # The recorder file loads under the page's CSP and Trusted Types, pinned by SRI.
+        page.wait_for_function("() => window.__heedRecorder !== undefined")
+        backend = page.locator("heed-feedback").get_attribute("endpoint")
+        page.evaluate(
+            """async (url) => {
+                await new Promise((r) => setTimeout(r, 50));
+                console.warn("checkout failed for ana@example.com token=s3cr3t");
+                // No CORS on this route: the page sees a failed fetch, the recorder too.
+                await fetch(url.replace("/report", "/nothing/12345?session=abc"))
+                    .catch(() => null);
+            }""",
+            backend,
+        )
+        _send(page, "without consent")
+        page.get_by_text("Your report was sent").wait_for()
+        page.get_by_role("button", name="Close").click()
+
+        page.get_by_role("button", name="Feedback").click()
+        page.get_by_label("Title").fill("with consent")
+        page.get_by_label("Include technical information").check()
+        page.get_by_role("button", name="Send").click()
+        page.get_by_text("Your report was sent").wait_for()
+
+        reports = {r["title"]: r for r in map(json.loads, store.values())}
+        assert reports["without consent"]["console"] is None
+        assert reports["without consent"]["network"] is None
+        sent = reports["with consent"]
+        messages = [e["message"] for e in sent["console"]]
+        assert "checkout failed for [email] token=[redacted]" in messages
+        urls = [e["url"] for e in sent["network"]]
+        assert any(u.endswith("/heed/nothing/[id]?session=[redacted]") for u in urls)
+        assert not any("/heed/report" in u for u in urls)  # its own POST is left out
+        assert "s3cr3t" not in json.dumps(sent) and "ana@" not in json.dumps(sent)
+        assert [p for p in problems if "CORS policy" not in p] == []
+
+
 def test_dialog_is_modal_and_escape_keeps_the_draft(browser):
     with _site(browser) as (page, problems, store, _):
         page.get_by_role("button", name="Feedback").click()
