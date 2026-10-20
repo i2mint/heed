@@ -85,7 +85,8 @@ export function maskText(text: string): string {
   return text.replace(CARD_CANDIDATE, (m) => (luhnOk(m.replace(/\D/g, "")) ? "[card]" : m));
 }
 
-const ID_SEGMENT = /^(?:\d+|(?=[A-Za-z_.~+=-]*\d)[A-Za-z0-9_.~+=-]{12,})$/;
+// \p{Nd}: Python's \d is Unicode-aware, so non-ASCII digits are ids here too.
+const ID_SEGMENT = /^(?:\p{Nd}+|(?=[A-Za-z_.~+=-]*\p{Nd})[A-Za-z0-9_.~+=-]{12,})$/u;
 const MIN_LETTER_TOKEN_LEN = 16; // all-letter tokens shorter than this read as words
 const MIN_TOKEN_ENTROPY = 3.8; // bits per character; slugs and words fall below
 const ALNUM = /^[\p{L}\p{N}]+$/u;

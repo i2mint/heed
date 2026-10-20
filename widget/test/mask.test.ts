@@ -78,6 +78,7 @@ describe("maskUrl: tokens the server catches (parity with redact.py)", () => {
     ["/wiki/Pneumonoultramicroscopicsilicovolcanoconiosis", "/wiki/Pneumonoultramicroscopicsilicovolcanoconiosis"],
     ["/files/MyQuarterlyReportFinal.pdf", "/files/MyQuarterlyReportFinal.pdf"],
     ["/x/50%/AbCdEfGhIjKlMnOpQrSt", "/x/50%/[id]"],
+    ["/x/\u0663\u0664\u0665\u0666\u0667", "/x/[id]"],
   ])("%s", (path, expected) => {
     expect(maskUrl(path, B)).toBe(B + expected);
   });
