@@ -774,7 +774,9 @@ window.runMermaid = runMermaid;</script>
     <span class="s2">"image/webp"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"RGB"</span><span class="p">,</span> <span class="s2">"RGBA"</span><span class="p">},</span>
 <span class="p">}</span>
 
-<span class="n">DEFAULT_MAX_PIXELS</span> <span class="o">=</span> <span class="mi">25_000_000</span>  <span class="c1"># covers a 6K display (6016x3384 = 20.4M)</span>
+<span class="c1"># The widget renders at most 8M pixels (widget/src/raster.ts) and a 4K screen is 8.3M.</span>
+<span class="c1"># Re-encode CPU grows with pixels: a small file can declare a 25M canvas and cost ~1 s.</span>
+<span class="n">DEFAULT_MAX_PIXELS</span> <span class="o">=</span> <span class="mi">8_500_000</span>
 <span class="n">DEFAULT_MAX_CONCURRENT</span> <span class="o">=</span> <span class="mi">2</span>  <span class="c1"># re-encodes in flight per process (each can use ~100 MB)</span>
 <span class="n">DEFAULT_BUSY_WAIT_SECONDS</span> <span class="o">=</span> <span class="mf">2.0</span>  <span class="c1"># how long a re-encode waits for a free slot</span>
 <span class="n">BUSY_RETRY_AFTER_SECONDS</span> <span class="o">=</span> <span class="mi">5</span>  <span class="c1"># Retry-After sent with the 503 when every slot is busy</span>

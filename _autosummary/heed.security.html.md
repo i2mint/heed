@@ -20,8 +20,10 @@ composes them and deployments swap implementations without touching it:
 
 ### Module Attributes
 
-| [`ATTACHMENT_RESPONSE_HEADERS`](#heed.security.ATTACHMENT_RESPONSE_HEADERS)   | Response headers for serving a stored attachment, whatever its bytes contain: never sniffed as another type, never allowed to run script or load anything, never cached by shared caches.   |
-|--------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| [`DEFAULT_MAX_KEYS`](#heed.security.DEFAULT_MAX_KEYS)             | Keys an in-memory limiter tracks before evicting the least recently seen.                                                                                                                 |
+|-------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| [`DEFAULT_REDIS_SOCKET_TIMEOUT`](#heed.security.DEFAULT_REDIS_SOCKET_TIMEOUT) | a hung Redis costs at most this long.                                                                                                                                                     |
+| [`ATTACHMENT_RESPONSE_HEADERS`](#heed.security.ATTACHMENT_RESPONSE_HEADERS)  | Response headers for serving a stored attachment, whatever its bytes contain: never sniffed as another type, never allowed to run script or load anything, never cached by shared caches. |
 
 ### Functions
 
@@ -59,6 +61,17 @@ Bases: [`Protocol`](https://docs.python.org/3/library/typing.html#typing.Protoco
 
 Verify a human-challenge token server-side; True means “looks human”.
 
+### heed.security.DEFAULT_MAX_KEYS *= 100000*
+
+Keys an in-memory limiter tracks before evicting the least recently seen.
+
+### heed.security.DEFAULT_REDIS_SOCKET_TIMEOUT *= 0.5*
+
+a hung Redis costs at most this long.
+
+* **Type:**
+  Connect/read timeout of the Redis limiter
+
 ### *class* heed.security.InMemoryRateLimiter(\*, max_per_window=30, window_seconds=60.0, max_keys=100000, clock=<built-in function monotonic>)
 
 Bases: [`object`](https://docs.python.org/3/builtins/functions.html#object)
@@ -76,7 +89,7 @@ Bases: [`Protocol`](https://docs.python.org/3/library/typing.html#typing.Protoco
 
 Decide whether a request keyed by `key` (e.g. client IP) is allowed now.
 
-### *class* heed.security.RedisRateLimiter(client, \*, max_per_window=30, window_seconds=60.0, namespace='heed:rl', fallback=None, clock=<built-in function time>)
+### *class* heed.security.RedisRateLimiter(client, \*, max_per_window=30, window_seconds=60.0, namespace='heed:rl', fallback=None, max_keys=100000, clock=<built-in function time>)
 
 Bases: [`object`](https://docs.python.org/3/builtins/functions.html#object)
 
@@ -166,7 +179,7 @@ Return a verifier, or `None` (gate off) when no secret is configured.
 * **Return type:**
   [`BotVerifier`](#heed.security.BotVerifier) | [`None`](https://docs.python.org/3/builtins/constants.html#None)
 
-### heed.security.make_rate_limiter(backend='memory', , max_per_window, window_seconds=60.0, namespace='ip', redis_url=None)
+### heed.security.make_rate_limiter(backend='memory', , max_per_window, window_seconds=60.0, namespace='ip', redis_url=None, max_keys=100000, redis_socket_timeout=0.5)
 
 Build a limiter from the `rate_limiter_backends` registry by name.
 

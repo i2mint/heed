@@ -8,6 +8,8 @@ heed.security
 
    .. autosummary::
    
+      DEFAULT_MAX_KEYS
+      DEFAULT_REDIS_SOCKET_TIMEOUT
       ATTACHMENT_RESPONSE_HEADERS
    
    .. rubric:: Functions

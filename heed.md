@@ -1,4 +1,4 @@
-> built 2026-10-20 13:44 UTC from 07af8a1 (main) · heed 0.0.1. Details: build_info.json
+> built 2026-10-20 13:58 UTC from b9af554 (main) · heed 0.0.1. Details: build_info.json
 
 # index.html.md
 
@@ -396,7 +396,7 @@ infrastructure (the Redis URL) belong.
 | [`HeedConfig`](_autosummary/heed.config.html.md#heed.config.HeedConfig)(\*[, allowed_origins, ...])   | Knobs for the ingest endpoint.   |
 |-------------------------------------------------------------------------------------------|----------------------------------|
 
-### *class* heed.config.HeedConfig(\*, allowed_origins=None, handle_cors=True, cors_allow_credentials=False, cors_max_age_seconds=600, max_body_bytes=6000000, max_screenshot_bytes=5000000, screenshot_sanitizer='auto', max_screenshot_pixels=25000000, max_concurrent_reencodes=2, max_field_bytes=100000, max_form_fields=16, rate_limit_per_minute=30, origin_rate_limit_per_minute=600, rate_limit_window_seconds=60.0, rate_limit_backend='memory', redis_url=None, trusted_proxies=list(), ipv6_rate_limit_prefix=64, bot_gate=None, bot_secret=None, bot_expected_hostnames=None, bot_token_field='bot_token', honeypot_field='hp_website', attachment_signing_key=None, attachment_url_ttl_seconds=None, attachment_previous_keys=list(), attachment_hosts=None, attachment_cache_control=None, accept_console=False, accept_network=False, mask_page_url=True, light_categories=<factory>)
+### *class* heed.config.HeedConfig(\*, allowed_origins=None, handle_cors=True, cors_allow_credentials=False, cors_max_age_seconds=600, max_body_bytes=6000000, max_screenshot_bytes=5000000, screenshot_sanitizer='auto', max_screenshot_pixels=8500000, max_concurrent_reencodes=2, reencode_busy_wait_seconds=2.0, reencode_retry_after_seconds=5, max_field_bytes=100000, max_form_fields=16, rate_limit_per_minute=30, origin_rate_limit_per_minute=600, rate_limit_window_seconds=60.0, rate_limit_backend='memory', redis_url=None, redis_socket_timeout_seconds=0.5, rate_limit_max_keys=100000, trusted_proxies=list(), ipv6_rate_limit_prefix=64, bot_gate=None, bot_secret=None, bot_expected_hostnames=None, bot_token_field='bot_token', honeypot_field='hp_website', attachment_signing_key=None, attachment_url_ttl_seconds=None, attachment_previous_keys=list(), attachment_hosts=None, attachment_cache_control=None, accept_console=False, accept_network=False, mask_page_url=True, light_categories=<factory>)
 
 Bases: [`object`](https://docs.python.org/3/builtins/functions.html#object)
 
@@ -786,7 +786,7 @@ The treatment applied to reports of `category`.
 * **Return type:**
   [`CategoryTreatment`](_autosummary/heed.sinks.github.html.md#heed.sinks.github.CategoryTreatment)
 
-### *class* heed.HeedConfig(\*, allowed_origins=None, handle_cors=True, cors_allow_credentials=False, cors_max_age_seconds=600, max_body_bytes=6000000, max_screenshot_bytes=5000000, screenshot_sanitizer='auto', max_screenshot_pixels=25000000, max_concurrent_reencodes=2, max_field_bytes=100000, max_form_fields=16, rate_limit_per_minute=30, origin_rate_limit_per_minute=600, rate_limit_window_seconds=60.0, rate_limit_backend='memory', redis_url=None, trusted_proxies=list(), ipv6_rate_limit_prefix=64, bot_gate=None, bot_secret=None, bot_expected_hostnames=None, bot_token_field='bot_token', honeypot_field='hp_website', attachment_signing_key=None, attachment_url_ttl_seconds=None, attachment_previous_keys=list(), attachment_hosts=None, attachment_cache_control=None, accept_console=False, accept_network=False, mask_page_url=True, light_categories=<factory>)
+### *class* heed.HeedConfig(\*, allowed_origins=None, handle_cors=True, cors_allow_credentials=False, cors_max_age_seconds=600, max_body_bytes=6000000, max_screenshot_bytes=5000000, screenshot_sanitizer='auto', max_screenshot_pixels=8500000, max_concurrent_reencodes=2, reencode_busy_wait_seconds=2.0, reencode_retry_after_seconds=5, max_field_bytes=100000, max_form_fields=16, rate_limit_per_minute=30, origin_rate_limit_per_minute=600, rate_limit_window_seconds=60.0, rate_limit_backend='memory', redis_url=None, redis_socket_timeout_seconds=0.5, rate_limit_max_keys=100000, trusted_proxies=list(), ipv6_rate_limit_prefix=64, bot_gate=None, bot_secret=None, bot_expected_hostnames=None, bot_token_field='bot_token', honeypot_field='hp_website', attachment_signing_key=None, attachment_url_ttl_seconds=None, attachment_previous_keys=list(), attachment_hosts=None, attachment_cache_control=None, accept_console=False, accept_network=False, mask_page_url=True, light_categories=<factory>)
 
 Bases: [`object`](https://docs.python.org/3/builtins/functions.html#object)
 
@@ -876,7 +876,7 @@ Bases: [`Protocol`](https://docs.python.org/3/library/typing.html#typing.Protoco
 
 Decide whether a request keyed by `key` (e.g. client IP) is allowed now.
 
-### *class* heed.RedisRateLimiter(client, \*, max_per_window=30, window_seconds=60.0, namespace='heed:rl', fallback=None, clock=<built-in function time>)
+### *class* heed.RedisRateLimiter(client, \*, max_per_window=30, window_seconds=60.0, namespace='heed:rl', fallback=None, max_keys=100000, clock=<built-in function time>)
 
 Bases: [`object`](https://docs.python.org/3/builtins/functions.html#object)
 
@@ -1207,7 +1207,7 @@ holding store’s recursive listing).
 * **Return type:**
   [`MutableMapping`](https://docs.python.org/3/library/collections.abc.html#collections.abc.MutableMapping)
 
-### heed.make_image_sanitizer(name='auto', , max_pixels=25000000, max_concurrent=2, busy_wait_seconds=2.0)
+### heed.make_image_sanitizer(name='auto', , max_pixels=8500000, max_concurrent=2, busy_wait_seconds=2.0)
 
 Build a sanitizer from the `image_sanitizers` registry by name.
 
@@ -1217,7 +1217,7 @@ dependency is missing.
 * **Return type:**
   [`Callable`](https://docs.python.org/3/library/collections.abc.html#collections.abc.Callable)[[[`bytes`](https://docs.python.org/3/builtins/stdtypes.html#bytes), [`str`](https://docs.python.org/3/builtins/stdtypes.html#str)], [`bytes`](https://docs.python.org/3/builtins/stdtypes.html#bytes)]
 
-### heed.make_rate_limiter(backend='memory', , max_per_window, window_seconds=60.0, namespace='ip', redis_url=None)
+### heed.make_rate_limiter(backend='memory', , max_per_window, window_seconds=60.0, namespace='ip', redis_url=None, max_keys=100000, redis_socket_timeout=0.5)
 
 Build a limiter from the `rate_limiter_backends` registry by name.
 
@@ -1418,7 +1418,7 @@ segment redacted as text.
 * **Return type:**
   [`str`](https://docs.python.org/3/builtins/stdtypes.html#str)
 
-### heed.reencode_image(data, media_type, , max_pixels=25000000)
+### heed.reencode_image(data, media_type, , max_pixels=8500000)
 
 Strip `data`, then decode it and save its first frame afresh, same format.
 
@@ -1647,7 +1647,7 @@ Bases: [`RuntimeError`](https://docs.python.org/3/builtins/exceptions.html#Runti
 
 Every re-encode slot stayed busy for the whole wait: try again later.
 
-### heed.images.make_image_sanitizer(name='auto', , max_pixels=25000000, max_concurrent=2, busy_wait_seconds=2.0)
+### heed.images.make_image_sanitizer(name='auto', , max_pixels=8500000, max_concurrent=2, busy_wait_seconds=2.0)
 
 Build a sanitizer from the `image_sanitizers` registry by name.
 
@@ -1664,7 +1664,7 @@ Whether [`reencode_image()`](_autosummary/heed.images.html.md#heed.images.reenco
 * **Return type:**
   [`bool`](https://docs.python.org/3/builtins/functions.html#bool)
 
-### heed.images.reencode_image(data, media_type, , max_pixels=25000000)
+### heed.images.reencode_image(data, media_type, , max_pixels=8500000)
 
 Strip `data`, then decode it and save its first frame afresh, same format.
 
@@ -2344,8 +2344,10 @@ composes them and deployments swap implementations without touching it:
 
 ### Module Attributes
 
-| [`ATTACHMENT_RESPONSE_HEADERS`](_autosummary/heed.security.html.md#heed.security.ATTACHMENT_RESPONSE_HEADERS)   | Response headers for serving a stored attachment, whatever its bytes contain: never sniffed as another type, never allowed to run script or load anything, never cached by shared caches.   |
-|--------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| [`DEFAULT_MAX_KEYS`](_autosummary/heed.security.html.md#heed.security.DEFAULT_MAX_KEYS)             | Keys an in-memory limiter tracks before evicting the least recently seen.                                                                                                                 |
+|-------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| [`DEFAULT_REDIS_SOCKET_TIMEOUT`](_autosummary/heed.security.html.md#heed.security.DEFAULT_REDIS_SOCKET_TIMEOUT) | a hung Redis costs at most this long.                                                                                                                                                     |
+| [`ATTACHMENT_RESPONSE_HEADERS`](_autosummary/heed.security.html.md#heed.security.ATTACHMENT_RESPONSE_HEADERS)  | Response headers for serving a stored attachment, whatever its bytes contain: never sniffed as another type, never allowed to run script or load anything, never cached by shared caches. |
 
 ### Functions
 
@@ -2383,6 +2385,17 @@ Bases: [`Protocol`](https://docs.python.org/3/library/typing.html#typing.Protoco
 
 Verify a human-challenge token server-side; True means “looks human”.
 
+### heed.security.DEFAULT_MAX_KEYS *= 100000*
+
+Keys an in-memory limiter tracks before evicting the least recently seen.
+
+### heed.security.DEFAULT_REDIS_SOCKET_TIMEOUT *= 0.5*
+
+a hung Redis costs at most this long.
+
+* **Type:**
+  Connect/read timeout of the Redis limiter
+
 ### *class* heed.security.InMemoryRateLimiter(\*, max_per_window=30, window_seconds=60.0, max_keys=100000, clock=<built-in function monotonic>)
 
 Bases: [`object`](https://docs.python.org/3/builtins/functions.html#object)
@@ -2400,7 +2413,7 @@ Bases: [`Protocol`](https://docs.python.org/3/library/typing.html#typing.Protoco
 
 Decide whether a request keyed by `key` (e.g. client IP) is allowed now.
 
-### *class* heed.security.RedisRateLimiter(client, \*, max_per_window=30, window_seconds=60.0, namespace='heed:rl', fallback=None, clock=<built-in function time>)
+### *class* heed.security.RedisRateLimiter(client, \*, max_per_window=30, window_seconds=60.0, namespace='heed:rl', fallback=None, max_keys=100000, clock=<built-in function time>)
 
 Bases: [`object`](https://docs.python.org/3/builtins/functions.html#object)
 
@@ -2490,7 +2503,7 @@ Return a verifier, or `None` (gate off) when no secret is configured.
 * **Return type:**
   [`BotVerifier`](_autosummary/heed.security.html.md#heed.security.BotVerifier) | [`None`](https://docs.python.org/3/builtins/constants.html#None)
 
-### heed.security.make_rate_limiter(backend='memory', , max_per_window, window_seconds=60.0, namespace='ip', redis_url=None)
+### heed.security.make_rate_limiter(backend='memory', , max_per_window, window_seconds=60.0, namespace='ip', redis_url=None, max_keys=100000, redis_socket_timeout=0.5)
 
 Build a limiter from the `rate_limiter_backends` registry by name.
 
@@ -3731,7 +3744,7 @@ overrides them.
 
 # About this build
 
-This documentation was built on **2026-10-20 13:44 UTC** from commit <a href="https://github.com/i2mint/heed/commit/07af8a1458b5090b08641b5bf26a5d76238eb43e"><code>07af8a1</code></a> on branch <code>main</code>, for **heed 0.0.1** (from <code>pyproject.toml</code>).
+This documentation was built on **2026-10-20 13:58 UTC** from commit <a href="https://github.com/i2mint/heed/commit/b9af554f578214210c26a0bd676d32f01f2694df"><code>b9af554</code></a> on branch <code>main</code>, for **heed 0.0.1** (from <code>pyproject.toml</code>).
 
 #### WARNING
 The documentation and the package may be misaligned:
@@ -3742,7 +3755,7 @@ The documentation and the package may be misaligned:
 
 |                     |                                                                                                                                                    |
 |---------------------|----------------------------------------------------------------------------------------------------------------------------------------------------|
-| Commit              | <a href="https://github.com/i2mint/heed/commit/07af8a1458b5090b08641b5bf26a5d76238eb43e"><code>07af8a1458b5090b08641b5bf26a5d76238eb43e</code></a> |
+| Commit              | <a href="https://github.com/i2mint/heed/commit/b9af554f578214210c26a0bd676d32f01f2694df"><code>b9af554f578214210c26a0bd676d32f01f2694df</code></a> |
 | Branch              | <code>main</code>                                                                                                                                  |
 | Tags at this commit | none                                                                                                                                               |
 | Working tree        | clean                                                                                                                                              |
@@ -3753,9 +3766,9 @@ The documentation and the package may be misaligned:
 |              |                                                                                            |
 |--------------|--------------------------------------------------------------------------------------------|
 | Repository   | <code>i2mint/heed</code>                                                                   |
-| Run          | <a href="https://github.com/i2mint/heed/actions/runs/39432861276">39432861276</a>          |
+| Run          | <a href="https://github.com/i2mint/heed/actions/runs/39434859217">39434859217</a>          |
 | Ref          | <code>refs/heads/main</code>                                                               |
-| Event commit | <code>07af8a1458b5090b08641b5bf26a5d76238eb43e</code> (in the history of the built commit) |
+| Event commit | <code>b9af554f578214210c26a0bd676d32f01f2694df</code> (in the history of the built commit) |
 
 ## Tools
 
@@ -3786,7 +3799,7 @@ Latest release: <a href="https://pypi.org/project/heed/0.1.0/">0.1.0</a>, newer 
 
 ```bash
 git clone https://github.com/i2mint/heed && cd heed
-git checkout 07af8a1458b5090b08641b5bf26a5d76238eb43e
+git checkout b9af554f578214210c26a0bd676d32f01f2694df
 pip install "epythet==0.2.20"
 epythet quickstart . --ignore tests/ scrap/ examples/
 ```

@@ -63,7 +63,7 @@ Bases: [`RuntimeError`](https://docs.python.org/3/builtins/exceptions.html#Runti
 
 Every re-encode slot stayed busy for the whole wait: try again later.
 
-### heed.images.make_image_sanitizer(name='auto', , max_pixels=25000000, max_concurrent=2, busy_wait_seconds=2.0)
+### heed.images.make_image_sanitizer(name='auto', , max_pixels=8500000, max_concurrent=2, busy_wait_seconds=2.0)
 
 Build a sanitizer from the `image_sanitizers` registry by name.
 
@@ -80,7 +80,7 @@ Whether [`reencode_image()`](#heed.images.reencode_image) can run (Pillow is imp
 * **Return type:**
   [`bool`](https://docs.python.org/3/builtins/functions.html#bool)
 
-### heed.images.reencode_image(data, media_type, , max_pixels=25000000)
+### heed.images.reencode_image(data, media_type, , max_pixels=8500000)
 
 Strip `data`, then decode it and save its first frame afresh, same format.
 

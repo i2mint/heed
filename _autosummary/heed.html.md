@@ -356,7 +356,7 @@ The treatment applied to reports of `category`.
 * **Return type:**
   [`CategoryTreatment`](heed.sinks.github.html.md#heed.sinks.github.CategoryTreatment)
 
-### *class* heed.HeedConfig(\*, allowed_origins=None, handle_cors=True, cors_allow_credentials=False, cors_max_age_seconds=600, max_body_bytes=6000000, max_screenshot_bytes=5000000, screenshot_sanitizer='auto', max_screenshot_pixels=25000000, max_concurrent_reencodes=2, max_field_bytes=100000, max_form_fields=16, rate_limit_per_minute=30, origin_rate_limit_per_minute=600, rate_limit_window_seconds=60.0, rate_limit_backend='memory', redis_url=None, trusted_proxies=list(), ipv6_rate_limit_prefix=64, bot_gate=None, bot_secret=None, bot_expected_hostnames=None, bot_token_field='bot_token', honeypot_field='hp_website', attachment_signing_key=None, attachment_url_ttl_seconds=None, attachment_previous_keys=list(), attachment_hosts=None, attachment_cache_control=None, accept_console=False, accept_network=False, mask_page_url=True, light_categories=<factory>)
+### *class* heed.HeedConfig(\*, allowed_origins=None, handle_cors=True, cors_allow_credentials=False, cors_max_age_seconds=600, max_body_bytes=6000000, max_screenshot_bytes=5000000, screenshot_sanitizer='auto', max_screenshot_pixels=8500000, max_concurrent_reencodes=2, reencode_busy_wait_seconds=2.0, reencode_retry_after_seconds=5, max_field_bytes=100000, max_form_fields=16, rate_limit_per_minute=30, origin_rate_limit_per_minute=600, rate_limit_window_seconds=60.0, rate_limit_backend='memory', redis_url=None, redis_socket_timeout_seconds=0.5, rate_limit_max_keys=100000, trusted_proxies=list(), ipv6_rate_limit_prefix=64, bot_gate=None, bot_secret=None, bot_expected_hostnames=None, bot_token_field='bot_token', honeypot_field='hp_website', attachment_signing_key=None, attachment_url_ttl_seconds=None, attachment_previous_keys=list(), attachment_hosts=None, attachment_cache_control=None, accept_console=False, accept_network=False, mask_page_url=True, light_categories=<factory>)
 
 Bases: [`object`](https://docs.python.org/3/builtins/functions.html#object)
 
@@ -446,7 +446,7 @@ Bases: [`Protocol`](https://docs.python.org/3/library/typing.html#typing.Protoco
 
 Decide whether a request keyed by `key` (e.g. client IP) is allowed now.
 
-### *class* heed.RedisRateLimiter(client, \*, max_per_window=30, window_seconds=60.0, namespace='heed:rl', fallback=None, clock=<built-in function time>)
+### *class* heed.RedisRateLimiter(client, \*, max_per_window=30, window_seconds=60.0, namespace='heed:rl', fallback=None, max_keys=100000, clock=<built-in function time>)
 
 Bases: [`object`](https://docs.python.org/3/builtins/functions.html#object)
 
@@ -777,7 +777,7 @@ holding store’s recursive listing).
 * **Return type:**
   [`MutableMapping`](https://docs.python.org/3/library/collections.abc.html#collections.abc.MutableMapping)
 
-### heed.make_image_sanitizer(name='auto', , max_pixels=25000000, max_concurrent=2, busy_wait_seconds=2.0)
+### heed.make_image_sanitizer(name='auto', , max_pixels=8500000, max_concurrent=2, busy_wait_seconds=2.0)
 
 Build a sanitizer from the `image_sanitizers` registry by name.
 
@@ -787,7 +787,7 @@ dependency is missing.
 * **Return type:**
   [`Callable`](https://docs.python.org/3/library/collections.abc.html#collections.abc.Callable)[[[`bytes`](https://docs.python.org/3/builtins/stdtypes.html#bytes), [`str`](https://docs.python.org/3/builtins/stdtypes.html#str)], [`bytes`](https://docs.python.org/3/builtins/stdtypes.html#bytes)]
 
-### heed.make_rate_limiter(backend='memory', , max_per_window, window_seconds=60.0, namespace='ip', redis_url=None)
+### heed.make_rate_limiter(backend='memory', , max_per_window, window_seconds=60.0, namespace='ip', redis_url=None, max_keys=100000, redis_socket_timeout=0.5)
 
 Build a limiter from the `rate_limiter_backends` registry by name.
 
@@ -988,7 +988,7 @@ segment redacted as text.
 * **Return type:**
   [`str`](https://docs.python.org/3/builtins/stdtypes.html#str)
 
-### heed.reencode_image(data, media_type, , max_pixels=25000000)
+### heed.reencode_image(data, media_type, , max_pixels=8500000)
 
 Strip `data`, then decode it and save its first frame afresh, same format.
 
