@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "built_at": "2026-10-20T14:49:28Z",
+  "built_at": "2026-10-20T14:55:33Z",
   "package": {
     "name": "heed",
     "version": "0.0.1",
@@ -9,24 +9,24 @@
   },
   "git": {
     "available": true,
-    "commit": "793f9568fac5fb4b8a5920804700e0bde61c0fc9",
-    "short_commit": "793f956",
+    "commit": "ce93af6fb548df192793416d020fb1808e961406",
+    "short_commit": "ce93af6",
     "branch": "main",
     "tags": [],
     "dirty": false,
     "remote_url": "https://github.com/i2mint/heed",
-    "commit_url": "https://github.com/i2mint/heed/commit/793f9568fac5fb4b8a5920804700e0bde61c0fc9",
+    "commit_url": "https://github.com/i2mint/heed/commit/ce93af6fb548df192793416d020fb1808e961406",
     "error": null
   },
   "ci": {
     "provider": "github",
     "repository": "i2mint/heed",
-    "sha": "793f9568fac5fb4b8a5920804700e0bde61c0fc9",
+    "sha": "ce93af6fb548df192793416d020fb1808e961406",
     "sha_in_history": true,
     "ref": "refs/heads/main",
     "ref_name": "main",
-    "run_id": "39442510202",
-    "run_url": "https://github.com/i2mint/heed/actions/runs/39442510202",
+    "run_id": "39443407035",
+    "run_url": "https://github.com/i2mint/heed/actions/runs/39443407035",
     "server_url": "https://github.com"
   },
   "tools": {
@@ -55,8 +55,8 @@
     "docs_dir": "docsrc"
   },
   "site": {
-    "modules_documented": 19,
-    "objects_documented": 299
+    "modules_documented": 20,
+    "objects_documented": 306
   },
   "pypi": {
     "checked": true,
@@ -64,7 +64,7 @@
     "relation": "behind",
     "error": null
   },
-  "reproduce": "git clone https://github.com/i2mint/heed && cd heed\ngit checkout 793f9568fac5fb4b8a5920804700e0bde61c0fc9\npip install \"epythet==0.2.21\"\nepythet quickstart . --ignore tests/ scrap/ examples/",
+  "reproduce": "git clone https://github.com/i2mint/heed && cd heed\ngit checkout ce93af6fb548df192793416d020fb1808e961406\npip install \"epythet==0.2.21\"\nepythet quickstart . --ignore tests/ scrap/ examples/",
   "warnings": [],
   "alignment": {
     "aligned": false,

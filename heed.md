@@ -1,4 +1,4 @@
-> built 2026-10-20 14:49 UTC from 793f956 (main) · heed 0.0.1. Details: build_info.json
+> built 2026-10-20 14:55 UTC from ce93af6 (main) · heed 0.0.1. Details: build_info.json
 
 # index.html.md
 
@@ -426,6 +426,96 @@ optional knob (e.g. `HEED_ORIGIN_RATE_LIMIT_PER_MINUTE=none`).
   [`HeedConfig`](_autosummary/heed.config.html.md#heed.config.HeedConfig)
 
 
+# _autosummary/heed.dedup.html.md
+
+# heed.dedup
+
+Duplicate detection in two stages: cheap retrieval, then confirmation (#8).
+
+1. **Retrieval** ranks the stored reports by word overlap with the incoming one
+   (title counted twice, body once; Jaccard over folded words) and keeps the
+   `k` best above `min_score`. No model, no index: fine for a feedback queue.
+2. **Confirmation** (optional) asks an injected `confirm(new, candidate) -> float`
+   judge, e.g. an LLM or an embedding similarity, and keeps those it scores at
+   `confirm_threshold` or more.
+
+The result is a list of [`DupCandidate`](_autosummary/heed.sinks.base.html.md#heed.sinks.base.DupCandidate); nothing is merged.
+[`mark_duplicate()`](_autosummary/heed.dedup.html.md#heed.dedup.mark_duplicate) records a decision on the stored report (`status` becomes
+`duplicate` and `extra["duplicate_of"]` names the original), so a human or an
+agent applies it explicitly.
+
+```pycon
+>>> from heed.base import Identity, Report
+>>> me = Identity(anon_id="a")
+>>> old = Report(id="r1", title="Save button crashes the app", identity=me)
+>>> new = Report(id="r2", title="App crashes when I press save", identity=me)
+>>> [c.external_ref for c in find_duplicates(new, [old])]
+['r1']
+```
+
+### Module Attributes
+
+| [`Confirm`](_autosummary/heed.dedup.html.md#heed.dedup.Confirm)   | the confirming judge.   |
+|------------------------------------------------------------|-------------------------|
+
+### Functions
+
+| [`find_duplicates`](_autosummary/heed.dedup.html.md#heed.dedup.find_duplicates)(report, candidates, \*[, k, ...])   | Likely duplicates of `report` among `candidates`, best first.               |
+|------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------|
+| [`mark_duplicate`](_autosummary/heed.dedup.html.md#heed.dedup.mark_duplicate)(store, report_id, \*, of)            | Record that stored report `report_id` duplicates `of` (both must exist).    |
+| [`stored_reports`](_autosummary/heed.dedup.html.md#heed.dedup.stored_reports)(store)                               | The reports in a StoreSink store (entries that do not parse are skipped).   |
+| [`word_similarity`](_autosummary/heed.dedup.html.md#heed.dedup.word_similarity)(a, b)                               | Jaccard similarity of the reports' folded words (title words weigh double). |
+
+### heed.dedup.Confirm
+
+the confirming judge.
+
+* **Type:**
+  `(incoming, candidate) -> similarity in [0, 1]`
+
+alias of [`Callable`](https://docs.python.org/3/library/collections.abc.html#collections.abc.Callable)[[[`Report`](_autosummary/heed.base.html.md#heed.base.Report), [`Report`](_autosummary/heed.base.html.md#heed.base.Report)], [`float`](https://docs.python.org/3/builtins/functions.html#float)]
+
+### heed.dedup.find_duplicates(report, candidates, , k=5, min_score=0.25, confirm=None, confirm_threshold=0.5)
+
+Likely duplicates of `report` among `candidates`, best first.
+
+Reports already marked duplicate, and `report` itself, are skipped. With
+`confirm`, each retrieved candidate is re-scored by it and kept only at
+`confirm_threshold` or more; a judge that raises drops that candidate.
+
+* **Return type:**
+  [`list`](https://docs.python.org/3/builtins/stdtypes.html#list)[[`DupCandidate`](_autosummary/heed.sinks.base.html.md#heed.sinks.base.DupCandidate)]
+
+### heed.dedup.mark_duplicate(store, report_id, , of)
+
+Record that stored report `report_id` duplicates `of` (both must exist).
+
+* **Return type:**
+  [`Report`](_autosummary/heed.base.html.md#heed.base.Report)
+
+### heed.dedup.stored_reports(store)
+
+The reports in a StoreSink store (entries that do not parse are skipped).
+
+* **Return type:**
+  [`Iterable`](https://docs.python.org/3/library/collections.abc.html#collections.abc.Iterable)[[`Report`](_autosummary/heed.base.html.md#heed.base.Report)]
+
+### heed.dedup.word_similarity(a, b)
+
+Jaccard similarity of the reports’ folded words (title words weigh double).
+
+```pycon
+>>> from heed.base import Identity, Report
+>>> me = Identity(anon_id="a")
+>>> word_similarity(Report(title="Dark mode", identity=me),
+...                 Report(title="dark  MODE please", identity=me))
+0.6667
+```
+
+* **Return type:**
+  [`float`](https://docs.python.org/3/builtins/functions.html#float)
+
+
 # _autosummary/heed.html.md
 
 # heed
@@ -477,7 +567,9 @@ Public API (Phase 1):
   : thread under it, behind a capability link; CLI `heed review`)
   <br/>
   Triage    triage, Triage, Severity (a proposal per report: injected LLM,
-  : fenced and whitelisted, or keyword rules without one)
+  : fenced and whitelisted, or keyword rules without one);
+    find_duplicates, mark_duplicate (retrieval + optional confirmation;
+    marking is explicit, never a silent merge)
 
 ### Example
 
@@ -535,6 +627,8 @@ True
 | [`review_url`](_autosummary/heed.html.md#heed.review_url)(page_id[, base_url])                    | The shareable link of a page: the base URL with the id as its fragment.                                                             |
 | [`make_review_app`](_autosummary/heed.html.md#heed.make_review_app)([rootdir, is_moderator, ...])      | The review API (and, with `serve_shell`, the page at `/`).                                                                          |
 | [`triage`](_autosummary/heed.html.md#heed.triage)(report, \*[, llm, labels])                  | Propose a triage for `report`: by `llm` when given, else by keywords.                                                               |
+| [`find_duplicates`](_autosummary/heed.html.md#heed.find_duplicates)(report, candidates, \*[, k, ...])  | Likely duplicates of `report` among `candidates`, best first.                                                                       |
+| [`mark_duplicate`](_autosummary/heed.html.md#heed.mark_duplicate)(store, report_id, \*, of)           | Record that stored report `report_id` duplicates `of` (both must exist).                                                            |
 
 ### Classes
 
@@ -1084,6 +1178,17 @@ does, on public apps too, when the visitor has a session).
 * **Return type:**
   [`Callable`](https://docs.python.org/3/library/collections.abc.html#collections.abc.Callable)[[`Request`], [`bool`](https://docs.python.org/3/builtins/functions.html#bool)]
 
+### heed.find_duplicates(report, candidates, , k=5, min_score=0.25, confirm=None, confirm_threshold=0.5)
+
+Likely duplicates of `report` among `candidates`, best first.
+
+Reports already marked duplicate, and `report` itself, are skipped. With
+`confirm`, each retrieved candidate is re-scored by it and kept only at
+`confirm_threshold` or more; a judge that raises drops that candidate.
+
+* **Return type:**
+  [`list`](https://docs.python.org/3/builtins/stdtypes.html#list)[[`DupCandidate`](_autosummary/heed.sinks.base.html.md#heed.sinks.base.DupCandidate)]
+
 ### heed.github_sink_from_token(repo, token, \*\*kwargs)
 
 Build a GitHubIssuesSink that creates issues in `repo` (‘owner/name’).
@@ -1332,6 +1437,13 @@ files shipped in the package; point it elsewhere to serve another build.
 
 * **Return type:**
   `APIRouter`
+
+### heed.mark_duplicate(store, report_id, , of)
+
+Record that stored report `report_id` duplicates `of` (both must exist).
+
+* **Return type:**
+  [`Report`](_autosummary/heed.base.html.md#heed.base.Report)
 
 ### heed.new_report_id()
 
@@ -1599,6 +1711,7 @@ overrides them.
 |--------------------------------------------------------------------------------|------------------------------------------------------------------------------------|
 | [`board`](_autosummary/heed.board.html.md#module-heed.board)       | The read side of a feedback inbox: what a public board may show.                   |
 | [`config`](_autosummary/heed.config.html.md#module-heed.config)     | Configuration for the heed backend (smart defaults; keyword-only).                 |
+| [`dedup`](_autosummary/heed.dedup.html.md#module-heed.dedup)       | Duplicate detection in two stages: cheap retrieval, then confirmation (#8).        |
 | [`images`](_autosummary/heed.images.html.md#module-heed.images)     | Neutralise uploaded screenshots before they are stored (issue #15).                |
 | [`ingest`](_autosummary/heed.ingest.html.md#module-heed.ingest)     | The ingest layer — build a Report from a submission and route it to a sink.        |
 | [`redact`](_autosummary/heed.redact.html.md#module-heed.redact)     | Redaction of personal data and secrets in captured console and network entries.    |
@@ -3786,7 +3899,7 @@ overrides them.
 
 # About this build
 
-This documentation was built on **2026-10-20 14:49 UTC** from commit <a href="https://github.com/i2mint/heed/commit/793f9568fac5fb4b8a5920804700e0bde61c0fc9"><code>793f956</code></a> on branch <code>main</code>, for **heed 0.0.1** (from <code>pyproject.toml</code>).
+This documentation was built on **2026-10-20 14:55 UTC** from commit <a href="https://github.com/i2mint/heed/commit/ce93af6fb548df192793416d020fb1808e961406"><code>ce93af6</code></a> on branch <code>main</code>, for **heed 0.0.1** (from <code>pyproject.toml</code>).
 
 #### WARNING
 The documentation and the package may be misaligned:
@@ -3797,7 +3910,7 @@ The documentation and the package may be misaligned:
 
 |                     |                                                                                                                                                    |
 |---------------------|----------------------------------------------------------------------------------------------------------------------------------------------------|
-| Commit              | <a href="https://github.com/i2mint/heed/commit/793f9568fac5fb4b8a5920804700e0bde61c0fc9"><code>793f9568fac5fb4b8a5920804700e0bde61c0fc9</code></a> |
+| Commit              | <a href="https://github.com/i2mint/heed/commit/ce93af6fb548df192793416d020fb1808e961406"><code>ce93af6fb548df192793416d020fb1808e961406</code></a> |
 | Branch              | <code>main</code>                                                                                                                                  |
 | Tags at this commit | none                                                                                                                                               |
 | Working tree        | clean                                                                                                                                              |
@@ -3808,9 +3921,9 @@ The documentation and the package may be misaligned:
 |              |                                                                                            |
 |--------------|--------------------------------------------------------------------------------------------|
 | Repository   | <code>i2mint/heed</code>                                                                   |
-| Run          | <a href="https://github.com/i2mint/heed/actions/runs/39442510202">39442510202</a>          |
+| Run          | <a href="https://github.com/i2mint/heed/actions/runs/39443407035">39443407035</a>          |
 | Ref          | <code>refs/heads/main</code>                                                               |
-| Event commit | <code>793f9568fac5fb4b8a5920804700e0bde61c0fc9</code> (in the history of the built commit) |
+| Event commit | <code>ce93af6fb548df192793416d020fb1808e961406</code> (in the history of the built commit) |
 
 ## Tools
 
@@ -3841,7 +3954,7 @@ Latest release: <a href="https://pypi.org/project/heed/0.1.0/">0.1.0</a>, newer 
 
 ```bash
 git clone https://github.com/i2mint/heed && cd heed
-git checkout 793f9568fac5fb4b8a5920804700e0bde61c0fc9
+git checkout ce93af6fb548df192793416d020fb1808e961406
 pip install "epythet==0.2.21"
 epythet quickstart . --ignore tests/ scrap/ examples/
 ```

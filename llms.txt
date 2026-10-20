@@ -11,6 +11,7 @@
 - [heed.base](_autosummary/heed.base.html.md): Domain model for heed — the single source of truth shared by widget and backend.
 - [heed.board](_autosummary/heed.board.html.md): The read side of a feedback inbox: what a public board may show.
 - [heed.config](_autosummary/heed.config.html.md): Configuration for the heed backend (smart defaults; keyword-only).
+- [heed.dedup](_autosummary/heed.dedup.html.md): Duplicate detection in two stages: cheap retrieval, then confirmation (#8).
 - [heed.images](_autosummary/heed.images.html.md): Neutralise uploaded screenshots before they are stored (issue #15).
 - [heed.ingest](_autosummary/heed.ingest.html.md): The ingest layer — build a Report from a submission and route it to a sink.
 - [heed.redact](_autosummary/heed.redact.html.md): Redaction of personal data and secrets in captured console and network entries.
@@ -27,7 +28,7 @@
 - [heed.threads](_autosummary/heed.threads.html.md): Comment threads: a persistent, public, append-mostly conversation per key.
 - [heed.widget](_autosummary/heed.widget.html.md): Serve the embeddable widget, and state the contract it is built against.
 - [For AI agents](ai-agents.html.md): &#96;heed&#96; ships artifacts for coding agents alongside its code. This page lists
-- [About this build](about-this-build.html.md): This documentation was built on &#42;&#42;2026-10-20 14:49 UTC&#42;&#42; from commit &lt;a href="https://github.com/i2m...
+- [About this build](about-this-build.html.md): This documentation was built on &#42;&#42;2026-10-20 14:55 UTC&#42;&#42; from commit &lt;a href="https://github.com/i2m...
 
 ## Optional
 

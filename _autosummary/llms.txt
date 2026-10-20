@@ -9,6 +9,7 @@
 - [heed.base](heed.base.html.md): Domain model for heed — the single source of truth shared by widget and backend.
 - [heed.board](heed.board.html.md): The read side of a feedback inbox: what a public board may show.
 - [heed.config](heed.config.html.md): Configuration for the heed backend (smart defaults; keyword-only).
+- [heed.dedup](heed.dedup.html.md): Duplicate detection in two stages: cheap retrieval, then confirmation (#8).
 - [heed.images](heed.images.html.md): Neutralise uploaded screenshots before they are stored (issue #15).
 - [heed.ingest](heed.ingest.html.md): The ingest layer — build a Report from a submission and route it to a sink.
 - [heed.redact](heed.redact.html.md): Redaction of personal data and secrets in captured console and network entries.

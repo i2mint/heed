@@ -47,7 +47,9 @@ Public API (Phase 1):
   : thread under it, behind a capability link; CLI `heed review`)
   <br/>
   Triage    triage, Triage, Severity (a proposal per report: injected LLM,
-  : fenced and whitelisted, or keyword rules without one)
+  : fenced and whitelisted, or keyword rules without one);
+    find_duplicates, mark_duplicate (retrieval + optional confirmation;
+    marking is explicit, never a silent merge)
 
 ### Example
 
@@ -105,6 +107,8 @@ True
 | [`review_url`](#heed.review_url)(page_id[, base_url])                    | The shareable link of a page: the base URL with the id as its fragment.                                                             |
 | [`make_review_app`](#heed.make_review_app)([rootdir, is_moderator, ...])      | The review API (and, with `serve_shell`, the page at `/`).                                                                          |
 | [`triage`](#heed.triage)(report, \*[, llm, labels])                  | Propose a triage for `report`: by `llm` when given, else by keywords.                                                               |
+| [`find_duplicates`](#heed.find_duplicates)(report, candidates, \*[, k, ...])  | Likely duplicates of `report` among `candidates`, best first.                                                                       |
+| [`mark_duplicate`](#heed.mark_duplicate)(store, report_id, \*, of)           | Record that stored report `report_id` duplicates `of` (both must exist).                                                            |
 
 ### Classes
 
@@ -654,6 +658,17 @@ does, on public apps too, when the visitor has a session).
 * **Return type:**
   [`Callable`](https://docs.python.org/3/library/collections.abc.html#collections.abc.Callable)[[`Request`], [`bool`](https://docs.python.org/3/builtins/functions.html#bool)]
 
+### heed.find_duplicates(report, candidates, , k=5, min_score=0.25, confirm=None, confirm_threshold=0.5)
+
+Likely duplicates of `report` among `candidates`, best first.
+
+Reports already marked duplicate, and `report` itself, are skipped. With
+`confirm`, each retrieved candidate is re-scored by it and kept only at
+`confirm_threshold` or more; a judge that raises drops that candidate.
+
+* **Return type:**
+  [`list`](https://docs.python.org/3/builtins/stdtypes.html#list)[[`DupCandidate`](heed.sinks.base.html.md#heed.sinks.base.DupCandidate)]
+
 ### heed.github_sink_from_token(repo, token, \*\*kwargs)
 
 Build a GitHubIssuesSink that creates issues in `repo` (‘owner/name’).
@@ -902,6 +917,13 @@ files shipped in the package; point it elsewhere to serve another build.
 
 * **Return type:**
   `APIRouter`
+
+### heed.mark_duplicate(store, report_id, , of)
+
+Record that stored report `report_id` duplicates `of` (both must exist).
+
+* **Return type:**
+  [`Report`](heed.base.html.md#heed.base.Report)
 
 ### heed.new_report_id()
 
@@ -1169,6 +1191,7 @@ overrides them.
 |--------------------------------------------------------------------------------|------------------------------------------------------------------------------------|
 | [`board`](heed.board.html.md#module-heed.board)       | The read side of a feedback inbox: what a public board may show.                   |
 | [`config`](heed.config.html.md#module-heed.config)     | Configuration for the heed backend (smart defaults; keyword-only).                 |
+| [`dedup`](heed.dedup.html.md#module-heed.dedup)       | Duplicate detection in two stages: cheap retrieval, then confirmation (#8).        |
 | [`images`](heed.images.html.md#module-heed.images)     | Neutralise uploaded screenshots before they are stored (issue #15).                |
 | [`ingest`](heed.ingest.html.md#module-heed.ingest)     | The ingest layer — build a Report from a submission and route it to a sink.        |
 | [`redact`](heed.redact.html.md#module-heed.redact)     | Redaction of personal data and secrets in captured console and network entries.    |

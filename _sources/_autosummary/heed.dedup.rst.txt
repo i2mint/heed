@@ -1,0 +1,21 @@
+heed.dedup
+==========
+
+.. automodule:: heed.dedup
+
+   
+   .. rubric:: Module Attributes
+
+   .. autosummary::
+   
+      Confirm
+   
+   .. rubric:: Functions
+
+   .. autosummary::
+   
+      find_duplicates
+      mark_duplicate
+      stored_reports
+      word_similarity
+   

@@ -49,6 +49,8 @@
       review_url
       make_review_app
       triage
+      find_duplicates
+      mark_duplicate
    
    .. rubric:: Classes
 
@@ -94,6 +96,7 @@
    base
    board
    config
+   dedup
    images
    ingest
    redact
