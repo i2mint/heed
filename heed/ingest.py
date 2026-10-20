@@ -207,8 +207,8 @@ def _new_report(
     )
 
 
-    """``page_url`` with tokens/ids masked (``config.mask_page_url``); fail closed."""
-    """``page_url`` with tokens/ids masked (see ``config.mask_page_url``); fail closed."""
+def _page_url(page_url: str, config, redactor) -> str:
+    """``page_url`` masked (see ``config.mask_page_url``); drops it on failure."""
     if not page_url or not config.mask_page_url:
         return page_url
     try:
