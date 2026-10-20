@@ -3,9 +3,9 @@
   "entries": {
     "raster": "heed-raster-98648ba451.js",
     "locales": "heed-locales-25cd70a4d2.js",
-    "recorder": "heed-recorder-7f903d016c.js",
-    "widget": "heed-widget-10e1ebdc75.js",
-    "loader": "heed-b3f52cee94.js"
+    "recorder": "heed-recorder-7c03ea2716.js",
+    "widget": "heed-widget-82aa4327f4.js",
+    "loader": "heed-f0763850ce.js"
   },
   "files": {
     "heed-raster-98648ba451.js": {
@@ -22,36 +22,36 @@
       "bytes": 13715,
       "gzip_bytes": 4422
     },
-    "heed-recorder-7f903d016c.js": {
-      "integrity": "sha384-b22RxAYwfTUFtAGuC77cZZ1Lk8qt/QLzSUREo8Z6ZxbFoofr/l3MiYt7FKHWWRvu",
+    "heed-recorder-7c03ea2716.js": {
+      "integrity": "sha384-5sHnaqpH+mdYfU51ucDt8L7ENdj83C4IecdCeCJz7p3/yo7wuLn633ehiM2xlAR1",
       "immutable": true,
       "version": "0.9.1",
       "bytes": 7753,
-      "gzip_bytes": 3817
+      "gzip_bytes": 3818
     },
-    "heed-widget-10e1ebdc75.js": {
-      "integrity": "sha384-XhI2VobBbjvnMHP4cUN9jFj7z/eMfTBt994kUnGchxlXMf+jwy6ZfBNQQzivGdcG",
+    "heed-widget-82aa4327f4.js": {
+      "integrity": "sha384-ug/56hI+sbZWdr9eGsipzPad8y8FXGvMKNejpuDnxikZoSY/KnZfDSoxFoHeDrxZ",
       "immutable": true,
       "version": "0.9.1",
       "bytes": 35015,
-      "gzip_bytes": 13388
+      "gzip_bytes": 13386
     },
     "heed-widget.js": {
       "immutable": false,
       "bytes": 35015,
-      "gzip_bytes": 13388
+      "gzip_bytes": 13386
     },
-    "heed-b3f52cee94.js": {
-      "integrity": "sha384-0vNiSp1ZXa/WHVi2wQVIplE4J9sorhtsSWtmjY4tVcwxlNpg5jeUIBTTLKmQQ4sz",
+    "heed-f0763850ce.js": {
+      "integrity": "sha384-vpERZ5VCxqpazNw6C8ApkspPoDale85o+/6MTzFNtOmbKPCMXqc3L8ZSObCNn9U+",
       "immutable": true,
       "version": "0.9.1",
       "bytes": 2361,
-      "gzip_bytes": 1388
+      "gzip_bytes": 1382
     },
     "heed.js": {
       "immutable": false,
       "bytes": 2361,
-      "gzip_bytes": 1388
+      "gzip_bytes": 1382
     },
     "heed-locales-5f50c17e7f.js": {
       "integrity": "sha384-iqknyADTU5Tx7VRo48vBhH4EzlcSAuc7oVSwXkRuAXwv0+LpJ5zx9d4gT8g4EhsN",

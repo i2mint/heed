@@ -45,7 +45,6 @@ from heed.base import (
 )
 from heed.config import HeedConfig
 from heed.images import (
-    BUSY_RETRY_AFTER_SECONDS,
     ImageSanitizer,
     SanitizerBusy,
     make_image_sanitizer,
@@ -428,6 +427,8 @@ def make_router(
             window_seconds=cfg.rate_limit_window_seconds,
             namespace=namespace,
             redis_url=cfg.redis_url,
+            max_keys=cfg.rate_limit_max_keys,
+            redis_socket_timeout=cfg.redis_socket_timeout_seconds,
         )
 
     ip_limiter = rate_limiter or _limiter(cfg.rate_limit_per_minute, "ip")
@@ -440,6 +441,7 @@ def make_router(
         cfg.screenshot_sanitizer,
         max_pixels=cfg.max_screenshot_pixels,
         max_concurrent=cfg.max_concurrent_reencodes,
+        busy_wait_seconds=cfg.reencode_busy_wait_seconds,
     )
     trusted_networks = parse_networks(cfg.trusted_proxies)
     if cfg.allowed_origins is None:
@@ -645,7 +647,7 @@ def make_router(
                     503,
                     "busy, retry shortly",
                     origin,
-                    **{"Retry-After": str(BUSY_RETRY_AFTER_SECONDS)},
+                    **{"Retry-After": str(cfg.reencode_retry_after_seconds)},
                 ) from e
             except ValueError as e:
                 raise _fail(

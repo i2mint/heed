@@ -191,6 +191,12 @@ class RateLimiter(Protocol):
     def allow(self, key: str) -> bool: ...
 
 
+#: Keys an in-memory limiter tracks before evicting the least recently seen.
+DEFAULT_MAX_KEYS = 100_000
+#: Connect/read timeout of the Redis limiter: a hung Redis costs at most this long.
+DEFAULT_REDIS_SOCKET_TIMEOUT = 0.5
+
+
 class InMemoryRateLimiter:
     """Sliding-window, in-memory limiter. Per process — NOT shared across workers.
 
@@ -205,9 +211,11 @@ class InMemoryRateLimiter:
         *,
         max_per_window: int = 30,
         window_seconds: float = 60.0,
-        max_keys: int = 100_000,
+        max_keys: int = DEFAULT_MAX_KEYS,
         clock: Callable[[], float] = time.monotonic,
     ):
+        if max_keys < 1:
+            raise ValueError(f"max_keys must be at least 1, got {max_keys}")
         self.max_per_window = max_per_window
         self.window_seconds = window_seconds
         self.max_keys = max_keys
@@ -254,6 +262,7 @@ class RedisRateLimiter:
         window_seconds: float = 60.0,
         namespace: str = "heed:rl",
         fallback: RateLimiter | None = None,
+        max_keys: int = DEFAULT_MAX_KEYS,
         clock: Callable[[], float] = time.time,
     ):
         self.client = client
@@ -261,13 +270,15 @@ class RedisRateLimiter:
         self.window_seconds = window_seconds
         self.namespace = namespace
         self.fallback = fallback or InMemoryRateLimiter(
-            max_per_window=max_per_window, window_seconds=window_seconds
+            max_per_window=max_per_window,
+            window_seconds=window_seconds,
+            max_keys=max_keys,
         )
         self._clock = clock
 
     @classmethod
     def from_url(
-        cls, url: str, *, socket_timeout: float = 0.5, **kwargs
+        cls, url: str, *, socket_timeout: float = DEFAULT_REDIS_SOCKET_TIMEOUT, **kwargs
     ) -> RedisRateLimiter:
         """Build from a ``redis://`` URL (needs the ``[redis]`` extra).
 
@@ -300,13 +311,24 @@ class RedisRateLimiter:
         return int(count) <= self.max_per_window
 
 
-def _memory_limiter(*, max_per_window, window_seconds, namespace, redis_url=None):
+def _memory_limiter(
+    *, max_per_window, window_seconds, namespace, max_keys=DEFAULT_MAX_KEYS, **_
+):
     return InMemoryRateLimiter(
-        max_per_window=max_per_window, window_seconds=window_seconds
+        max_per_window=max_per_window, window_seconds=window_seconds, max_keys=max_keys
     )
 
 
-def _redis_limiter(*, max_per_window, window_seconds, namespace, redis_url=None):
+def _redis_limiter(
+    *,
+    max_per_window,
+    window_seconds,
+    namespace,
+    redis_url=None,
+    max_keys=DEFAULT_MAX_KEYS,
+    socket_timeout=DEFAULT_REDIS_SOCKET_TIMEOUT,
+    **_,
+):
     if not redis_url:
         raise ValueError(
             "rate_limit_backend='redis' needs redis_url (HEED_REDIS_URL), "
@@ -317,6 +339,8 @@ def _redis_limiter(*, max_per_window, window_seconds, namespace, redis_url=None)
         max_per_window=max_per_window,
         window_seconds=window_seconds,
         namespace=f"heed:rl:{namespace}",
+        max_keys=max_keys,
+        socket_timeout=socket_timeout,
     )
 
 
@@ -333,6 +357,8 @@ def make_rate_limiter(
     window_seconds: float = 60.0,
     namespace: str = "ip",
     redis_url: str | None = None,
+    max_keys: int = DEFAULT_MAX_KEYS,
+    redis_socket_timeout: float = DEFAULT_REDIS_SOCKET_TIMEOUT,
 ) -> RateLimiter:
     """Build a limiter from the :data:`rate_limiter_backends` registry by name."""
     try:
@@ -347,6 +373,8 @@ def make_rate_limiter(
         window_seconds=window_seconds,
         namespace=namespace,
         redis_url=redis_url,
+        max_keys=max_keys,
+        socket_timeout=redis_socket_timeout,
     )
 
 

@@ -39,13 +39,17 @@ Every knob is a keyword of `HeedConfig` and can also come from a `HEED_<NAME>` e
 | `max_body_bytes` | 6 MB | Whole request. Must be at least `max_screenshot_bytes`. |
 | `max_screenshot_bytes` | 5 MB | The screenshot file. |
 | `screenshot_sanitizer` | `"auto"` | `"reencode"` (strip, then decode and re-save with Pillow, `pip install heed[images]`), `"strip"` (pure Python: allow-listed, length-checked chunks only, truncated at the end marker; the compressed pixel data and the JPEG quantisation and Huffman tables are kept as sent, so arbitrary bytes can survive in them: use `"reencode"` where a stored screenshot might be served to a browser), `"auto"` (re-encode if Pillow is installed, else strip with a startup warning), `"none"` (store as received). |
-| `max_screenshot_pixels` | 25 M | Re-encode refuses larger canvases before decoding (a 1.5 KB WebP can declare 40 M pixels and need 700 MB to decode). |
+| `max_screenshot_pixels` | 8.5 M | Re-encode refuses larger canvases before decoding (a 1.5 KB WebP can declare 40 M pixels and need 700 MB to decode; an 84 KB 25 M-pixel PNG costs ~1 s of CPU). The widget never renders more than 8 M, so raising this past 8 M only admits other clients' larger images. |
 | `max_concurrent_reencodes` | 2 | Re-encodes in flight per process; a request that waits more than 2 s for a slot gets `503`. |
+| `reencode_busy_wait_seconds` | 2 | How long a submission waits for a free re-encode slot before its 503. |
+| `reencode_retry_after_seconds` | 5 | `Retry-After` sent with that 503. |
 | `max_field_bytes` | 100 KB | Any single text field. |
 | `max_form_fields` | 16 | Number of form parts. |
 | `rate_limit_per_minute` | 30 | Per client IP. |
 | `origin_rate_limit_per_minute` | 600 | Per origin (all visitors of one site); `None` disables. |
 | `rate_limit_backend` | `"memory"` | `"memory"` (per process) or `"redis"` (shared). |
+| `rate_limit_max_keys` | 100 000 | Keys an in-memory limiter (or the Redis limiter's fallback) tracks before evicting the least recently seen. |
+| `redis_socket_timeout_seconds` | 0.5 | Connect/read timeout of the Redis limiter; past it the in-memory fallback decides. |
 | `redis_url` | `None` | Required for the Redis backend, e.g. `redis://localhost:6379/0`. |
 | `ipv6_rate_limit_prefix` | `64` | IPv6 clients share one per-IP bucket per prefix. |
 | `trusted_proxies` | `[]` | IPs/CIDRs of your reverse proxy. Only then is `X-Forwarded-For` used for the client IP. |

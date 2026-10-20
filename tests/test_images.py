@@ -340,13 +340,63 @@ def test_router_answers_503_when_every_reencode_slot_is_busy():
     app.include_router(
         make_router(
             StoreSink({}),
-            config=HeedConfig(allowed_origins=[ORIGIN]),
+            config=HeedConfig(
+                allowed_origins=[ORIGIN], reencode_retry_after_seconds=17
+            ),
             attachment_store={},
             image_sanitizer=busy,
         )
     )
     resp = _post_shot(TestClient(app), _tiny_png())
-    assert resp.status_code == 503 and resp.headers["Retry-After"]
+    assert resp.status_code == 503 and resp.headers["Retry-After"] == "17"
+
+
+def test_config_is_the_single_source_of_the_sanitizer_and_limiter_defaults():
+    """#26: HeedConfig's defaults are the modules' own, so the two cannot drift."""
+    from heed import images, security
+
+    cfg = HeedConfig()
+    assert cfg.max_screenshot_pixels == images.DEFAULT_MAX_PIXELS
+    assert cfg.max_concurrent_reencodes == images.DEFAULT_MAX_CONCURRENT
+    assert cfg.reencode_busy_wait_seconds == images.DEFAULT_BUSY_WAIT_SECONDS
+    assert cfg.reencode_retry_after_seconds == images.BUSY_RETRY_AFTER_SECONDS
+    assert cfg.rate_limit_max_keys == security.DEFAULT_MAX_KEYS
+    assert cfg.redis_socket_timeout_seconds == security.DEFAULT_REDIS_SOCKET_TIMEOUT
+    # the widget never renders more than its own pixel ceiling; the cap leaves it room
+    import re
+    from pathlib import Path
+
+    raster = Path(__file__).parents[1] / "widget" / "src" / "raster.ts"
+    ceiling = int(
+        re.search(r"Math\.min\(o\.maxPixels, ([\d_]+)\)", raster.read_text())
+        .group(1)
+        .replace("_", "")
+    )
+    assert ceiling < images.DEFAULT_MAX_PIXELS < 25_000_000
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [
+        {"rate_limit_max_keys": 0},
+        {"max_concurrent_reencodes": 0},
+        {"reencode_busy_wait_seconds": -1},
+        {"reencode_retry_after_seconds": -1},
+        {"redis_socket_timeout_seconds": 0},
+    ],
+)
+def test_config_refuses_knobs_that_disable_a_protection(bad):
+    with pytest.raises(ValueError, match=next(iter(bad))):
+        HeedConfig(**bad)
+
+
+def test_limiter_knobs_reach_the_limiters():
+    from heed.security import RedisRateLimiter, make_rate_limiter
+
+    mem = make_rate_limiter("memory", max_per_window=3, max_keys=7)
+    assert mem.max_keys == 7
+    red = RedisRateLimiter(object(), max_per_window=3, max_keys=9)
+    assert red.fallback.max_keys == 9
 
 
 def test_router_rechecks_size_after_sanitizing():

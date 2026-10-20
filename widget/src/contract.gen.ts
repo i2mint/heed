@@ -32,7 +32,7 @@ export const CONTRACT = {
     "log_message_chars": 2000,
     "field_bytes": 100000,
     "screenshot_bytes": 5000000,
-    "screenshot_pixels": 25000000
+    "screenshot_pixels": 8500000
   },
   "patterns": {
     "anon_id": "^[A-Za-z0-9_.:-]+$"
