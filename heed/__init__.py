@@ -62,6 +62,7 @@ from heed.base import (
 )
 from heed.board import PublicItem, changelog, roadmap
 from heed.config import HeedConfig
+from heed.dedup import find_duplicates, mark_duplicate
 from heed.images import make_image_sanitizer, reencode_image, strip_image
 from heed.ingest import make_app, make_router, process_submission
 from heed.redact import redact_text, redact_url
@@ -115,7 +116,6 @@ from heed.threads import (
     make_thread_router,
     token_moderator,
 )
-from heed.dedup import find_duplicates, mark_duplicate
 from heed.triage import Severity, Triage, triage
 from heed.widget import make_widget_router, widget_contract
 
