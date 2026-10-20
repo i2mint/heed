@@ -84,7 +84,9 @@ _Replacement = str | Callable[[re.Match[str]], str]
 _RULES: tuple[tuple[re.Pattern[str], _Replacement], ...] = (
     # The whole value of an Authorization header: scheme and credential
     (
-        re.compile(r"(?i)(\b(?:proxy-)?authorization[\"']?\s*[:=]\s*)([\"']?)[^\r\n\"']*"),
+        re.compile(
+            r"(?i)(\b(?:proxy-)?authorization[\"']?\s*[:=]\s*)([\"']?)[^\r\n\"']*"
+        ),
         rf"\1\2{REDACTED}",
     ),
     # JSON Web Tokens
@@ -100,7 +102,9 @@ _RULES: tuple[tuple[re.Pattern[str], _Replacement], ...] = (
     ),
     # Authorization schemes followed by a credential
     (
-        re.compile(r"(?i)\b(bearer|basic|digest|token)(\s+)(?!\[)[A-Za-z0-9._~+/=-]{3,}"),
+        re.compile(
+            r"(?i)\b(bearer|basic|digest|token)(\s+)(?!\[)[A-Za-z0-9._~+/=-]{3,}"
+        ),
         rf"\1\2{REDACTED}",
     ),
     # key=value / key: value / "key": "value" with a sensitive key
@@ -113,7 +117,9 @@ _RULES: tuple[tuple[re.Pattern[str], _Replacement], ...] = (
     ),
     # E-mail addresses
     (
-        re.compile(r"(?<![A-Za-z0-9._%+-])[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}"),
+        re.compile(
+            r"(?<![A-Za-z0-9._%+-])[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}"
+        ),
         "[email]",
     ),
     # 40-character base64 secrets (AWS secret access keys and the like)
@@ -184,7 +190,7 @@ _ID_SEGMENT = re.compile(r"\d+|(?=[A-Za-z_.~+=-]*\d)[A-Za-z0-9_.~+=-]{12,}")
 _TOKEN_CHARS = re.compile(r"[A-Za-z0-9_.~+=-]+")
 _OPAQUE_SCHEMES = frozenset({"mailto", "tel", "sms", "data", "javascript", "blob"})
 _MIN_LETTER_TOKEN_LEN = 16  # all-letter tokens shorter than this read as words
-_MIN_TOKEN_ENTROPY = 3.5  # bits per character; slugs and words fall below
+_MIN_TOKEN_ENTROPY = 3.8  # bits per character; slugs and words fall below
 
 
 def _entropy(text: str) -> float:
@@ -203,8 +209,9 @@ def _looks_like_token(segment: str) -> bool:
         return True
     return (
         len(segment) >= _MIN_LETTER_TOKEN_LEN
-        and _TOKEN_CHARS.fullmatch(segment) is not None
-        and segment != segment.lower()
+        and (
+            segment.replace(".", "") if segment.count(".") > 1 else segment
+        ).isalnum()  # slugs and file names are words
         and _entropy(segment) >= _MIN_TOKEN_ENTROPY
     )
 

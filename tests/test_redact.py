@@ -118,3 +118,22 @@ def test_redact_text_masks_urls_and_nested_values():
 )
 def test_redact_url_catches_hidden_tokens(url, expected):
     assert redact_url(url) == expected
+
+
+@pytest.mark.parametrize(
+    "url, expected",
+    [
+        ("/reset/abcdefghijklmnopqrstuvwx", "/reset/[id]"),
+        (
+            "/docs/Getting-Started-With-Kubernetes",
+            "/docs/Getting-Started-With-Kubernetes",
+        ),
+        (
+            "/wiki/Pneumonoultramicroscopicsilicovolcanoconiosis",
+            "/wiki/Pneumonoultramicroscopicsilicovolcanoconiosis",
+        ),
+        ("/files/MyQuarterlyReportFinal.pdf", "/files/MyQuarterlyReportFinal.pdf"),
+    ],
+)
+def test_redact_url_lowercase_tokens_and_word_slugs(url, expected):
+    assert redact_url(url) == expected

@@ -229,7 +229,7 @@ def _capture_page(backend: str) -> str:
         backend,
         f'<script src="{backend}/heed/widget/{bundle}"></script>\n'
         f'<heed-feedback endpoint="{backend}/heed/report" screenshot="false" '
-        'capture-console capture-network></heed-feedback>',
+        "capture-console capture-network></heed-feedback>",
     )
 
 
@@ -982,7 +982,9 @@ def test_real_interactive_turnstile_challenge_is_clickable_in_the_modal_dialog(
         tab.get_by_role("button", name="Send").click()
         tab.get_by_text("Please complete the check").wait_for(timeout=30_000)
         gate = tab.locator("heed-feedback .gate")
-        gate.wait_for(state="visible", timeout=30_000)  # shown: the challenge needs the visitor
+        gate.wait_for(
+            state="visible", timeout=30_000
+        )  # shown: the challenge needs the visitor
         tab.wait_for_timeout(2_000)  # the checkbox appears after the frame's animation
         box = gate.bounding_box()
         # The checkbox sits in a closed shadow root of a cross-origin frame: click by position.

@@ -316,7 +316,10 @@ def make_attachment_router(
             return not_found()
         if len(data) > max_bytes:
             logger.warning(
-                "heed: %s is %d bytes, over max_bytes=%d: not served", ref, len(data), max_bytes
+                "heed: %s is %d bytes, over max_bytes=%d: not served",
+                ref,
+                len(data),
+                max_bytes,
             )
             return not_found()
         media_type = sniff_image_type(data)
