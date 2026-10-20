@@ -91,6 +91,18 @@ The backend serves the widget too, so a site adds one tag:
 
 Options (`data-*` or `heed.init({...})`), the `heed` API, the React wrapper, screenshots and their masking, pinning a build with SRI, events, theming and CSP notes: [`widget/README.md`](widget/README.md).
 
+## Review pages: media with a comment thread under it
+
+Publish a video, audio takes or images and get a link; whoever has it watches, reads the comments and adds their own (a name per comment, optionally pinned to a moment in the media), without an account:
+
+```bash
+heed review publish cut1.mp4 --title "Cut 1" --note-file notes.md   # prints the link
+heed review publish cut2.mp4 --to <page-id>                          # a new cut, same link and thread
+heed review comments <page-id> --json                                # read the feedback back
+```
+
+The link is a capability (128 random bits in the URL fragment); the thread endpoint is rate-limited, capped and honeypotted. Serve it with `make_review_app(rootdir, is_moderator=email_moderator([...]))`, or `heed review serve`. The reusable part is `heed.threads` (a hardened comment thread per key, `make_thread_router`); `heed.review` is one consumer of it. Agents: the shipped skill `heed/data/skills/heed-review`. Rationale: [`misc/docs/adr/0001-review-pages-and-comment-threads-live-in-heed.md`](misc/docs/adr/0001-review-pages-and-comment-threads-live-in-heed.md).
+
 ## Documents
 
 - [`misc/docs/research-report.md`](misc/docs/research-report.md) — the competitive
