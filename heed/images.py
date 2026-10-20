@@ -60,7 +60,9 @@ _SAVE_MODES = {
     "image/webp": {"RGB", "RGBA"},
 }
 
-DEFAULT_MAX_PIXELS = 25_000_000  # covers a 6K display (6016x3384 = 20.4M)
+# The widget renders at most 8M pixels (widget/src/raster.ts) and a 4K screen is 8.3M.
+# Re-encode CPU grows with pixels: a small file can declare a 25M canvas and cost ~1 s.
+DEFAULT_MAX_PIXELS = 8_500_000
 DEFAULT_MAX_CONCURRENT = 2  # re-encodes in flight per process (each can use ~100 MB)
 DEFAULT_BUSY_WAIT_SECONDS = 2.0  # how long a re-encode waits for a free slot
 BUSY_RETRY_AFTER_SECONDS = 5  # Retry-After sent with the 503 when every slot is busy

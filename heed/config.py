@@ -13,7 +13,17 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field, fields
 
 from heed.base import Category
-from heed.security import parse_networks
+from heed.images import (
+    BUSY_RETRY_AFTER_SECONDS,
+    DEFAULT_BUSY_WAIT_SECONDS,
+    DEFAULT_MAX_CONCURRENT,
+    DEFAULT_MAX_PIXELS,
+)
+from heed.security import (
+    DEFAULT_MAX_KEYS,
+    DEFAULT_REDIS_SOCKET_TIMEOUT,
+    parse_networks,
+)
 
 ENV_PREFIX = "HEED_"
 
@@ -34,8 +44,13 @@ class HeedConfig:
     # Rewrite accepted screenshots so only the image survives (polyglots, EXIF/GPS):
     # "auto" | "reencode" (Pillow) | "strip" (pure Python) | "none". See images.py.
     screenshot_sanitizer: str = "auto"
-    max_screenshot_pixels: int = 25_000_000  # refused before decoding (re-encode only)
-    max_concurrent_reencodes: int = 2  # per process; beyond it a submission gets 503
+    # Refused before decoding (re-encode only); re-encode CPU grows with pixels.
+    max_screenshot_pixels: int = DEFAULT_MAX_PIXELS
+    # Per process; a submission waits up to reencode_busy_wait_seconds for a slot,
+    # then gets 503 with Retry-After: reencode_retry_after_seconds.
+    max_concurrent_reencodes: int = DEFAULT_MAX_CONCURRENT
+    reencode_busy_wait_seconds: float = DEFAULT_BUSY_WAIT_SECONDS
+    reencode_retry_after_seconds: int = BUSY_RETRY_AFTER_SECONDS
     max_field_bytes: int = 100_000  # any single non-file form field
     max_form_fields: int = 16
 
@@ -45,6 +60,10 @@ class HeedConfig:
     rate_limit_window_seconds: float = 60.0
     rate_limit_backend: str = "memory"  # "memory" | "redis" (see security.py)
     redis_url: str | None = field(default=None, repr=False)
+    redis_socket_timeout_seconds: float = DEFAULT_REDIS_SOCKET_TIMEOUT
+    # Keys an in-memory limiter tracks (least recently seen evicted): bounds memory
+    # under a flood of distinct IPs. Also sizes the Redis limiter's fallback.
+    rate_limit_max_keys: int = DEFAULT_MAX_KEYS
     # Proxies whose X-Forwarded-For is trusted for the client IP (IPs or CIDRs).
     # Behind a reverse proxy (Caddy, nginx) set this, or every visitor shares the
     # proxy's address and one rate-limit bucket.
