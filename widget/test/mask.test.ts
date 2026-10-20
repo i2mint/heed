@@ -63,6 +63,13 @@ describe("maskUrl", () => {
     expect(maskUrl("/a?b=1", "https://app.example/page")).toBe("https://app.example/a?b=[redacted]");
     expect(maskUrl("data:text/plain,secret")).toBe("data:[redacted]");
   });
+
+  it("masks a relative URL given no base, keeping it relative (#69)", () => {
+    expect(maskUrl("/api/users/12345?a=1")).toBe("/api/users/[id]?a=[redacted]");
+    expect(maskUrl("users/ana@example.com/@ana?t=s")).toBe("users/[email]/[user]?t=[redacted]");
+    expect(maskUrl("?token=abc")).toBe("?token=[redacted]");
+    expect(maskUrl("//cdn.example/u/12345?k=v")).toBe("//cdn.example/u/[id]?k=[redacted]");
+  });
 });
 
 describe("maskUrl: tokens the server catches (parity with redact.py)", () => {
