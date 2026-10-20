@@ -84,13 +84,13 @@ Normalise text for matching: NFKC, drop format chars (zero-width), casefold.
 Defeats fullwidth letters and zero-width splitting; it does not map cross-script
 look-alikes (e.g. Cyrillic “а”), which needs a confusables table.
 
-* **Return type:**
-  [`str`](https://docs.python.org/3/builtins/stdtypes.html#str)
-
 ```pycon
 >>> fold_text("ＣＡＳ​INO")
 'casino'
 ```
+
+* **Return type:**
+  [`str`](https://docs.python.org/3/builtins/stdtypes.html#str)
 
 ### heed.routing.hold_all(report)
 
@@ -106,9 +106,6 @@ Hold reports with more than `max_links` links or any of `blocked_terms`.
 Cheap, dependency-free spam signals. Holding (not rejecting) is the default so a
 false positive costs a human click, not a lost report.
 
-* **Return type:**
-  [`Callable`](https://docs.python.org/3/library/collections.abc.html#collections.abc.Callable)[[[`Report`](heed.base.html.md#heed.base.Report)], [`Verdict`](#heed.routing.Verdict)]
-
 ```pycon
 >>> mod = make_heuristic_moderator(max_links=1, blocked_terms=["casino"])
 >>> from heed.base import Identity
@@ -116,6 +113,9 @@ false positive costs a human click, not a lost report.
 >>> [mod(r(b)).value for b in ["ok", "http://a http://b", "best CASINO"]]
 ['accept', 'hold', 'hold']
 ```
+
+* **Return type:**
+  [`Callable`](https://docs.python.org/3/library/collections.abc.html#collections.abc.Callable)[[[`Report`](heed.base.html.md#heed.base.Report)], [`Verdict`](#heed.routing.Verdict)]
 
 ### heed.routing.recover_claimed(\*, holding_store, claimed_store=None, stale_after=None, clock=<built-in function time>)
 
@@ -181,9 +181,6 @@ A resolver from an `{origin: sink}` mapping (origins compared normalized).
 Unknown origins resolve to `default`; with no default they resolve to None, and
 the router refuses them.
 
-* **Return type:**
-  [`Callable`](https://docs.python.org/3/library/collections.abc.html#collections.abc.Callable)[[[`str`](https://docs.python.org/3/builtins/stdtypes.html#str)], [`Optional`](https://docs.python.org/3/library/typing.html#typing.Optional)[[`Sink`](heed.sinks.base.html.md#heed.sinks.base.Sink)]]
-
 ```pycon
 >>> from heed.sinks import StoreSink
 >>> a = StoreSink({})
@@ -191,3 +188,6 @@ the router refuses them.
 >>> resolve("HTTPS://A.example/") is a, resolve("https://b.example")
 (True, None)
 ```
+
+* **Return type:**
+  [`Callable`](https://docs.python.org/3/library/collections.abc.html#collections.abc.Callable)[[[`str`](https://docs.python.org/3/builtins/stdtypes.html#str)], [`Optional`](https://docs.python.org/3/library/typing.html#typing.Optional)[[`Sink`](heed.sinks.base.html.md#heed.sinks.base.Sink)]]

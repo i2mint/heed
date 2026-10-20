@@ -17,6 +17,7 @@ heed.sinks.github
    .. autosummary::
    
       github_sink_from_token
+      neutralise_refs
       render_issue_body
    
    .. rubric:: Classes

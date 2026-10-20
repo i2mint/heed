@@ -9,11 +9,11 @@ destinations are added by writing a sink, never by editing a dispatcher.
 
 ### Classes
 
-| [`BaseSink`](#heed.sinks.base.BaseSink)()               | Convenience base giving no-op defaults for the optional sink methods.   |
-|---------------------------------------------------------------------------|-------------------------------------------------------------------------|
-| [`DupCandidate`](#heed.sinks.base.DupCandidate)(\*\*data)   | A possible duplicate of an incoming report.                             |
-| [`Sink`](#heed.sinks.base.Sink)(\*args, \*\*kwargs) | Anything that can receive a report.                                     |
-| [`SinkResult`](#heed.sinks.base.SinkResult)(\*\*data)     | Outcome of routing a report to a sink.                                  |
+| [`BaseSink`](#heed.sinks.base.BaseSink)()                                      | Convenience base giving no-op defaults for the optional sink methods.   |
+|--------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------|
+| [`DupCandidate`](#heed.sinks.base.DupCandidate)(\*, external_ref[, score, title])  | A possible duplicate of an incoming report.                             |
+| [`Sink`](#heed.sinks.base.Sink)(\*args, \*\*kwargs)                        | Anything that can receive a report.                                     |
+| [`SinkResult`](#heed.sinks.base.SinkResult)(\*, ok[, external_ref, url, detail]) | Outcome of routing a report to a sink.                                  |
 
 ### *class* heed.sinks.base.BaseSink
 
@@ -42,7 +42,7 @@ The items a public board may show (default: none; see [`heed.board`](heed.board.
 * **Return type:**
   [`list`](https://docs.python.org/3/builtins/stdtypes.html#list)[[`PublicItem`](heed.board.html.md#heed.board.PublicItem)]
 
-### *class* heed.sinks.base.DupCandidate(\*\*data)
+### *class* heed.sinks.base.DupCandidate(, external_ref, score=0.0, title=None)
 
 Bases: `BaseModel`
 
@@ -58,7 +58,7 @@ Bases: [`Protocol`](https://docs.python.org/3/library/typing.html#typing.Protoco
 
 Anything that can receive a report. `submit` is the only required method.
 
-### *class* heed.sinks.base.SinkResult(\*\*data)
+### *class* heed.sinks.base.SinkResult(, ok, external_ref=None, url=None, detail=None)
 
 Bases: `BaseModel`
 

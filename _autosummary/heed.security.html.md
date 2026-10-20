@@ -117,9 +117,6 @@ an opaque download. Embedding is limited to the same site
 (`Cross-Origin-Resource-Policy: same-site`) unless `cross_origin=True`, which a
 screenshot embedded elsewhere (e.g. in a GitHub issue) needs.
 
-* **Return type:**
-  [`dict`](https://docs.python.org/3/builtins/stdtypes.html#dict)
-
 ```pycon
 >>> h = attachment_headers("image/png", filename="r1.png")
 >>> h["Content-Type"], h["X-Content-Type-Options"], h["Content-Disposition"]
@@ -127,6 +124,9 @@ screenshot embedded elsewhere (e.g. in a GitHub issue) needs.
 >>> attachment_headers("text/html")["Content-Type"]
 'application/octet-stream'
 ```
+
+* **Return type:**
+  [`dict`](https://docs.python.org/3/builtins/stdtypes.html#dict)
 
 ### heed.security.client_ip(peer, forwarded_for, , trusted_proxies=())
 
@@ -136,15 +136,15 @@ The client address to rate-limit on.
 proxy, so it is only consulted then — and read right-to-left, skipping trusted
 hops, so a client cannot prepend a fake address.
 
-* **Return type:**
-  [`str`](https://docs.python.org/3/builtins/stdtypes.html#str)
-
 ```pycon
 >>> client_ip("10.0.0.1", "6.6.6.6, 1.2.3.4", trusted_proxies=["10.0.0.0/8"])
 '1.2.3.4'
 >>> client_ip("5.5.5.5", "1.2.3.4")  # untrusted peer: header ignored
 '5.5.5.5'
 ```
+
+* **Return type:**
+  [`str`](https://docs.python.org/3/builtins/stdtypes.html#str)
 
 ### heed.security.cors_headers(origin, allowed, , allow_credentials=False)
 
@@ -177,20 +177,17 @@ Build a limiter from the `rate_limiter_backends` registry by name.
 
 Canonical form of an origin for comparison (lower-case, no trailing slash).
 
-* **Return type:**
-  [`str`](https://docs.python.org/3/builtins/stdtypes.html#str)
-
 ```pycon
 >>> normalize_origin("HTTPS://App.Example/")
 'https://app.example'
 ```
 
+* **Return type:**
+  [`str`](https://docs.python.org/3/builtins/stdtypes.html#str)
+
 ### heed.security.origin_allowed(origin, allowed)
 
 True if origin is permitted; `allowed=None` allows any (the dev default).
-
-* **Return type:**
-  [`bool`](https://docs.python.org/3/builtins/functions.html#bool)
 
 ```pycon
 >>> origin_allowed("https://a.example", ["https://a.example"])
@@ -199,19 +196,22 @@ True
 False
 ```
 
+* **Return type:**
+  [`bool`](https://docs.python.org/3/builtins/functions.html#bool)
+
 ### heed.security.parse_networks(proxies)
 
 Parse IPs/CIDRs (strings or network objects) into networks; raises ValueError.
 
 Call it once at startup so a typo fails loudly there, not on every request.
 
-* **Return type:**
-  [`list`](https://docs.python.org/3/builtins/stdtypes.html#list)[[`IPv4Network`](https://docs.python.org/3/library/ipaddress.html#ipaddress.IPv4Network) | [`IPv6Network`](https://docs.python.org/3/library/ipaddress.html#ipaddress.IPv6Network)]
-
 ```pycon
 >>> parse_networks(["127.0.0.1", "10.0.0.0/8"])
 [IPv4Network('127.0.0.1/32'), IPv4Network('10.0.0.0/8')]
 ```
+
+* **Return type:**
+  [`list`](https://docs.python.org/3/builtins/stdtypes.html#list)[[`IPv4Network`](https://docs.python.org/3/library/ipaddress.html#ipaddress.IPv4Network) | [`IPv6Network`](https://docs.python.org/3/library/ipaddress.html#ipaddress.IPv6Network)]
 
 ### heed.security.preflight_headers(origin, allowed, , allow_credentials=False, max_age_seconds=600, methods='POST, OPTIONS', request_headers=None)
 
@@ -227,9 +227,6 @@ The bucket key for `ip`: IPv4 as-is, IPv6 grouped by its /`ipv6_prefix`.
 One IPv6 host typically owns a whole /64, so per-address buckets are trivially
 dodged by rotating addresses.
 
-* **Return type:**
-  [`str`](https://docs.python.org/3/builtins/stdtypes.html#str)
-
 ```pycon
 >>> rate_limit_key("2001:db8::1") == rate_limit_key("2001:db8::ffff")
 True
@@ -237,14 +234,14 @@ True
 '1.2.3.4'
 ```
 
+* **Return type:**
+  [`str`](https://docs.python.org/3/builtins/stdtypes.html#str)
+
 ### heed.security.sniff_image_type(data)
 
 The media type of `data` from its magic bytes, or None if not an allowed image.
 
 Never trust the client’s declared content type: an “image” might be HTML/SVG.
-
-* **Return type:**
-  [`str`](https://docs.python.org/3/builtins/stdtypes.html#str) | [`None`](https://docs.python.org/3/builtins/constants.html#None)
 
 ```pycon
 >>> sniff_image_type(b"\x89PNG\r\n\x1a\n...")
@@ -252,3 +249,6 @@ Never trust the client’s declared content type: an “image” might be HTML/S
 >>> sniff_image_type(b"<svg onload=alert(1)>") is None
 True
 ```
+
+* **Return type:**
+  [`str`](https://docs.python.org/3/builtins/stdtypes.html#str) | [`None`](https://docs.python.org/3/builtins/constants.html#None)

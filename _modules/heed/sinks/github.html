@@ -31,6 +31,7 @@
 <link href="../../../_static/styles/pydata-sphinx-theme.css?digest=18bd87630a240e9c25be" rel="stylesheet" />
 
     <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=d75fae25" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/sphinx_autodoc_typehints.css?v=057ac668" />
     <link rel="stylesheet" type="text/css" href="../../../_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="../../../_static/epythet.css?v=ef673b48" />
   
@@ -729,6 +730,7 @@ window.runMermaid = runMermaid;</script>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
+<span class="kn">import</span><span class="w"> </span><span class="nn">re</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Iterable</span><span class="p">,</span> <span class="n">Mapping</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span>
@@ -859,7 +861,7 @@ window.runMermaid = runMermaid;</script>
         <span class="n">url</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_screenshot_url</span><span class="p">(</span><span class="n">report</span><span class="p">)</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_screenshot_url</span> <span class="k">else</span> <span class="kc">None</span>
         <span class="n">body</span> <span class="o">=</span> <span class="n">render_issue_body</span><span class="p">(</span><span class="n">report</span><span class="p">,</span> <span class="n">screenshot_url</span><span class="o">=</span><span class="n">url</span><span class="p">,</span> <span class="n">light</span><span class="o">=</span><span class="n">light</span><span class="p">)</span>
         <span class="n">issue</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_issue</span><span class="p">(</span>
-            <span class="n">title</span><span class="o">=</span><span class="n">treatment</span><span class="o">.</span><span class="n">title_prefix</span> <span class="o">+</span> <span class="n">report</span><span class="o">.</span><span class="n">title</span><span class="p">,</span> <span class="n">body</span><span class="o">=</span><span class="n">body</span><span class="p">,</span> <span class="n">labels</span><span class="o">=</span><span class="n">labels</span>
+            <span class="n">title</span><span class="o">=</span><span class="n">neutralise_refs</span><span class="p">(</span><span class="n">treatment</span><span class="o">.</span><span class="n">title_prefix</span> <span class="o">+</span> <span class="n">report</span><span class="o">.</span><span class="n">title</span><span class="p">),</span> <span class="n">body</span><span class="o">=</span><span class="n">body</span><span class="p">,</span> <span class="n">labels</span><span class="o">=</span><span class="n">labels</span>
         <span class="p">)</span>
         <span class="n">number</span> <span class="o">=</span> <span class="n">issue</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"number"</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">SinkResult</span><span class="p">(</span>
@@ -970,6 +972,22 @@ window.runMermaid = runMermaid;</script>
     <span class="k">return</span> <span class="n">plus</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">plus</span><span class="p">,</span> <span class="nb">int</span><span class="p">)</span> <span class="ow">and</span> <span class="n">plus</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="mi">0</span>
 
 
+<span class="n">_REF_CHARS</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">"(?&lt;![\w`])([@#])(?=\w)"</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="neutralise_refs">
+<a class="viewcode-back" href="../../../_autosummary/heed.sinks.github.html#heed.neutralise_refs">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">neutralise_refs</span><span class="p">(</span><span class="n">text</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Defuse GitHub ``@mention`` and ``#123`` references in untrusted text.</span>
+
+<span class="sd">    A zero-width joiner after ``@``/``#`` stops GitHub notifying a user or cross-linking</span>
+<span class="sd">    an issue from the tracker's account. Only the rendered issue is changed; the stored</span>
+<span class="sd">    report keeps the original text.</span>
+<span class="sd">    """</span>
+    <span class="k">return</span> <span class="n">_REF_CHARS</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="s2">"</span><span class="se">\\</span><span class="s2">1</span><span class="se">\u200d</span><span class="s2">"</span><span class="p">,</span> <span class="n">text</span><span class="p">)</span></div>
+
+
+
 <div class="viewcode-block" id="render_issue_body">
 <a class="viewcode-back" href="../../../_autosummary/heed.sinks.github.html#heed.render_issue_body">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">render_issue_body</span><span class="p">(</span>
@@ -983,16 +1001,18 @@ window.runMermaid = runMermaid;</script>
 <span class="sd">    """</span>
     <span class="n">lines</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="k">if</span> <span class="n">report</span><span class="o">.</span><span class="n">body</span><span class="p">:</span>
-        <span class="n">lines</span> <span class="o">+=</span> <span class="p">[</span><span class="n">report</span><span class="o">.</span><span class="n">body</span><span class="p">,</span> <span class="s2">""</span><span class="p">]</span>
+        <span class="n">lines</span> <span class="o">+=</span> <span class="p">[</span><span class="n">neutralise_refs</span><span class="p">(</span><span class="n">report</span><span class="o">.</span><span class="n">body</span><span class="p">),</span> <span class="s2">""</span><span class="p">]</span>
 
-    <span class="n">reporter</span> <span class="o">=</span> <span class="n">report</span><span class="o">.</span><span class="n">identity</span><span class="o">.</span><span class="n">user</span> <span class="ow">or</span> <span class="sa">f</span><span class="s2">"anonymous (</span><span class="si">{</span><span class="n">report</span><span class="o">.</span><span class="n">identity</span><span class="o">.</span><span class="n">anon_id</span><span class="p">[:</span><span class="mi">8</span><span class="p">]</span><span class="si">}</span><span class="s2">…)"</span>
+    <span class="n">reporter</span> <span class="o">=</span> <span class="n">neutralise_refs</span><span class="p">(</span><span class="n">report</span><span class="o">.</span><span class="n">identity</span><span class="o">.</span><span class="n">user</span> <span class="ow">or</span> <span class="s2">""</span><span class="p">)</span> <span class="ow">or</span> <span class="sa">f</span><span class="s2">"anonymous (</span><span class="si">{</span><span class="n">report</span><span class="o">.</span><span class="n">identity</span><span class="o">.</span><span class="n">anon_id</span><span class="p">[:</span><span class="mi">8</span><span class="p">]</span><span class="si">}</span><span class="s2">…)"</span>
     <span class="n">meta</span> <span class="o">=</span> <span class="p">[</span><span class="sa">f</span><span class="s2">"- **Category**: </span><span class="si">{</span><span class="n">report</span><span class="o">.</span><span class="n">category</span><span class="o">.</span><span class="n">value</span><span class="si">}</span><span class="s2">"</span><span class="p">]</span>
     <span class="k">if</span> <span class="n">report</span><span class="o">.</span><span class="n">page_url</span><span class="p">:</span>
-        <span class="n">meta</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">"- **URL**: </span><span class="si">{</span><span class="n">report</span><span class="o">.</span><span class="n">page_url</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+        <span class="n">meta</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">"- **URL**: </span><span class="si">{</span><span class="n">neutralise_refs</span><span class="p">(</span><span class="n">report</span><span class="o">.</span><span class="n">page_url</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">light</span> <span class="ow">and</span> <span class="p">(</span><span class="n">report</span><span class="o">.</span><span class="n">env</span><span class="o">.</span><span class="n">browser</span> <span class="ow">or</span> <span class="n">report</span><span class="o">.</span><span class="n">env</span><span class="o">.</span><span class="n">os</span><span class="p">):</span>
-        <span class="n">env_line</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"- **Env**: </span><span class="si">{</span><span class="n">report</span><span class="o">.</span><span class="n">env</span><span class="o">.</span><span class="n">browser</span><span class="w"> </span><span class="ow">or</span><span class="w"> </span><span class="s1">'?'</span><span class="si">}</span><span class="s2"> on </span><span class="si">{</span><span class="n">report</span><span class="o">.</span><span class="n">env</span><span class="o">.</span><span class="n">os</span><span class="w"> </span><span class="ow">or</span><span class="w"> </span><span class="s1">'?'</span><span class="si">}</span><span class="s2">"</span>
+        <span class="n">env_line</span> <span class="o">=</span> <span class="n">neutralise_refs</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"- **Env**: </span><span class="si">{</span><span class="n">report</span><span class="o">.</span><span class="n">env</span><span class="o">.</span><span class="n">browser</span><span class="w"> </span><span class="ow">or</span><span class="w"> </span><span class="s1">'?'</span><span class="si">}</span><span class="s2"> on </span><span class="si">{</span><span class="n">report</span><span class="o">.</span><span class="n">env</span><span class="o">.</span><span class="n">os</span><span class="w"> </span><span class="ow">or</span><span class="w"> </span><span class="s1">'?'</span><span class="si">}</span><span class="s2">"</span>
+        <span class="p">)</span>
         <span class="k">if</span> <span class="n">report</span><span class="o">.</span><span class="n">env</span><span class="o">.</span><span class="n">viewport</span><span class="p">:</span>
-            <span class="n">env_line</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">" (</span><span class="si">{</span><span class="n">report</span><span class="o">.</span><span class="n">env</span><span class="o">.</span><span class="n">viewport</span><span class="si">}</span><span class="s2">)"</span>
+            <span class="n">env_line</span> <span class="o">+=</span> <span class="n">neutralise_refs</span><span class="p">(</span><span class="sa">f</span><span class="s2">" (</span><span class="si">{</span><span class="n">report</span><span class="o">.</span><span class="n">env</span><span class="o">.</span><span class="n">viewport</span><span class="si">}</span><span class="s2">)"</span><span class="p">)</span>
         <span class="n">meta</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">env_line</span><span class="p">)</span>
     <span class="n">meta</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">"- **Reporter**: </span><span class="si">{</span><span class="n">reporter</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
     <span class="n">lines</span> <span class="o">+=</span> <span class="n">meta</span> <span class="o">+</span> <span class="p">[</span><span class="s2">""</span><span class="p">]</span>
@@ -1003,14 +1023,17 @@ window.runMermaid = runMermaid;</script>
         <span class="k">return</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">lines</span><span class="p">)</span><span class="o">.</span><span class="n">rstrip</span><span class="p">()</span> <span class="o">+</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span>
     <span class="k">if</span> <span class="n">report</span><span class="o">.</span><span class="n">console</span><span class="p">:</span>
         <span class="n">lines</span> <span class="o">+=</span> <span class="n">_collapsible</span><span class="p">(</span>
-            <span class="s2">"Console"</span><span class="p">,</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="sa">f</span><span class="s2">"[</span><span class="si">{</span><span class="n">e</span><span class="o">.</span><span class="n">level</span><span class="si">}</span><span class="s2">] </span><span class="si">{</span><span class="n">e</span><span class="o">.</span><span class="n">message</span><span class="si">}</span><span class="s2">"</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">report</span><span class="o">.</span><span class="n">console</span><span class="p">)</span>
+            <span class="s2">"Console"</span><span class="p">,</span>
+            <span class="n">neutralise_refs</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="sa">f</span><span class="s2">"[</span><span class="si">{</span><span class="n">e</span><span class="o">.</span><span class="n">level</span><span class="si">}</span><span class="s2">] </span><span class="si">{</span><span class="n">e</span><span class="o">.</span><span class="n">message</span><span class="si">}</span><span class="s2">"</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">report</span><span class="o">.</span><span class="n">console</span><span class="p">)),</span>
         <span class="p">)</span>
     <span class="k">if</span> <span class="n">report</span><span class="o">.</span><span class="n">network</span><span class="p">:</span>
         <span class="n">lines</span> <span class="o">+=</span> <span class="n">_collapsible</span><span class="p">(</span>
             <span class="s2">"Network"</span><span class="p">,</span>
-            <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">e</span><span class="o">.</span><span class="n">method</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">e</span><span class="o">.</span><span class="n">url</span><span class="si">}</span><span class="s2"> -&gt; </span><span class="si">{</span><span class="n">e</span><span class="o">.</span><span class="n">status</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="n">e</span><span class="o">.</span><span class="n">status</span><span class="w"> </span><span class="ow">is</span><span class="w"> </span><span class="ow">not</span><span class="w"> </span><span class="kc">None</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="s1">'?'</span><span class="si">}</span><span class="s2">"</span>
-                <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">report</span><span class="o">.</span><span class="n">network</span>
+            <span class="n">neutralise_refs</span><span class="p">(</span>
+                <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">e</span><span class="o">.</span><span class="n">method</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">e</span><span class="o">.</span><span class="n">url</span><span class="si">}</span><span class="s2"> -&gt; </span><span class="si">{</span><span class="n">e</span><span class="o">.</span><span class="n">status</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="n">e</span><span class="o">.</span><span class="n">status</span><span class="w"> </span><span class="ow">is</span><span class="w"> </span><span class="ow">not</span><span class="w"> </span><span class="kc">None</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="s1">'?'</span><span class="si">}</span><span class="s2">"</span>
+                    <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">report</span><span class="o">.</span><span class="n">network</span>
+                <span class="p">)</span>
             <span class="p">),</span>
         <span class="p">)</span>
     <span class="k">return</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">lines</span><span class="p">)</span><span class="o">.</span><span class="n">rstrip</span><span class="p">()</span> <span class="o">+</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span></div>
@@ -1018,13 +1041,17 @@ window.runMermaid = runMermaid;</script>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_collapsible</span><span class="p">(</span><span class="n">summary</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">content</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+    <span class="c1"># A fence longer than any backtick run in the (untrusted) content cannot be closed</span>
+    <span class="c1"># early by it.</span>
+    <span class="n">longest</span> <span class="o">=</span> <span class="nb">max</span><span class="p">((</span><span class="nb">len</span><span class="p">(</span><span class="n">m</span><span class="p">)</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">re</span><span class="o">.</span><span class="n">findall</span><span class="p">(</span><span class="sa">r</span><span class="s2">"`+"</span><span class="p">,</span> <span class="n">content</span><span class="p">)),</span> <span class="n">default</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">fence</span> <span class="o">=</span> <span class="s2">"`"</span> <span class="o">*</span> <span class="nb">max</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="n">longest</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
     <span class="k">return</span> <span class="p">[</span>
         <span class="s2">"&lt;details&gt;"</span><span class="p">,</span>
         <span class="sa">f</span><span class="s2">"&lt;summary&gt;</span><span class="si">{</span><span class="n">summary</span><span class="si">}</span><span class="s2">&lt;/summary&gt;"</span><span class="p">,</span>
         <span class="s2">""</span><span class="p">,</span>
-        <span class="s2">"```"</span><span class="p">,</span>
+        <span class="n">fence</span><span class="p">,</span>
         <span class="n">content</span><span class="p">,</span>
-        <span class="s2">"```"</span><span class="p">,</span>
+        <span class="n">fence</span><span class="p">,</span>
         <span class="s2">""</span><span class="p">,</span>
         <span class="s2">"&lt;/details&gt;"</span><span class="p">,</span>
         <span class="s2">""</span><span class="p">,</span>

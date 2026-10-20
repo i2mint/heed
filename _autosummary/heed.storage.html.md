@@ -35,13 +35,13 @@ Reading a key whose file is a symlink leading outside `rootdir` raises
 `KeyError`, so a misconfigured root cannot make the attachment route serve other
 files; `follow_symlinks=True` opts out.
 
-* **Return type:**
-  [`MutableMapping`](https://docs.python.org/3/library/collections.abc.html#collections.abc.MutableMapping)
-
 ```pycon
 >>> make_attachment_store()
 {}
 ```
+
+* **Return type:**
+  [`MutableMapping`](https://docs.python.org/3/library/collections.abc.html#collections.abc.MutableMapping)
 
 ### heed.storage.make_holding_store(rootdir=None, \*, delete_func=<built-in function remove>)
 
@@ -54,15 +54,15 @@ not every held report (issue #21), and nothing listing holding (a moderation vie
 sibling directory, `<rootdir>.claims` (a subdirectory would show up in the
 holding store’s recursive listing).
 
-* **Return type:**
-  [`MutableMapping`](https://docs.python.org/3/library/collections.abc.html#collections.abc.MutableMapping)
-
 ```pycon
 >>> held = make_holding_store()
 >>> held["r1"] = "{}"
 >>> list(held), dict(held.heed_claims)
 (['r1'], {})
 ```
+
+* **Return type:**
+  [`MutableMapping`](https://docs.python.org/3/library/collections.abc.html#collections.abc.MutableMapping)
 
 ### heed.storage.make_report_store(rootdir=None, \*, delete_func=<built-in function remove>)
 

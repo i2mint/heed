@@ -1,4 +1,4 @@
-> built 2026-10-14 01:14 UTC from 528c908 (main) · heed 0.0.1. Details: build_info.json
+> built 2026-10-20 02:26 UTC from af43efd (main) · heed 0.0.1. Details: build_info.json
 
 # index.html.md
 
@@ -135,18 +135,18 @@ origin, status) before handing it to a sink.
 
 ### Classes
 
-| [`Attachment`](_autosummary/heed.base.html.md#heed.base.Attachment)(\*\*data)       | A stored binary artifact (e.g. a screenshot), referenced by store key.       |
-|-----------------------------------------------------------------------------|------------------------------------------------------------------------------|
-| [`Category`](_autosummary/heed.base.html.md#heed.base.Category)(\*values)         | What kind of feedback a report is.                                           |
-| [`Environment`](_autosummary/heed.base.html.md#heed.base.Environment)(\*\*data)      | Client environment captured by default (no PII beyond the user agent).       |
-| [`Identity`](_autosummary/heed.base.html.md#heed.base.Identity)(\*\*data)         | Who submitted the report — anonymous by default.                             |
-| [`LogEntry`](_autosummary/heed.base.html.md#heed.base.LogEntry)(\*\*data)         | One captured console entry (opt-in capture only).                            |
-| [`NetEntry`](_autosummary/heed.base.html.md#heed.base.NetEntry)(\*\*data)         | One captured network entry (opt-in; metadata only, never bodies).            |
-| [`Report`](_autosummary/heed.base.html.md#heed.base.Report)(\*\*data)           | A server-enriched report — the unit a sink receives.                         |
-| [`ReportSubmission`](_autosummary/heed.base.html.md#heed.base.ReportSubmission)(\*\*data) | The (untrusted) payload a widget POSTs; server fields are assigned later.    |
-| [`Status`](_autosummary/heed.base.html.md#heed.base.Status)(\*values)           | Lifecycle of a report (flattened; see misc/docs/design.md for the full map). |
+| [`Attachment`](_autosummary/heed.base.html.md#heed.base.Attachment)(\*[, kind, media_type, size])          | A stored binary artifact (e.g. a screenshot), referenced by store key.       |
+|----------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------|
+| [`Category`](_autosummary/heed.base.html.md#heed.base.Category)(\*values)                                | What kind of feedback a report is.                                           |
+| [`Environment`](_autosummary/heed.base.html.md#heed.base.Environment)(\*[, user_agent, browser, os, ...])   | Client environment captured by default (no PII beyond the user agent).       |
+| [`Identity`](_autosummary/heed.base.html.md#heed.base.Identity)(\*, anon_id[, user])                     | Who submitted the report — anonymous by default.                             |
+| [`LogEntry`](_autosummary/heed.base.html.md#heed.base.LogEntry)(\*, level, message[, at, source])        | One captured console entry (opt-in capture only).                            |
+| [`NetEntry`](_autosummary/heed.base.html.md#heed.base.NetEntry)(\*, method, url[, status, ...])          | One captured network entry (opt-in; metadata only, never bodies).            |
+| [`Report`](_autosummary/heed.base.html.md#heed.base.Report)(\*[, id, created_at, category, body, ...]) | A server-enriched report — the unit a sink receives.                         |
+| [`ReportSubmission`](_autosummary/heed.base.html.md#heed.base.ReportSubmission)(\*[, category, body, ...])       | The (untrusted) payload a widget POSTs; server fields are assigned later.    |
+| [`Status`](_autosummary/heed.base.html.md#heed.base.Status)(\*values)                                  | Lifecycle of a report (flattened; see misc/docs/design.md for the full map). |
 
-### *class* heed.base.Attachment(\*\*data)
+### *class* heed.base.Attachment(, kind='screenshot', media_type='image/png', ref, size=None)
 
 Bases: `BaseModel`
 
@@ -162,7 +162,7 @@ Bases: [`str`](https://docs.python.org/3/builtins/stdtypes.html#str), [`Enum`](h
 
 What kind of feedback a report is.
 
-### *class* heed.base.Environment(\*\*data)
+### *class* heed.base.Environment(\*, user_agent=None, browser=None, os=None, viewport=None, locale=None, device_pixel_ratio=None, extra=<factory>)
 
 Bases: `BaseModel`
 
@@ -172,7 +172,7 @@ Client environment captured by default (no PII beyond the user agent).
 
 Configuration for the model, should be a dictionary conforming to [`ConfigDict`][pydantic.config.ConfigDict].
 
-### *class* heed.base.Identity(\*\*data)
+### *class* heed.base.Identity(, anon_id, user=None)
 
 Bases: `BaseModel`
 
@@ -186,7 +186,7 @@ stored here — it is used transiently for rate limiting only.
 
 Configuration for the model, should be a dictionary conforming to [`ConfigDict`][pydantic.config.ConfigDict].
 
-### *class* heed.base.LogEntry(\*\*data)
+### *class* heed.base.LogEntry(, level, message, at=None, source=None)
 
 Bases: `BaseModel`
 
@@ -196,7 +196,7 @@ One captured console entry (opt-in capture only).
 
 Configuration for the model, should be a dictionary conforming to [`ConfigDict`][pydantic.config.ConfigDict].
 
-### *class* heed.base.NetEntry(\*\*data)
+### *class* heed.base.NetEntry(, method, url, status=None, duration_ms=None, ok=None)
 
 Bases: `BaseModel`
 
@@ -206,7 +206,7 @@ One captured network entry (opt-in; metadata only, never bodies).
 
 Configuration for the model, should be a dictionary conforming to [`ConfigDict`][pydantic.config.ConfigDict].
 
-### *class* heed.base.Report(\*\*data)
+### *class* heed.base.Report(\*, id=<factory>, created_at=<factory>, category=Category.bug, title, body='', page_url='', env=<factory>, attachments=<factory>, console=None, network=None, identity, origin='', status=Status.received, labels=<factory>, extra=<factory>)
 
 Bases: `BaseModel`
 
@@ -216,7 +216,7 @@ A server-enriched report — the unit a sink receives.
 
 Configuration for the model, should be a dictionary conforming to [`ConfigDict`][pydantic.config.ConfigDict].
 
-### *class* heed.base.ReportSubmission(\*\*data)
+### *class* heed.base.ReportSubmission(\*, category=Category.bug, title, body='', page_url='', env=<factory>, console=None, network=None, anon_id=None)
 
 Bases: `BaseModel`
 
@@ -255,13 +255,13 @@ the length limit would be refused for its line breaks.
 
 Remove control characters (keeping tab/newline/CR) from untrusted text.
 
-* **Return type:**
-  [`str`](https://docs.python.org/3/builtins/stdtypes.html#str)
-
 ```pycon
 >>> strip_control_chars("a\x00b\tc\u202ed")
 'ab\tcd'
 ```
+
+* **Return type:**
+  [`str`](https://docs.python.org/3/builtins/stdtypes.html#str)
 
 ### heed.base.utcnow()
 
@@ -325,9 +325,9 @@ vector (`misc/docs/embedding-security.md`).
 
 ### Classes
 
-| [`BoardSource`](_autosummary/heed.board.html.md#heed.board.BoardSource)(\*args, \*\*kwargs)   | Anything that can list its public items (an optional sink capability).   |
-|------------------------------------------------------------------------------------|--------------------------------------------------------------------------|
-| [`PublicItem`](_autosummary/heed.board.html.md#heed.board.PublicItem)(\*\*data)              | One board entry: the public projection of a stored report.               |
+| [`BoardSource`](_autosummary/heed.board.html.md#heed.board.BoardSource)(\*args, \*\*kwargs)             | Anything that can list its public items (an optional sink capability).   |
+|----------------------------------------------------------------------------------------------|--------------------------------------------------------------------------|
+| [`PublicItem`](_autosummary/heed.board.html.md#heed.board.PublicItem)(\*, ref, title[, category, ...]) | One board entry: the public projection of a stored report.               |
 
 ### *class* heed.board.BoardSource(\*args, \*\*kwargs)
 
@@ -339,7 +339,7 @@ Anything that can list its public items (an optional sink capability).
 
 Statuses that mean “shipped” (shown in a changelog).
 
-### *class* heed.board.PublicItem(\*\*data)
+### *class* heed.board.PublicItem(, ref, title, category=Category.feature, status=Status.received, url=None, votes=0, created_at=None, closed_at=None)
 
 Bases: `BaseModel`
 
@@ -384,7 +384,7 @@ infrastructure (the Redis URL) belong.
 | [`HeedConfig`](_autosummary/heed.config.html.md#heed.config.HeedConfig)(\*[, allowed_origins, ...])   | Knobs for the ingest endpoint.   |
 |-------------------------------------------------------------------------------------------|----------------------------------|
 
-### *class* heed.config.HeedConfig(\*, allowed_origins=None, handle_cors=True, cors_allow_credentials=False, cors_max_age_seconds=600, max_body_bytes=6000000, max_screenshot_bytes=5000000, screenshot_sanitizer='auto', max_screenshot_pixels=25000000, max_concurrent_reencodes=2, max_field_bytes=100000, max_form_fields=16, rate_limit_per_minute=30, origin_rate_limit_per_minute=600, rate_limit_window_seconds=60.0, rate_limit_backend='memory', redis_url=None, trusted_proxies=<factory>, ipv6_rate_limit_prefix=64, bot_gate=None, bot_secret=None, bot_expected_hostnames=None, bot_token_field='bot_token', honeypot_field='hp_website', attachment_signing_key=None, attachment_url_ttl_seconds=None, attachment_previous_keys=<factory>, attachment_hosts=None, attachment_cache_control=None, accept_console=False, accept_network=False, light_categories=<factory>)
+### *class* heed.config.HeedConfig(\*, allowed_origins=None, handle_cors=True, cors_allow_credentials=False, cors_max_age_seconds=600, max_body_bytes=6000000, max_screenshot_bytes=5000000, screenshot_sanitizer='auto', max_screenshot_pixels=25000000, max_concurrent_reencodes=2, max_field_bytes=100000, max_form_fields=16, rate_limit_per_minute=30, origin_rate_limit_per_minute=600, rate_limit_window_seconds=60.0, rate_limit_backend='memory', redis_url=None, trusted_proxies=list(), ipv6_rate_limit_prefix=64, bot_gate=None, bot_secret=None, bot_expected_hostnames=None, bot_token_field='bot_token', honeypot_field='hp_website', attachment_signing_key=None, attachment_url_ttl_seconds=None, attachment_previous_keys=list(), attachment_hosts=None, attachment_cache_control=None, accept_console=False, accept_network=False, light_categories=<factory>)
 
 Bases: [`object`](https://docs.python.org/3/builtins/functions.html#object)
 
@@ -401,9 +401,6 @@ Build a config from `HEED_<FIELD>` variables, then apply `overrides`.
 Lists are comma-separated; booleans accept 1/true/yes/on; `none` unsets an
 optional knob (e.g. `HEED_ORIGIN_RATE_LIMIT_PER_MINUTE=none`).
 
-* **Return type:**
-  [`HeedConfig`](_autosummary/heed.config.html.md#heed.config.HeedConfig)
-
 ```pycon
 >>> cfg = HeedConfig.from_env(
 ...     {"HEED_ALLOWED_ORIGINS": "https://a.example, https://b.example",
@@ -412,6 +409,9 @@ optional knob (e.g. `HEED_ORIGIN_RATE_LIMIT_PER_MINUTE=none`).
 >>> cfg.allowed_origins, cfg.rate_limit_per_minute
 (['https://a.example', 'https://b.example'], 10)
 ```
+
+* **Return type:**
+  [`HeedConfig`](_autosummary/heed.config.html.md#heed.config.HeedConfig)
 
 
 # _autosummary/heed.html.md
@@ -504,23 +504,23 @@ True
 
 | [`AttachmentSigner`](_autosummary/heed.html.md#heed.AttachmentSigner)(key, \*[, previous_keys, ...])   | Mint and check signed attachment URLs (HMAC-SHA256 over the ref and expiry).   |
 |----------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------|
-| [`Report`](_autosummary/heed.html.md#heed.Report)(\*\*data)                                  | A server-enriched report — the unit a sink receives.                           |
-| [`ReportSubmission`](_autosummary/heed.html.md#heed.ReportSubmission)(\*\*data)                        | The (untrusted) payload a widget POSTs; server fields are assigned later.      |
-| [`Identity`](_autosummary/heed.html.md#heed.Identity)(\*\*data)                                | Who submitted the report — anonymous by default.                               |
-| [`Environment`](_autosummary/heed.html.md#heed.Environment)(\*\*data)                             | Client environment captured by default (no PII beyond the user agent).         |
+| [`Report`](_autosummary/heed.html.md#heed.Report)(\*[, id, created_at, category, body, ...]) | A server-enriched report — the unit a sink receives.                           |
+| [`ReportSubmission`](_autosummary/heed.html.md#heed.ReportSubmission)(\*[, category, body, ...])       | The (untrusted) payload a widget POSTs; server fields are assigned later.      |
+| [`Identity`](_autosummary/heed.html.md#heed.Identity)(\*, anon_id[, user])                     | Who submitted the report — anonymous by default.                               |
+| [`Environment`](_autosummary/heed.html.md#heed.Environment)(\*[, user_agent, browser, os, ...])   | Client environment captured by default (no PII beyond the user agent).         |
 | [`Category`](_autosummary/heed.html.md#heed.Category)(\*values)                                | What kind of feedback a report is.                                             |
 | [`Status`](_autosummary/heed.html.md#heed.Status)(\*values)                                  | Lifecycle of a report (flattened; see misc/docs/design.md for the full map).   |
-| [`Attachment`](_autosummary/heed.html.md#heed.Attachment)(\*\*data)                              | A stored binary artifact (e.g. a screenshot), referenced by store key.         |
-| [`LogEntry`](_autosummary/heed.html.md#heed.LogEntry)(\*\*data)                                | One captured console entry (opt-in capture only).                              |
-| [`NetEntry`](_autosummary/heed.html.md#heed.NetEntry)(\*\*data)                                | One captured network entry (opt-in; metadata only, never bodies).              |
+| [`Attachment`](_autosummary/heed.html.md#heed.Attachment)(\*[, kind, media_type, size])          | A stored binary artifact (e.g. a screenshot), referenced by store key.         |
+| [`LogEntry`](_autosummary/heed.html.md#heed.LogEntry)(\*, level, message[, at, source])        | One captured console entry (opt-in capture only).                              |
+| [`NetEntry`](_autosummary/heed.html.md#heed.NetEntry)(\*, method, url[, status, ...])          | One captured network entry (opt-in; metadata only, never bodies).              |
 | [`Sink`](_autosummary/heed.html.md#heed.Sink)(\*args, \*\*kwargs)                          | Anything that can receive a report.                                            |
 | [`BaseSink`](_autosummary/heed.html.md#heed.BaseSink)()                                        | Convenience base giving no-op defaults for the optional sink methods.          |
-| [`SinkResult`](_autosummary/heed.html.md#heed.SinkResult)(\*\*data)                              | Outcome of routing a report to a sink.                                         |
+| [`SinkResult`](_autosummary/heed.html.md#heed.SinkResult)(\*, ok[, external_ref, url, detail])   | Outcome of routing a report to a sink.                                         |
 | [`StoreSink`](_autosummary/heed.html.md#heed.StoreSink)(store)                                  | Persist each report as JSON into a dol-style store keyed by report id.         |
 | [`GitHubIssuesSink`](_autosummary/heed.html.md#heed.GitHubIssuesSink)(create_issue, \*[, ...])         | Route a report to a GitHub issue via an injected `create_issue` callable.      |
 | [`CategorySink`](_autosummary/heed.html.md#heed.CategorySink)(sinks, \*, default)                  | Route by `report.category`; unlisted categories go to `default`.               |
 | [`CategoryTreatment`](_autosummary/heed.html.md#heed.CategoryTreatment)([labels, title_prefix, detail]) | What one category of report becomes as a GitHub issue.                         |
-| [`PublicItem`](_autosummary/heed.html.md#heed.PublicItem)(\*\*data)                              | One board entry: the public projection of a stored report.                     |
+| [`PublicItem`](_autosummary/heed.html.md#heed.PublicItem)(\*, ref, title[, category, ...])       | One board entry: the public projection of a stored report.                     |
 | [`HeedConfig`](_autosummary/heed.html.md#heed.HeedConfig)(\*[, allowed_origins, ...])            | Knobs for the ingest endpoint.                                                 |
 | [`RateLimiter`](_autosummary/heed.html.md#heed.RateLimiter)(\*args, \*\*kwargs)                   | Decide whether a request keyed by `key` (e.g. client IP) is allowed now.       |
 | [`InMemoryRateLimiter`](_autosummary/heed.html.md#heed.InMemoryRateLimiter)(\*[, max_per_window, ...])    | Sliding-window, in-memory limiter.                                             |
@@ -529,7 +529,7 @@ True
 | [`SiteverifyBotVerifier`](_autosummary/heed.html.md#heed.SiteverifyBotVerifier)(secret, \*[, ...])          | Turnstile / hCaptcha verification (both speak the same siteverify protocol).   |
 | [`Verdict`](_autosummary/heed.html.md#heed.Verdict)(\*values)                                 | A moderator's decision about one report.                                       |
 
-### *class* heed.Attachment(\*\*data)
+### *class* heed.Attachment(, kind='screenshot', media_type='image/png', ref, size=None)
 
 Bases: `BaseModel`
 
@@ -677,7 +677,7 @@ What one category of report becomes as a GitHub issue.
 `detail="light"` is the feature-request intake: the idea and who asked, without
 the browser/console/network dump or a screenshot, which say nothing about a wish.
 
-### *class* heed.Environment(\*\*data)
+### *class* heed.Environment(\*, user_agent=None, browser=None, os=None, viewport=None, locale=None, device_pixel_ratio=None, extra=<factory>)
 
 Bases: `BaseModel`
 
@@ -718,7 +718,7 @@ The treatment applied to reports of `category`.
 * **Return type:**
   [`CategoryTreatment`](_autosummary/heed.sinks.github.html.md#heed.sinks.github.CategoryTreatment)
 
-### *class* heed.HeedConfig(\*, allowed_origins=None, handle_cors=True, cors_allow_credentials=False, cors_max_age_seconds=600, max_body_bytes=6000000, max_screenshot_bytes=5000000, screenshot_sanitizer='auto', max_screenshot_pixels=25000000, max_concurrent_reencodes=2, max_field_bytes=100000, max_form_fields=16, rate_limit_per_minute=30, origin_rate_limit_per_minute=600, rate_limit_window_seconds=60.0, rate_limit_backend='memory', redis_url=None, trusted_proxies=<factory>, ipv6_rate_limit_prefix=64, bot_gate=None, bot_secret=None, bot_expected_hostnames=None, bot_token_field='bot_token', honeypot_field='hp_website', attachment_signing_key=None, attachment_url_ttl_seconds=None, attachment_previous_keys=<factory>, attachment_hosts=None, attachment_cache_control=None, accept_console=False, accept_network=False, light_categories=<factory>)
+### *class* heed.HeedConfig(\*, allowed_origins=None, handle_cors=True, cors_allow_credentials=False, cors_max_age_seconds=600, max_body_bytes=6000000, max_screenshot_bytes=5000000, screenshot_sanitizer='auto', max_screenshot_pixels=25000000, max_concurrent_reencodes=2, max_field_bytes=100000, max_form_fields=16, rate_limit_per_minute=30, origin_rate_limit_per_minute=600, rate_limit_window_seconds=60.0, rate_limit_backend='memory', redis_url=None, trusted_proxies=list(), ipv6_rate_limit_prefix=64, bot_gate=None, bot_secret=None, bot_expected_hostnames=None, bot_token_field='bot_token', honeypot_field='hp_website', attachment_signing_key=None, attachment_url_ttl_seconds=None, attachment_previous_keys=list(), attachment_hosts=None, attachment_cache_control=None, accept_console=False, accept_network=False, light_categories=<factory>)
 
 Bases: [`object`](https://docs.python.org/3/builtins/functions.html#object)
 
@@ -735,9 +735,6 @@ Build a config from `HEED_<FIELD>` variables, then apply `overrides`.
 Lists are comma-separated; booleans accept 1/true/yes/on; `none` unsets an
 optional knob (e.g. `HEED_ORIGIN_RATE_LIMIT_PER_MINUTE=none`).
 
-* **Return type:**
-  [`HeedConfig`](_autosummary/heed.config.html.md#heed.config.HeedConfig)
-
 ```pycon
 >>> cfg = HeedConfig.from_env(
 ...     {"HEED_ALLOWED_ORIGINS": "https://a.example, https://b.example",
@@ -747,7 +744,10 @@ optional knob (e.g. `HEED_ORIGIN_RATE_LIMIT_PER_MINUTE=none`).
 (['https://a.example', 'https://b.example'], 10)
 ```
 
-### *class* heed.Identity(\*\*data)
+* **Return type:**
+  [`HeedConfig`](_autosummary/heed.config.html.md#heed.config.HeedConfig)
+
+### *class* heed.Identity(, anon_id, user=None)
 
 Bases: `BaseModel`
 
@@ -772,7 +772,7 @@ so the effective limit is multiplied. Use [`RedisRateLimiter`](_autosummary/heed
 number of tracked keys is bounded (`max_keys`, least-recently-seen evicted) so a
 flood of distinct keys cannot exhaust memory.
 
-### *class* heed.LogEntry(\*\*data)
+### *class* heed.LogEntry(, level, message, at=None, source=None)
 
 Bases: `BaseModel`
 
@@ -782,7 +782,7 @@ One captured console entry (opt-in capture only).
 
 Configuration for the model, should be a dictionary conforming to [`ConfigDict`][pydantic.config.ConfigDict].
 
-### *class* heed.NetEntry(\*\*data)
+### *class* heed.NetEntry(, method, url, status=None, duration_ms=None, ok=None)
 
 Bases: `BaseModel`
 
@@ -792,7 +792,7 @@ One captured network entry (opt-in; metadata only, never bodies).
 
 Configuration for the model, should be a dictionary conforming to [`ConfigDict`][pydantic.config.ConfigDict].
 
-### *class* heed.PublicItem(\*\*data)
+### *class* heed.PublicItem(, ref, title, category=Category.feature, status=Status.received, url=None, votes=0, created_at=None, closed_at=None)
 
 Bases: `BaseModel`
 
@@ -829,7 +829,7 @@ that long before the fallback limiter decides.
 * **Return type:**
   [`RedisRateLimiter`](_autosummary/heed.security.html.md#heed.security.RedisRateLimiter)
 
-### *class* heed.Report(\*\*data)
+### *class* heed.Report(\*, id=<factory>, created_at=<factory>, category=Category.bug, title, body='', page_url='', env=<factory>, attachments=<factory>, console=None, network=None, identity, origin='', status=Status.received, labels=<factory>, extra=<factory>)
 
 Bases: `BaseModel`
 
@@ -839,7 +839,7 @@ A server-enriched report — the unit a sink receives.
 
 Configuration for the model, should be a dictionary conforming to [`ConfigDict`][pydantic.config.ConfigDict].
 
-### *class* heed.ReportSubmission(\*\*data)
+### *class* heed.ReportSubmission(\*, category=Category.bug, title, body='', page_url='', env=<factory>, console=None, network=None, anon_id=None)
 
 Bases: `BaseModel`
 
@@ -855,7 +855,7 @@ Bases: [`Protocol`](https://docs.python.org/3/library/typing.html#typing.Protoco
 
 Anything that can receive a report. `submit` is the only required method.
 
-### *class* heed.SinkResult(\*\*data)
+### *class* heed.SinkResult(, ok, external_ref=None, url=None, detail=None)
 
 Bases: `BaseModel`
 
@@ -921,9 +921,6 @@ an opaque download. Embedding is limited to the same site
 (`Cross-Origin-Resource-Policy: same-site`) unless `cross_origin=True`, which a
 screenshot embedded elsewhere (e.g. in a GitHub issue) needs.
 
-* **Return type:**
-  [`dict`](https://docs.python.org/3/builtins/stdtypes.html#dict)
-
 ```pycon
 >>> h = attachment_headers("image/png", filename="r1.png")
 >>> h["Content-Type"], h["X-Content-Type-Options"], h["Content-Disposition"]
@@ -931,6 +928,9 @@ screenshot embedded elsewhere (e.g. in a GitHub issue) needs.
 >>> attachment_headers("text/html")["Content-Type"]
 'application/octet-stream'
 ```
+
+* **Return type:**
+  [`dict`](https://docs.python.org/3/builtins/stdtypes.html#dict)
 
 ### heed.chain_moderators(\*moderators)
 
@@ -997,7 +997,7 @@ on the dedicated attachment origin. Keyword arguments go to
 * **Return type:**
   `FastAPI`
 
-### heed.make_attachment_router(attachment_store, , config=None, signer=None, allow_unsigned=False, allowed_hosts=None, cross_origin=False, cache_control=None, max_bytes=None, path='/attachments', ref_pattern=re.compile('[0-9a-f]{32}\\\\\\\\.(?:png|jpg|webp)'))
+### heed.make_attachment_router(attachment_store, , config=None, signer=None, allow_unsigned=False, allowed_hosts=None, cross_origin=False, cache_control=None, max_bytes=None, path='/attachments', ref_pattern=re.compile('[0-9a-f]{32}\\\\.(?:png|jpg|webp)'))
 
 A router serving `GET {path}/{ref}` from `attachment_store`, read-only.
 
@@ -1042,13 +1042,13 @@ Reading a key whose file is a symlink leading outside `rootdir` raises
 `KeyError`, so a misconfigured root cannot make the attachment route serve other
 files; `follow_symlinks=True` opts out.
 
-* **Return type:**
-  [`MutableMapping`](https://docs.python.org/3/library/collections.abc.html#collections.abc.MutableMapping)
-
 ```pycon
 >>> make_attachment_store()
 {}
 ```
+
+* **Return type:**
+  [`MutableMapping`](https://docs.python.org/3/library/collections.abc.html#collections.abc.MutableMapping)
 
 ### heed.make_bot_verifier(provider, secret, \*\*kwargs)
 
@@ -1066,9 +1066,6 @@ Hold reports with more than `max_links` links or any of `blocked_terms`.
 Cheap, dependency-free spam signals. Holding (not rejecting) is the default so a
 false positive costs a human click, not a lost report.
 
-* **Return type:**
-  [`Callable`](https://docs.python.org/3/library/collections.abc.html#collections.abc.Callable)[[[`Report`](_autosummary/heed.base.html.md#heed.base.Report)], [`Verdict`](_autosummary/heed.routing.html.md#heed.routing.Verdict)]
-
 ```pycon
 >>> mod = make_heuristic_moderator(max_links=1, blocked_terms=["casino"])
 >>> from heed.base import Identity
@@ -1076,6 +1073,9 @@ false positive costs a human click, not a lost report.
 >>> [mod(r(b)).value for b in ["ok", "http://a http://b", "best CASINO"]]
 ['accept', 'hold', 'hold']
 ```
+
+* **Return type:**
+  [`Callable`](https://docs.python.org/3/library/collections.abc.html#collections.abc.Callable)[[[`Report`](_autosummary/heed.base.html.md#heed.base.Report)], [`Verdict`](_autosummary/heed.routing.html.md#heed.routing.Verdict)]
 
 ### heed.make_holding_store(rootdir=None, \*, delete_func=<built-in function remove>)
 
@@ -1088,15 +1088,15 @@ not every held report (issue #21), and nothing listing holding (a moderation vie
 sibling directory, `<rootdir>.claims` (a subdirectory would show up in the
 holding store’s recursive listing).
 
-* **Return type:**
-  [`MutableMapping`](https://docs.python.org/3/library/collections.abc.html#collections.abc.MutableMapping)
-
 ```pycon
 >>> held = make_holding_store()
 >>> held["r1"] = "{}"
 >>> list(held), dict(held.heed_claims)
 (['r1'], {})
 ```
+
+* **Return type:**
+  [`MutableMapping`](https://docs.python.org/3/library/collections.abc.html#collections.abc.MutableMapping)
 
 ### heed.make_image_sanitizer(name='auto', , max_pixels=25000000, max_concurrent=2, busy_wait_seconds=2.0)
 
@@ -1255,7 +1255,7 @@ Items still to come, started first; most-voted first within each stage.
 * **Return type:**
   [`list`](https://docs.python.org/3/builtins/stdtypes.html#list)[[`PublicItem`](_autosummary/heed.board.html.md#heed.board.PublicItem)]
 
-### heed.screenshot_url_resolver(base_url, signer, , ref_pattern=re.compile('[0-9a-f]{32}\\\\\\\\.(?:png|jpg|webp)'))
+### heed.screenshot_url_resolver(base_url, signer, , ref_pattern=re.compile('[0-9a-f]{32}\\\\.(?:png|jpg|webp)'))
 
 A `GitHubIssuesSink(screenshot_url=...)` callable: the report’s first image
 attachment as a (signed) URL under `base_url`, or None.
@@ -1273,9 +1273,6 @@ A resolver from an `{origin: sink}` mapping (origins compared normalized).
 Unknown origins resolve to `default`; with no default they resolve to None, and
 the router refuses them.
 
-* **Return type:**
-  [`Callable`](https://docs.python.org/3/library/collections.abc.html#collections.abc.Callable)[[[`str`](https://docs.python.org/3/builtins/stdtypes.html#str)], [`Optional`](https://docs.python.org/3/library/typing.html#typing.Optional)[[`Sink`](_autosummary/heed.sinks.base.html.md#heed.sinks.base.Sink)]]
-
 ```pycon
 >>> from heed.sinks import StoreSink
 >>> a = StoreSink({})
@@ -1283,6 +1280,9 @@ the router refuses them.
 >>> resolve("HTTPS://A.example/") is a, resolve("https://b.example")
 (True, None)
 ```
+
+* **Return type:**
+  [`Callable`](https://docs.python.org/3/library/collections.abc.html#collections.abc.Callable)[[[`str`](https://docs.python.org/3/builtins/stdtypes.html#str)], [`Optional`](https://docs.python.org/3/library/typing.html#typing.Optional)[[`Sink`](_autosummary/heed.sinks.base.html.md#heed.sinks.base.Sink)]]
 
 ### heed.strip_image(data, media_type)
 
@@ -1302,13 +1302,13 @@ What the widget sends and the limits it must respect (from heed’s SSOT).
 the screenshot cap; their defaults are what the widget assumes unless an embedder
 overrides them.
 
-* **Return type:**
-  [`dict`](https://docs.python.org/3/builtins/stdtypes.html#dict)[[`str`](https://docs.python.org/3/builtins/stdtypes.html#str), [`Any`](https://docs.python.org/3/library/typing.html#typing.Any)]
-
 ```pycon
 >>> widget_contract()["categories"]
 ['bug', 'feature', 'question', 'other']
 ```
+
+* **Return type:**
+  [`dict`](https://docs.python.org/3/builtins/stdtypes.html#dict)[[`str`](https://docs.python.org/3/builtins/stdtypes.html#str), [`Any`](https://docs.python.org/3/library/typing.html#typing.Any)]
 
 ### Modules
 
@@ -1610,13 +1610,13 @@ Normalise text for matching: NFKC, drop format chars (zero-width), casefold.
 Defeats fullwidth letters and zero-width splitting; it does not map cross-script
 look-alikes (e.g. Cyrillic “а”), which needs a confusables table.
 
-* **Return type:**
-  [`str`](https://docs.python.org/3/builtins/stdtypes.html#str)
-
 ```pycon
 >>> fold_text("ＣＡＳ​INO")
 'casino'
 ```
+
+* **Return type:**
+  [`str`](https://docs.python.org/3/builtins/stdtypes.html#str)
 
 ### heed.routing.hold_all(report)
 
@@ -1632,9 +1632,6 @@ Hold reports with more than `max_links` links or any of `blocked_terms`.
 Cheap, dependency-free spam signals. Holding (not rejecting) is the default so a
 false positive costs a human click, not a lost report.
 
-* **Return type:**
-  [`Callable`](https://docs.python.org/3/library/collections.abc.html#collections.abc.Callable)[[[`Report`](_autosummary/heed.base.html.md#heed.base.Report)], [`Verdict`](_autosummary/heed.routing.html.md#heed.routing.Verdict)]
-
 ```pycon
 >>> mod = make_heuristic_moderator(max_links=1, blocked_terms=["casino"])
 >>> from heed.base import Identity
@@ -1642,6 +1639,9 @@ false positive costs a human click, not a lost report.
 >>> [mod(r(b)).value for b in ["ok", "http://a http://b", "best CASINO"]]
 ['accept', 'hold', 'hold']
 ```
+
+* **Return type:**
+  [`Callable`](https://docs.python.org/3/library/collections.abc.html#collections.abc.Callable)[[[`Report`](_autosummary/heed.base.html.md#heed.base.Report)], [`Verdict`](_autosummary/heed.routing.html.md#heed.routing.Verdict)]
 
 ### heed.routing.recover_claimed(\*, holding_store, claimed_store=None, stale_after=None, clock=<built-in function time>)
 
@@ -1707,9 +1707,6 @@ A resolver from an `{origin: sink}` mapping (origins compared normalized).
 Unknown origins resolve to `default`; with no default they resolve to None, and
 the router refuses them.
 
-* **Return type:**
-  [`Callable`](https://docs.python.org/3/library/collections.abc.html#collections.abc.Callable)[[[`str`](https://docs.python.org/3/builtins/stdtypes.html#str)], [`Optional`](https://docs.python.org/3/library/typing.html#typing.Optional)[[`Sink`](_autosummary/heed.sinks.base.html.md#heed.sinks.base.Sink)]]
-
 ```pycon
 >>> from heed.sinks import StoreSink
 >>> a = StoreSink({})
@@ -1717,6 +1714,9 @@ the router refuses them.
 >>> resolve("HTTPS://A.example/") is a, resolve("https://b.example")
 (True, None)
 ```
+
+* **Return type:**
+  [`Callable`](https://docs.python.org/3/library/collections.abc.html#collections.abc.Callable)[[[`str`](https://docs.python.org/3/builtins/stdtypes.html#str)], [`Optional`](https://docs.python.org/3/library/typing.html#typing.Optional)[[`Sink`](_autosummary/heed.sinks.base.html.md#heed.sinks.base.Sink)]]
 
 
 # _autosummary/heed.security.html.md
@@ -1840,9 +1840,6 @@ an opaque download. Embedding is limited to the same site
 (`Cross-Origin-Resource-Policy: same-site`) unless `cross_origin=True`, which a
 screenshot embedded elsewhere (e.g. in a GitHub issue) needs.
 
-* **Return type:**
-  [`dict`](https://docs.python.org/3/builtins/stdtypes.html#dict)
-
 ```pycon
 >>> h = attachment_headers("image/png", filename="r1.png")
 >>> h["Content-Type"], h["X-Content-Type-Options"], h["Content-Disposition"]
@@ -1850,6 +1847,9 @@ screenshot embedded elsewhere (e.g. in a GitHub issue) needs.
 >>> attachment_headers("text/html")["Content-Type"]
 'application/octet-stream'
 ```
+
+* **Return type:**
+  [`dict`](https://docs.python.org/3/builtins/stdtypes.html#dict)
 
 ### heed.security.client_ip(peer, forwarded_for, , trusted_proxies=())
 
@@ -1859,15 +1859,15 @@ The client address to rate-limit on.
 proxy, so it is only consulted then — and read right-to-left, skipping trusted
 hops, so a client cannot prepend a fake address.
 
-* **Return type:**
-  [`str`](https://docs.python.org/3/builtins/stdtypes.html#str)
-
 ```pycon
 >>> client_ip("10.0.0.1", "6.6.6.6, 1.2.3.4", trusted_proxies=["10.0.0.0/8"])
 '1.2.3.4'
 >>> client_ip("5.5.5.5", "1.2.3.4")  # untrusted peer: header ignored
 '5.5.5.5'
 ```
+
+* **Return type:**
+  [`str`](https://docs.python.org/3/builtins/stdtypes.html#str)
 
 ### heed.security.cors_headers(origin, allowed, , allow_credentials=False)
 
@@ -1900,20 +1900,17 @@ Build a limiter from the `rate_limiter_backends` registry by name.
 
 Canonical form of an origin for comparison (lower-case, no trailing slash).
 
-* **Return type:**
-  [`str`](https://docs.python.org/3/builtins/stdtypes.html#str)
-
 ```pycon
 >>> normalize_origin("HTTPS://App.Example/")
 'https://app.example'
 ```
 
+* **Return type:**
+  [`str`](https://docs.python.org/3/builtins/stdtypes.html#str)
+
 ### heed.security.origin_allowed(origin, allowed)
 
 True if origin is permitted; `allowed=None` allows any (the dev default).
-
-* **Return type:**
-  [`bool`](https://docs.python.org/3/builtins/functions.html#bool)
 
 ```pycon
 >>> origin_allowed("https://a.example", ["https://a.example"])
@@ -1922,19 +1919,22 @@ True
 False
 ```
 
+* **Return type:**
+  [`bool`](https://docs.python.org/3/builtins/functions.html#bool)
+
 ### heed.security.parse_networks(proxies)
 
 Parse IPs/CIDRs (strings or network objects) into networks; raises ValueError.
 
 Call it once at startup so a typo fails loudly there, not on every request.
 
-* **Return type:**
-  [`list`](https://docs.python.org/3/builtins/stdtypes.html#list)[[`IPv4Network`](https://docs.python.org/3/library/ipaddress.html#ipaddress.IPv4Network) | [`IPv6Network`](https://docs.python.org/3/library/ipaddress.html#ipaddress.IPv6Network)]
-
 ```pycon
 >>> parse_networks(["127.0.0.1", "10.0.0.0/8"])
 [IPv4Network('127.0.0.1/32'), IPv4Network('10.0.0.0/8')]
 ```
+
+* **Return type:**
+  [`list`](https://docs.python.org/3/builtins/stdtypes.html#list)[[`IPv4Network`](https://docs.python.org/3/library/ipaddress.html#ipaddress.IPv4Network) | [`IPv6Network`](https://docs.python.org/3/library/ipaddress.html#ipaddress.IPv6Network)]
 
 ### heed.security.preflight_headers(origin, allowed, , allow_credentials=False, max_age_seconds=600, methods='POST, OPTIONS', request_headers=None)
 
@@ -1950,9 +1950,6 @@ The bucket key for `ip`: IPv4 as-is, IPv6 grouped by its /`ipv6_prefix`.
 One IPv6 host typically owns a whole /64, so per-address buckets are trivially
 dodged by rotating addresses.
 
-* **Return type:**
-  [`str`](https://docs.python.org/3/builtins/stdtypes.html#str)
-
 ```pycon
 >>> rate_limit_key("2001:db8::1") == rate_limit_key("2001:db8::ffff")
 True
@@ -1960,14 +1957,14 @@ True
 '1.2.3.4'
 ```
 
+* **Return type:**
+  [`str`](https://docs.python.org/3/builtins/stdtypes.html#str)
+
 ### heed.security.sniff_image_type(data)
 
 The media type of `data` from its magic bytes, or None if not an allowed image.
 
 Never trust the client’s declared content type: an “image” might be HTML/SVG.
-
-* **Return type:**
-  [`str`](https://docs.python.org/3/builtins/stdtypes.html#str) | [`None`](https://docs.python.org/3/builtins/constants.html#None)
 
 ```pycon
 >>> sniff_image_type(b"\x89PNG\r\n\x1a\n...")
@@ -1975,6 +1972,9 @@ Never trust the client’s declared content type: an “image” might be HTML/S
 >>> sniff_image_type(b"<svg onload=alert(1)>") is None
 True
 ```
+
+* **Return type:**
+  [`str`](https://docs.python.org/3/builtins/stdtypes.html#str) | [`None`](https://docs.python.org/3/builtins/constants.html#None)
 
 
 # _autosummary/heed.serving.html.md
@@ -2104,7 +2104,7 @@ on the dedicated attachment origin. Keyword arguments go to
 * **Return type:**
   `FastAPI`
 
-### heed.serving.make_attachment_router(attachment_store, , config=None, signer=None, allow_unsigned=False, allowed_hosts=None, cross_origin=False, cache_control=None, max_bytes=None, path='/attachments', ref_pattern=re.compile('[0-9a-f]{32}\\\\\\\\.(?:png|jpg|webp)'))
+### heed.serving.make_attachment_router(attachment_store, , config=None, signer=None, allow_unsigned=False, allowed_hosts=None, cross_origin=False, cache_control=None, max_bytes=None, path='/attachments', ref_pattern=re.compile('[0-9a-f]{32}\\\\.(?:png|jpg|webp)'))
 
 A router serving `GET {path}/{ref}` from `attachment_store`, read-only.
 
@@ -2140,7 +2140,7 @@ one the proxy forwards: keep it the browser’s (Caddy and nginx can).
 * **Return type:**
   `APIRouter`
 
-### heed.serving.screenshot_url_resolver(base_url, signer, , ref_pattern=re.compile('[0-9a-f]{32}\\\\\\\\.(?:png|jpg|webp)'))
+### heed.serving.screenshot_url_resolver(base_url, signer, , ref_pattern=re.compile('[0-9a-f]{32}\\\\.(?:png|jpg|webp)'))
 
 A `GitHubIssuesSink(screenshot_url=...)` callable: the report’s first image
 attachment as a (signed) URL under `base_url`, or None.
@@ -2165,11 +2165,11 @@ destinations are added by writing a sink, never by editing a dispatcher.
 
 ### Classes
 
-| [`BaseSink`](_autosummary/heed.sinks.base.html.md#heed.sinks.base.BaseSink)()               | Convenience base giving no-op defaults for the optional sink methods.   |
-|---------------------------------------------------------------------------|-------------------------------------------------------------------------|
-| [`DupCandidate`](_autosummary/heed.sinks.base.html.md#heed.sinks.base.DupCandidate)(\*\*data)   | A possible duplicate of an incoming report.                             |
-| [`Sink`](_autosummary/heed.sinks.base.html.md#heed.sinks.base.Sink)(\*args, \*\*kwargs) | Anything that can receive a report.                                     |
-| [`SinkResult`](_autosummary/heed.sinks.base.html.md#heed.sinks.base.SinkResult)(\*\*data)     | Outcome of routing a report to a sink.                                  |
+| [`BaseSink`](_autosummary/heed.sinks.base.html.md#heed.sinks.base.BaseSink)()                                      | Convenience base giving no-op defaults for the optional sink methods.   |
+|--------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------|
+| [`DupCandidate`](_autosummary/heed.sinks.base.html.md#heed.sinks.base.DupCandidate)(\*, external_ref[, score, title])  | A possible duplicate of an incoming report.                             |
+| [`Sink`](_autosummary/heed.sinks.base.html.md#heed.sinks.base.Sink)(\*args, \*\*kwargs)                        | Anything that can receive a report.                                     |
+| [`SinkResult`](_autosummary/heed.sinks.base.html.md#heed.sinks.base.SinkResult)(\*, ok[, external_ref, url, detail]) | Outcome of routing a report to a sink.                                  |
 
 ### *class* heed.sinks.base.BaseSink
 
@@ -2198,7 +2198,7 @@ The items a public board may show (default: none; see [`heed.board`](_autosummar
 * **Return type:**
   [`list`](https://docs.python.org/3/builtins/stdtypes.html#list)[[`PublicItem`](_autosummary/heed.board.html.md#heed.board.PublicItem)]
 
-### *class* heed.sinks.base.DupCandidate(\*\*data)
+### *class* heed.sinks.base.DupCandidate(, external_ref, score=0.0, title=None)
 
 Bases: `BaseModel`
 
@@ -2214,7 +2214,7 @@ Bases: [`Protocol`](https://docs.python.org/3/library/typing.html#typing.Protoco
 
 Anything that can receive a report. `submit` is the only required method.
 
-### *class* heed.sinks.base.SinkResult(\*\*data)
+### *class* heed.sinks.base.SinkResult(, ok, external_ref=None, url=None, detail=None)
 
 Bases: `BaseModel`
 
@@ -2319,6 +2319,7 @@ embed it in the body; base64 data-URIs do not render.
 
 | [`github_sink_from_token`](_autosummary/heed.sinks.github.html.md#heed.sinks.github.github_sink_from_token)(repo, token, \*\*kwargs)   | Build a GitHubIssuesSink that creates issues in `repo` ('owner/name').   |
 |----------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------|
+| [`neutralise_refs`](_autosummary/heed.sinks.github.html.md#heed.sinks.github.neutralise_refs)(text)                             | Defuse GitHub `@mention` and `#123` references in untrusted text.        |
 | [`render_issue_body`](_autosummary/heed.sinks.github.html.md#heed.sinks.github.render_issue_body)(report, \*[, ...])              | Render a report as a GitHub-flavoured markdown issue body.               |
 
 ### Classes
@@ -2390,6 +2391,17 @@ App installation token or a PAT) — never shipped to the browser.
 * **Return type:**
   [`GitHubIssuesSink`](_autosummary/heed.sinks.github.html.md#heed.sinks.github.GitHubIssuesSink)
 
+### heed.sinks.github.neutralise_refs(text)
+
+Defuse GitHub `@mention` and `#123` references in untrusted text.
+
+A zero-width joiner after `@`/`#` stops GitHub notifying a user or cross-linking
+an issue from the tracker’s account. Only the rendered issue is changed; the stored
+report keeps the original text.
+
+* **Return type:**
+  [`str`](https://docs.python.org/3/builtins/stdtypes.html#str)
+
 ### heed.sinks.github.render_issue_body(report, , screenshot_url=None, light=False)
 
 Render a report as a GitHub-flavoured markdown issue body.
@@ -2422,8 +2434,8 @@ Import the sink you need, or look one up by short name via [`get_sink_class()`](
 | [`Sink`](_autosummary/heed.sinks.html.md#heed.sinks.Sink)(\*args, \*\*kwargs)                          | Anything that can receive a report.                                       |
 |----------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------|
 | [`BaseSink`](_autosummary/heed.sinks.html.md#heed.sinks.BaseSink)()                                        | Convenience base giving no-op defaults for the optional sink methods.     |
-| [`SinkResult`](_autosummary/heed.sinks.html.md#heed.sinks.SinkResult)(\*\*data)                              | Outcome of routing a report to a sink.                                    |
-| [`DupCandidate`](_autosummary/heed.sinks.html.md#heed.sinks.DupCandidate)(\*\*data)                            | A possible duplicate of an incoming report.                               |
+| [`SinkResult`](_autosummary/heed.sinks.html.md#heed.sinks.SinkResult)(\*, ok[, external_ref, url, detail])   | Outcome of routing a report to a sink.                                    |
+| [`DupCandidate`](_autosummary/heed.sinks.html.md#heed.sinks.DupCandidate)(\*, external_ref[, score, title])    | A possible duplicate of an incoming report.                               |
 | [`StoreSink`](_autosummary/heed.sinks.html.md#heed.sinks.StoreSink)(store)                                  | Persist each report as JSON into a dol-style store keyed by report id.    |
 | [`GitHubIssuesSink`](_autosummary/heed.sinks.html.md#heed.sinks.GitHubIssuesSink)(create_issue, \*[, ...])         | Route a report to a GitHub issue via an injected `create_issue` callable. |
 | [`CategorySink`](_autosummary/heed.sinks.html.md#heed.sinks.CategorySink)(sinks, \*, default)                  | Route by `report.category`; unlisted categories go to `default`.          |
@@ -2506,7 +2518,7 @@ What one category of report becomes as a GitHub issue.
 `detail="light"` is the feature-request intake: the idea and who asked, without
 the browser/console/network dump or a screenshot, which say nothing about a wish.
 
-### *class* heed.sinks.DupCandidate(\*\*data)
+### *class* heed.sinks.DupCandidate(, external_ref, score=0.0, title=None)
 
 Bases: `BaseModel`
 
@@ -2553,7 +2565,7 @@ Bases: [`Protocol`](https://docs.python.org/3/library/typing.html#typing.Protoco
 
 Anything that can receive a report. `submit` is the only required method.
 
-### *class* heed.sinks.SinkResult(\*\*data)
+### *class* heed.sinks.SinkResult(, ok, external_ref=None, url=None, detail=None)
 
 Bases: `BaseModel`
 
@@ -2685,13 +2697,13 @@ Reading a key whose file is a symlink leading outside `rootdir` raises
 `KeyError`, so a misconfigured root cannot make the attachment route serve other
 files; `follow_symlinks=True` opts out.
 
-* **Return type:**
-  [`MutableMapping`](https://docs.python.org/3/library/collections.abc.html#collections.abc.MutableMapping)
-
 ```pycon
 >>> make_attachment_store()
 {}
 ```
+
+* **Return type:**
+  [`MutableMapping`](https://docs.python.org/3/library/collections.abc.html#collections.abc.MutableMapping)
 
 ### heed.storage.make_holding_store(rootdir=None, \*, delete_func=<built-in function remove>)
 
@@ -2704,15 +2716,15 @@ not every held report (issue #21), and nothing listing holding (a moderation vie
 sibling directory, `<rootdir>.claims` (a subdirectory would show up in the
 holding store’s recursive listing).
 
-* **Return type:**
-  [`MutableMapping`](https://docs.python.org/3/library/collections.abc.html#collections.abc.MutableMapping)
-
 ```pycon
 >>> held = make_holding_store()
 >>> held["r1"] = "{}"
 >>> list(held), dict(held.heed_claims)
 (['r1'], {})
 ```
+
+* **Return type:**
+  [`MutableMapping`](https://docs.python.org/3/library/collections.abc.html#collections.abc.MutableMapping)
 
 ### heed.storage.make_report_store(rootdir=None, \*, delete_func=<built-in function remove>)
 
@@ -2796,13 +2808,13 @@ files shipped in the package; point it elsewhere to serve another build.
 
 The TypeScript module `widget/src/contract.gen.ts` (generated, not edited).
 
-* **Return type:**
-  [`str`](https://docs.python.org/3/builtins/stdtypes.html#str)
-
 ```pycon
 >>> render_contract_ts().splitlines()[0].startswith("// Generated")
 True
 ```
+
+* **Return type:**
+  [`str`](https://docs.python.org/3/builtins/stdtypes.html#str)
 
 ### heed.widget.widget_contract(config=None)
 
@@ -2812,13 +2824,13 @@ What the widget sends and the limits it must respect (from heed’s SSOT).
 the screenshot cap; their defaults are what the widget assumes unless an embedder
 overrides them.
 
-* **Return type:**
-  [`dict`](https://docs.python.org/3/builtins/stdtypes.html#dict)[[`str`](https://docs.python.org/3/builtins/stdtypes.html#str), [`Any`](https://docs.python.org/3/library/typing.html#typing.Any)]
-
 ```pycon
 >>> widget_contract()["categories"]
 ['bug', 'feature', 'question', 'other']
 ```
+
+* **Return type:**
+  [`dict`](https://docs.python.org/3/builtins/stdtypes.html#dict)[[`str`](https://docs.python.org/3/builtins/stdtypes.html#str), [`Any`](https://docs.python.org/3/library/typing.html#typing.Any)]
 
 
 # about-this-build.html.md
@@ -2827,7 +2839,7 @@ overrides them.
 
 # About this build
 
-This documentation was built on **2026-10-14 01:14 UTC** from commit <a href="https://github.com/i2mint/heed/commit/528c90856fb651a9622f30f5d6cd7f59dfca3f12"><code>528c908</code></a> on branch <code>main</code>, for **heed 0.0.1** (from <code>pyproject.toml</code>).
+This documentation was built on **2026-10-20 02:26 UTC** from commit <a href="https://github.com/i2mint/heed/commit/af43efdd7539089ee1114c53046c23bd76b11b4c"><code>af43efd</code></a> on branch <code>main</code>, for **heed 0.0.1** (from <code>pyproject.toml</code>).
 
 #### WARNING
 The documentation and the package may be misaligned:
@@ -2838,7 +2850,7 @@ The documentation and the package may be misaligned:
 
 |                     |                                                                                                                                                    |
 |---------------------|----------------------------------------------------------------------------------------------------------------------------------------------------|
-| Commit              | <a href="https://github.com/i2mint/heed/commit/528c90856fb651a9622f30f5d6cd7f59dfca3f12"><code>528c90856fb651a9622f30f5d6cd7f59dfca3f12</code></a> |
+| Commit              | <a href="https://github.com/i2mint/heed/commit/af43efdd7539089ee1114c53046c23bd76b11b4c"><code>af43efdd7539089ee1114c53046c23bd76b11b4c</code></a> |
 | Branch              | <code>main</code>                                                                                                                                  |
 | Tags at this commit | none                                                                                                                                               |
 | Working tree        | clean                                                                                                                                              |
@@ -2849,16 +2861,16 @@ The documentation and the package may be misaligned:
 |              |                                                                                            |
 |--------------|--------------------------------------------------------------------------------------------|
 | Repository   | <code>i2mint/heed</code>                                                                   |
-| Run          | <a href="https://github.com/i2mint/heed/actions/runs/38494463994">38494463994</a>          |
+| Run          | <a href="https://github.com/i2mint/heed/actions/runs/39358763956">39358763956</a>          |
 | Ref          | <code>refs/heads/main</code>                                                               |
-| Event commit | <code>528c90856fb651a9622f30f5d6cd7f59dfca3f12</code> (in the history of the built commit) |
+| Event commit | <code>af43efdd7539089ee1114c53046c23bd76b11b4c</code> (in the history of the built commit) |
 
 ## Tools
 
 |          |         |
 |----------|---------|
-| epythet  | 0.2.17  |
-| Sphinx   | 9.1.0   |
+| epythet  | 0.2.18  |
+| Sphinx   | 9.1.1   |
 | docutils | 0.22.4  |
 | Python   | 3.12.15 |
 
@@ -2882,8 +2894,8 @@ Latest release: <a href="https://pypi.org/project/heed/0.1.0/">0.1.0</a>, newer 
 
 ```bash
 git clone https://github.com/i2mint/heed && cd heed
-git checkout 528c90856fb651a9622f30f5d6cd7f59dfca3f12
-pip install "epythet==0.2.17"
+git checkout af43efdd7539089ee1114c53046c23bd76b11b4c
+pip install "epythet==0.2.18"
 epythet quickstart . --ignore tests/ scrap/ examples/
 ```
 

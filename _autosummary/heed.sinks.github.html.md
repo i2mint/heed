@@ -23,6 +23,7 @@ embed it in the body; base64 data-URIs do not render.
 
 | [`github_sink_from_token`](#heed.sinks.github.github_sink_from_token)(repo, token, \*\*kwargs)   | Build a GitHubIssuesSink that creates issues in `repo` ('owner/name').   |
 |----------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------|
+| [`neutralise_refs`](#heed.sinks.github.neutralise_refs)(text)                             | Defuse GitHub `@mention` and `#123` references in untrusted text.        |
 | [`render_issue_body`](#heed.sinks.github.render_issue_body)(report, \*[, ...])              | Render a report as a GitHub-flavoured markdown issue body.               |
 
 ### Classes
@@ -93,6 +94,17 @@ App installation token or a PAT) — never shipped to the browser.
 
 * **Return type:**
   [`GitHubIssuesSink`](#heed.sinks.github.GitHubIssuesSink)
+
+### heed.sinks.github.neutralise_refs(text)
+
+Defuse GitHub `@mention` and `#123` references in untrusted text.
+
+A zero-width joiner after `@`/`#` stops GitHub notifying a user or cross-linking
+an issue from the tracker’s account. Only the rendered issue is changed; the stored
+report keeps the original text.
+
+* **Return type:**
+  [`str`](https://docs.python.org/3/builtins/stdtypes.html#str)
 
 ### heed.sinks.github.render_issue_body(report, , screenshot_url=None, light=False)
 

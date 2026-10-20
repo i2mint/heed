@@ -18,18 +18,18 @@ origin, status) before handing it to a sink.
 
 ### Classes
 
-| [`Attachment`](#heed.base.Attachment)(\*\*data)       | A stored binary artifact (e.g. a screenshot), referenced by store key.       |
-|-----------------------------------------------------------------------------|------------------------------------------------------------------------------|
-| [`Category`](#heed.base.Category)(\*values)         | What kind of feedback a report is.                                           |
-| [`Environment`](#heed.base.Environment)(\*\*data)      | Client environment captured by default (no PII beyond the user agent).       |
-| [`Identity`](#heed.base.Identity)(\*\*data)         | Who submitted the report — anonymous by default.                             |
-| [`LogEntry`](#heed.base.LogEntry)(\*\*data)         | One captured console entry (opt-in capture only).                            |
-| [`NetEntry`](#heed.base.NetEntry)(\*\*data)         | One captured network entry (opt-in; metadata only, never bodies).            |
-| [`Report`](#heed.base.Report)(\*\*data)           | A server-enriched report — the unit a sink receives.                         |
-| [`ReportSubmission`](#heed.base.ReportSubmission)(\*\*data) | The (untrusted) payload a widget POSTs; server fields are assigned later.    |
-| [`Status`](#heed.base.Status)(\*values)           | Lifecycle of a report (flattened; see misc/docs/design.md for the full map). |
+| [`Attachment`](#heed.base.Attachment)(\*[, kind, media_type, size])          | A stored binary artifact (e.g. a screenshot), referenced by store key.       |
+|----------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------|
+| [`Category`](#heed.base.Category)(\*values)                                | What kind of feedback a report is.                                           |
+| [`Environment`](#heed.base.Environment)(\*[, user_agent, browser, os, ...])   | Client environment captured by default (no PII beyond the user agent).       |
+| [`Identity`](#heed.base.Identity)(\*, anon_id[, user])                     | Who submitted the report — anonymous by default.                             |
+| [`LogEntry`](#heed.base.LogEntry)(\*, level, message[, at, source])        | One captured console entry (opt-in capture only).                            |
+| [`NetEntry`](#heed.base.NetEntry)(\*, method, url[, status, ...])          | One captured network entry (opt-in; metadata only, never bodies).            |
+| [`Report`](#heed.base.Report)(\*[, id, created_at, category, body, ...]) | A server-enriched report — the unit a sink receives.                         |
+| [`ReportSubmission`](#heed.base.ReportSubmission)(\*[, category, body, ...])       | The (untrusted) payload a widget POSTs; server fields are assigned later.    |
+| [`Status`](#heed.base.Status)(\*values)                                  | Lifecycle of a report (flattened; see misc/docs/design.md for the full map). |
 
-### *class* heed.base.Attachment(\*\*data)
+### *class* heed.base.Attachment(, kind='screenshot', media_type='image/png', ref, size=None)
 
 Bases: `BaseModel`
 
@@ -45,7 +45,7 @@ Bases: [`str`](https://docs.python.org/3/builtins/stdtypes.html#str), [`Enum`](h
 
 What kind of feedback a report is.
 
-### *class* heed.base.Environment(\*\*data)
+### *class* heed.base.Environment(\*, user_agent=None, browser=None, os=None, viewport=None, locale=None, device_pixel_ratio=None, extra=<factory>)
 
 Bases: `BaseModel`
 
@@ -55,7 +55,7 @@ Client environment captured by default (no PII beyond the user agent).
 
 Configuration for the model, should be a dictionary conforming to [`ConfigDict`][pydantic.config.ConfigDict].
 
-### *class* heed.base.Identity(\*\*data)
+### *class* heed.base.Identity(, anon_id, user=None)
 
 Bases: `BaseModel`
 
@@ -69,7 +69,7 @@ stored here — it is used transiently for rate limiting only.
 
 Configuration for the model, should be a dictionary conforming to [`ConfigDict`][pydantic.config.ConfigDict].
 
-### *class* heed.base.LogEntry(\*\*data)
+### *class* heed.base.LogEntry(, level, message, at=None, source=None)
 
 Bases: `BaseModel`
 
@@ -79,7 +79,7 @@ One captured console entry (opt-in capture only).
 
 Configuration for the model, should be a dictionary conforming to [`ConfigDict`][pydantic.config.ConfigDict].
 
-### *class* heed.base.NetEntry(\*\*data)
+### *class* heed.base.NetEntry(, method, url, status=None, duration_ms=None, ok=None)
 
 Bases: `BaseModel`
 
@@ -89,7 +89,7 @@ One captured network entry (opt-in; metadata only, never bodies).
 
 Configuration for the model, should be a dictionary conforming to [`ConfigDict`][pydantic.config.ConfigDict].
 
-### *class* heed.base.Report(\*\*data)
+### *class* heed.base.Report(\*, id=<factory>, created_at=<factory>, category=Category.bug, title, body='', page_url='', env=<factory>, attachments=<factory>, console=None, network=None, identity, origin='', status=Status.received, labels=<factory>, extra=<factory>)
 
 Bases: `BaseModel`
 
@@ -99,7 +99,7 @@ A server-enriched report — the unit a sink receives.
 
 Configuration for the model, should be a dictionary conforming to [`ConfigDict`][pydantic.config.ConfigDict].
 
-### *class* heed.base.ReportSubmission(\*\*data)
+### *class* heed.base.ReportSubmission(\*, category=Category.bug, title, body='', page_url='', env=<factory>, console=None, network=None, anon_id=None)
 
 Bases: `BaseModel`
 
@@ -138,13 +138,13 @@ the length limit would be refused for its line breaks.
 
 Remove control characters (keeping tab/newline/CR) from untrusted text.
 
-* **Return type:**
-  [`str`](https://docs.python.org/3/builtins/stdtypes.html#str)
-
 ```pycon
 >>> strip_control_chars("a\x00b\tc\u202ed")
 'ab\tcd'
 ```
+
+* **Return type:**
+  [`str`](https://docs.python.org/3/builtins/stdtypes.html#str)
 
 ### heed.base.utcnow()
 

@@ -34,6 +34,7 @@
 <link href="../_static/styles/pydata-sphinx-theme.css?digest=18bd87630a240e9c25be" rel="stylesheet" />
 
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d75fae25" />
+    <link rel="stylesheet" type="text/css" href="../_static/sphinx_autodoc_typehints.css?v=057ac668" />
     <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="../_static/epythet.css?v=ef673b48" />
   
@@ -436,7 +437,10 @@ embed it in the body; base64 data-URIs do not render.</p>
 <tr class="row-odd"><td><p><a class="reference internal" href="#heed.sinks.github.github_sink_from_token" title="heed.sinks.github.github_sink_from_token"><code class="xref py py-obj docutils literal notranslate"><span class="pre">github_sink_from_token</span></code></a>(repo, token, **kwargs)</p></td>
 <td><p>Build a GitHubIssuesSink that creates issues in <code class="docutils literal notranslate"><span class="pre">repo</span></code> ('owner/name').</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#heed.sinks.github.render_issue_body" title="heed.sinks.github.render_issue_body"><code class="xref py py-obj docutils literal notranslate"><span class="pre">render_issue_body</span></code></a>(report, *[, ...])</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#heed.sinks.github.neutralise_refs" title="heed.sinks.github.neutralise_refs"><code class="xref py py-obj docutils literal notranslate"><span class="pre">neutralise_refs</span></code></a>(text)</p></td>
+<td><p>Defuse GitHub <code class="docutils literal notranslate"><span class="pre">&#64;mention</span></code> and <code class="docutils literal notranslate"><span class="pre">#123</span></code> references in untrusted text.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#heed.sinks.github.render_issue_body" title="heed.sinks.github.render_issue_body"><code class="xref py py-obj docutils literal notranslate"><span class="pre">render_issue_body</span></code></a>(report, *[, ...])</p></td>
 <td><p>Render a report as a GitHub-flavoured markdown issue body.</p></td>
 </tr>
 </tbody>
@@ -538,6 +542,20 @@ App installation token or a PAT) — never shipped to the browser.</p>
 </dd></dl>
 
 <dl class="py function">
+<dt class="sig sig-object py" id="heed.sinks.github.neutralise_refs">
+<span class="sig-prename descclassname"><span class="pre">heed.sinks.github.</span></span><span class="sig-name descname"><span class="pre">neutralise_refs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">text</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/sinks/github.html#neutralise_refs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.sinks.github.neutralise_refs" title="Link to this definition">#</a></dt>
+<dd><p>Defuse GitHub <code class="docutils literal notranslate"><span class="pre">&#64;mention</span></code> and <code class="docutils literal notranslate"><span class="pre">#123</span></code> references in untrusted text.</p>
+<p>A zero-width joiner after <code class="docutils literal notranslate"><span class="pre">&#64;</span></code>/<code class="docutils literal notranslate"><span class="pre">#</span></code> stops GitHub notifying a user or cross-linking
+an issue from the tracker’s account. Only the rendered issue is changed; the stored
+report keeps the original text.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
 <dt class="sig sig-object py" id="heed.sinks.github.render_issue_body">
 <span class="sig-prename descclassname"><span class="pre">heed.sinks.github.</span></span><span class="sig-name descname"><span class="pre">render_issue_body</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">report</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">screenshot_url</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">light</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/sinks/github.html#render_issue_body"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.sinks.github.render_issue_body" title="Link to this definition">#</a></dt>
 <dd><p>Render a report as a GitHub-flavoured markdown issue body.</p>
@@ -610,6 +628,7 @@ from, and who asked.</p>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.sinks.github.MAX_BOARD_PAGES"><code class="docutils literal notranslate"><span class="pre">MAX_BOARD_PAGES</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.sinks.github.github_sink_from_token"><code class="docutils literal notranslate"><span class="pre">github_sink_from_token()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.sinks.github.neutralise_refs"><code class="docutils literal notranslate"><span class="pre">neutralise_refs()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.sinks.github.render_issue_body"><code class="docutils literal notranslate"><span class="pre">render_issue_body()</span></code></a></li>
 </ul>
   </nav></div>

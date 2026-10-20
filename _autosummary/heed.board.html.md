@@ -50,9 +50,9 @@ vector (`misc/docs/embedding-security.md`).
 
 ### Classes
 
-| [`BoardSource`](#heed.board.BoardSource)(\*args, \*\*kwargs)   | Anything that can list its public items (an optional sink capability).   |
-|------------------------------------------------------------------------------------|--------------------------------------------------------------------------|
-| [`PublicItem`](#heed.board.PublicItem)(\*\*data)              | One board entry: the public projection of a stored report.               |
+| [`BoardSource`](#heed.board.BoardSource)(\*args, \*\*kwargs)             | Anything that can list its public items (an optional sink capability).   |
+|----------------------------------------------------------------------------------------------|--------------------------------------------------------------------------|
+| [`PublicItem`](#heed.board.PublicItem)(\*, ref, title[, category, ...]) | One board entry: the public projection of a stored report.               |
 
 ### *class* heed.board.BoardSource(\*args, \*\*kwargs)
 
@@ -64,7 +64,7 @@ Anything that can list its public items (an optional sink capability).
 
 Statuses that mean “shipped” (shown in a changelog).
 
-### *class* heed.board.PublicItem(\*\*data)
+### *class* heed.board.PublicItem(, ref, title, category=Category.feature, status=Status.received, url=None, votes=0, created_at=None, closed_at=None)
 
 Bases: `BaseModel`
 

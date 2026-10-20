@@ -34,6 +34,7 @@
 <link href="../_static/styles/pydata-sphinx-theme.css?digest=18bd87630a240e9c25be" rel="stylesheet" />
 
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d75fae25" />
+    <link rel="stylesheet" type="text/css" href="../_static/sphinx_autodoc_typehints.css?v=057ac668" />
     <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="../_static/epythet.css?v=ef673b48" />
   
@@ -417,13 +418,13 @@ destinations are added by writing a sink, never by editing a dispatcher.</p>
 <tr class="row-odd"><td><p><a class="reference internal" href="#heed.sinks.base.BaseSink" title="heed.sinks.base.BaseSink"><code class="xref py py-obj docutils literal notranslate"><span class="pre">BaseSink</span></code></a>()</p></td>
 <td><p>Convenience base giving no-op defaults for the optional sink methods.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#heed.sinks.base.DupCandidate" title="heed.sinks.base.DupCandidate"><code class="xref py py-obj docutils literal notranslate"><span class="pre">DupCandidate</span></code></a>(**data)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#heed.sinks.base.DupCandidate" title="heed.sinks.base.DupCandidate"><code class="xref py py-obj docutils literal notranslate"><span class="pre">DupCandidate</span></code></a>(*, external_ref[, score, title])</p></td>
 <td><p>A possible duplicate of an incoming report.</p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="#heed.sinks.base.Sink" title="heed.sinks.base.Sink"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Sink</span></code></a>(*args, **kwargs)</p></td>
 <td><p>Anything that can receive a report.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#heed.sinks.base.SinkResult" title="heed.sinks.base.SinkResult"><code class="xref py py-obj docutils literal notranslate"><span class="pre">SinkResult</span></code></a>(**data)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#heed.sinks.base.SinkResult" title="heed.sinks.base.SinkResult"><code class="xref py py-obj docutils literal notranslate"><span class="pre">SinkResult</span></code></a>(*, ok[, external_ref, url, detail])</p></td>
 <td><p>Outcome of routing a report to a sink.</p></td>
 </tr>
 </tbody>
@@ -440,7 +441,7 @@ destinations are added by writing a sink, never by editing a dispatcher.</p>
 <dd><p>Hook called after a successful submit (default: no-op).</p>
 <dl class="field-list simple">
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a></span></p>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><span class="highlight sphinx_autodoc_typehints-value"><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><code class="xref py py-obj docutils literal notranslate"><span class="kc"><span class="pre">None</span></span></code></a></span></span></p>
 </dd>
 </dl>
 </dd></dl>
@@ -471,7 +472,7 @@ destinations are added by writing a sink, never by editing a dispatcher.</p>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="heed.sinks.base.DupCandidate">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">heed.sinks.base.</span></span><span class="sig-name descname"><span class="pre">DupCandidate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">data</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/sinks/base.html#DupCandidate"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.sinks.base.DupCandidate" title="Link to this definition">#</a></dt>
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">heed.sinks.base.</span></span><span class="sig-name descname"><span class="pre">DupCandidate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">external_ref</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">score</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">title</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/sinks/base.html#DupCandidate"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.sinks.base.DupCandidate" title="Link to this definition">#</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">BaseModel</span></code></p>
 <p>A possible duplicate of an incoming report.</p>
 <dl class="field-list simple">
@@ -493,7 +494,7 @@ destinations are added by writing a sink, never by editing a dispatcher.</p>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="heed.sinks.base.SinkResult">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">heed.sinks.base.</span></span><span class="sig-name descname"><span class="pre">SinkResult</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">data</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/sinks/base.html#SinkResult"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.sinks.base.SinkResult" title="Link to this definition">#</a></dt>
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">heed.sinks.base.</span></span><span class="sig-name descname"><span class="pre">SinkResult</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">ok</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">external_ref</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">url</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">detail</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/sinks/base.html#SinkResult"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.sinks.base.SinkResult" title="Link to this definition">#</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">BaseModel</span></code></p>
 <p>Outcome of routing a report to a sink.</p>
 <dl class="field-list simple">

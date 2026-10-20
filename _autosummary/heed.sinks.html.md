@@ -16,8 +16,8 @@ Import the sink you need, or look one up by short name via [`get_sink_class()`](
 | [`Sink`](#heed.sinks.Sink)(\*args, \*\*kwargs)                          | Anything that can receive a report.                                       |
 |----------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------|
 | [`BaseSink`](#heed.sinks.BaseSink)()                                        | Convenience base giving no-op defaults for the optional sink methods.     |
-| [`SinkResult`](#heed.sinks.SinkResult)(\*\*data)                              | Outcome of routing a report to a sink.                                    |
-| [`DupCandidate`](#heed.sinks.DupCandidate)(\*\*data)                            | A possible duplicate of an incoming report.                               |
+| [`SinkResult`](#heed.sinks.SinkResult)(\*, ok[, external_ref, url, detail])   | Outcome of routing a report to a sink.                                    |
+| [`DupCandidate`](#heed.sinks.DupCandidate)(\*, external_ref[, score, title])    | A possible duplicate of an incoming report.                               |
 | [`StoreSink`](#heed.sinks.StoreSink)(store)                                  | Persist each report as JSON into a dol-style store keyed by report id.    |
 | [`GitHubIssuesSink`](#heed.sinks.GitHubIssuesSink)(create_issue, \*[, ...])         | Route a report to a GitHub issue via an injected `create_issue` callable. |
 | [`CategorySink`](#heed.sinks.CategorySink)(sinks, \*, default)                  | Route by `report.category`; unlisted categories go to `default`.          |
@@ -100,7 +100,7 @@ What one category of report becomes as a GitHub issue.
 `detail="light"` is the feature-request intake: the idea and who asked, without
 the browser/console/network dump or a screenshot, which say nothing about a wish.
 
-### *class* heed.sinks.DupCandidate(\*\*data)
+### *class* heed.sinks.DupCandidate(, external_ref, score=0.0, title=None)
 
 Bases: `BaseModel`
 
@@ -147,7 +147,7 @@ Bases: [`Protocol`](https://docs.python.org/3/library/typing.html#typing.Protoco
 
 Anything that can receive a report. `submit` is the only required method.
 
-### *class* heed.sinks.SinkResult(\*\*data)
+### *class* heed.sinks.SinkResult(, ok, external_ref=None, url=None, detail=None)
 
 Bases: `BaseModel`
 

@@ -34,6 +34,7 @@
 <link href="../_static/styles/pydata-sphinx-theme.css?digest=18bd87630a240e9c25be" rel="stylesheet" />
 
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d75fae25" />
+    <link rel="stylesheet" type="text/css" href="../_static/sphinx_autodoc_typehints.css?v=057ac668" />
     <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="../_static/epythet.css?v=ef673b48" />
   
@@ -466,7 +467,7 @@ vector (<code class="docutils literal notranslate"><span class="pre">misc/docs/e
 <tr class="row-odd"><td><p><a class="reference internal" href="#heed.board.BoardSource" title="heed.board.BoardSource"><code class="xref py py-obj docutils literal notranslate"><span class="pre">BoardSource</span></code></a>(*args, **kwargs)</p></td>
 <td><p>Anything that can list its public items (an optional sink capability).</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#heed.board.PublicItem" title="heed.board.PublicItem"><code class="xref py py-obj docutils literal notranslate"><span class="pre">PublicItem</span></code></a>(**data)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#heed.board.PublicItem" title="heed.board.PublicItem"><code class="xref py py-obj docutils literal notranslate"><span class="pre">PublicItem</span></code></a>(*, ref, title[, category, ...])</p></td>
 <td><p>One board entry: the public projection of a stored report.</p></td>
 </tr>
 </tbody>
@@ -487,7 +488,7 @@ vector (<code class="docutils literal notranslate"><span class="pre">misc/docs/e
 
 <dl class="py class">
 <dt class="sig sig-object py" id="heed.board.PublicItem">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">heed.board.</span></span><span class="sig-name descname"><span class="pre">PublicItem</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">data</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/board.html#PublicItem"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.board.PublicItem" title="Link to this definition">#</a></dt>
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">heed.board.</span></span><span class="sig-name descname"><span class="pre">PublicItem</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">ref</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">title</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">category</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">Category.feature</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">status</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">Status.received</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">url</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">votes</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">created_at</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">closed_at</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/board.html#PublicItem"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.board.PublicItem" title="Link to this definition">#</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">BaseModel</span></code></p>
 <p>One board entry: the public projection of a stored report.</p>
 <dl class="field-list simple">

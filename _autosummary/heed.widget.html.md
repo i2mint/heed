@@ -66,13 +66,13 @@ files shipped in the package; point it elsewhere to serve another build.
 
 The TypeScript module `widget/src/contract.gen.ts` (generated, not edited).
 
-* **Return type:**
-  [`str`](https://docs.python.org/3/builtins/stdtypes.html#str)
-
 ```pycon
 >>> render_contract_ts().splitlines()[0].startswith("// Generated")
 True
 ```
+
+* **Return type:**
+  [`str`](https://docs.python.org/3/builtins/stdtypes.html#str)
 
 ### heed.widget.widget_contract(config=None)
 
@@ -82,10 +82,10 @@ What the widget sends and the limits it must respect (from heed’s SSOT).
 the screenshot cap; their defaults are what the widget assumes unless an embedder
 overrides them.
 
-* **Return type:**
-  [`dict`](https://docs.python.org/3/builtins/stdtypes.html#dict)[[`str`](https://docs.python.org/3/builtins/stdtypes.html#str), [`Any`](https://docs.python.org/3/library/typing.html#typing.Any)]
-
 ```pycon
 >>> widget_contract()["categories"]
 ['bug', 'feature', 'question', 'other']
 ```
+
+* **Return type:**
+  [`dict`](https://docs.python.org/3/builtins/stdtypes.html#dict)[[`str`](https://docs.python.org/3/builtins/stdtypes.html#str), [`Any`](https://docs.python.org/3/library/typing.html#typing.Any)]

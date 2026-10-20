@@ -34,6 +34,7 @@
 <link href="../_static/styles/pydata-sphinx-theme.css?digest=18bd87630a240e9c25be" rel="stylesheet" />
 
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d75fae25" />
+    <link rel="stylesheet" type="text/css" href="../_static/sphinx_autodoc_typehints.css?v=057ac668" />
     <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="../_static/epythet.css?v=ef673b48" />
   
@@ -451,15 +452,15 @@ reports are claimed in while <code class="code docutils literal notranslate"><sp
 Reading a key whose file is a symlink leading outside <code class="docutils literal notranslate"><span class="pre">rootdir</span></code> raises
 <code class="docutils literal notranslate"><span class="pre">KeyError</span></code>, so a misconfigured root cannot make the attachment route serve other
 files; <code class="docutils literal notranslate"><span class="pre">follow_symlinks=True</span></code> opts out.</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">make_attachment_store</span><span class="p">()</span>
+<span class="go">{}</span>
+</pre></div>
+</div>
 <dl class="field-list simple">
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.MutableMapping" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">MutableMapping</span></code></a></span></p>
 </dd>
 </dl>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">make_attachment_store</span><span class="p">()</span>
-<span class="go">{}</span>
-</pre></div>
-</div>
 </dd></dl>
 
 <dl class="py function">
@@ -472,17 +473,17 @@ not every held report (issue #21), and nothing listing holding (a moderation vie
 <code class="docutils literal notranslate"><span class="pre">StoreSink.find_duplicates</span></code>) ever sees a claim. With <code class="docutils literal notranslate"><span class="pre">rootdir</span></code>, claims live in a
 sibling directory, <code class="docutils literal notranslate"><span class="pre">&lt;rootdir&gt;.claims</span></code> (a subdirectory would show up in the
 holding store’s recursive listing).</p>
-<dl class="field-list simple">
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.MutableMapping" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">MutableMapping</span></code></a></span></p>
-</dd>
-</dl>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">held</span> <span class="o">=</span> <span class="n">make_holding_store</span><span class="p">()</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">held</span><span class="p">[</span><span class="s2">"r1"</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"</span><span class="si">{}</span><span class="s2">"</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="nb">list</span><span class="p">(</span><span class="n">held</span><span class="p">),</span> <span class="nb">dict</span><span class="p">(</span><span class="n">held</span><span class="o">.</span><span class="n">heed_claims</span><span class="p">)</span>
 <span class="go">(['r1'], {})</span>
 </pre></div>
 </div>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.MutableMapping" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">MutableMapping</span></code></a></span></p>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="py function">

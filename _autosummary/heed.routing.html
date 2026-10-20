@@ -34,6 +34,7 @@
 <link href="../_static/styles/pydata-sphinx-theme.css?digest=18bd87630a240e9c25be" rel="stylesheet" />
 
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d75fae25" />
+    <link rel="stylesheet" type="text/css" href="../_static/sphinx_autodoc_typehints.css?v=057ac668" />
     <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="../_static/epythet.css?v=ef673b48" />
   
@@ -518,7 +519,7 @@ still deleted, but its attachments cannot be named and are left. Run it serialis
 with <a class="reference internal" href="#heed.routing.release_held" title="heed.routing.release_held"><code class="xref py py-func docutils literal notranslate"><span class="pre">release_held()</span></code></a> for the same report.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a></span></p>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><span class="highlight sphinx_autodoc_typehints-value"><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><code class="xref py py-obj docutils literal notranslate"><span class="kc"><span class="pre">None</span></span></code></a></span></span></p>
 </dd>
 </dl>
 </dd></dl>
@@ -529,15 +530,15 @@ with <a class="reference internal" href="#heed.routing.release_held" title="heed
 <dd><p>Normalise text for matching: NFKC, drop format chars (zero-width), casefold.</p>
 <p>Defeats fullwidth letters and zero-width splitting; it does not map cross-script
 look-alikes (e.g. Cyrillic “а”), which needs a confusables table.</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">fold_text</span><span class="p">(</span><span class="s2">"ＣＡＳ​INO"</span><span class="p">)</span>
+<span class="go">'casino'</span>
+</pre></div>
+</div>
 <dl class="field-list simple">
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></span></p>
 </dd>
 </dl>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">fold_text</span><span class="p">(</span><span class="s2">"ＣＡＳ​INO"</span><span class="p">)</span>
-<span class="go">'casino'</span>
-</pre></div>
-</div>
 </dd></dl>
 
 <dl class="py function">
@@ -557,11 +558,6 @@ look-alikes (e.g. Cyrillic “а”), which needs a confusables table.</p>
 <dd><p>Hold reports with more than <code class="docutils literal notranslate"><span class="pre">max_links</span></code> links or any of <code class="docutils literal notranslate"><span class="pre">blocked_terms</span></code>.</p>
 <p>Cheap, dependency-free spam signals. Holding (not rejecting) is the default so a
 false positive costs a human click, not a lost report.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Callable" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Callable</span></code></a>[[<a class="reference internal" href="heed.base.html#heed.base.Report" title="heed.base.Report"><code class="xref py py-class docutils literal notranslate"><span class="pre">Report</span></code></a>], <a class="reference internal" href="#heed.routing.Verdict" title="heed.routing.Verdict"><code class="xref py py-class docutils literal notranslate"><span class="pre">Verdict</span></code></a>]</span></p>
-</dd>
-</dl>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">mod</span> <span class="o">=</span> <span class="n">make_heuristic_moderator</span><span class="p">(</span><span class="n">max_links</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">blocked_terms</span><span class="o">=</span><span class="p">[</span><span class="s2">"casino"</span><span class="p">])</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">heed.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">Identity</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="k">def</span><span class="w"> </span><span class="nf">r</span><span class="p">(</span><span class="n">body</span><span class="p">):</span> <span class="k">return</span> <span class="n">Report</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="s2">"t"</span><span class="p">,</span> <span class="n">body</span><span class="o">=</span><span class="n">body</span><span class="p">,</span> <span class="n">identity</span><span class="o">=</span><span class="n">Identity</span><span class="p">(</span><span class="n">anon_id</span><span class="o">=</span><span class="s2">"a"</span><span class="p">))</span>
@@ -569,6 +565,11 @@ false positive costs a human click, not a lost report.</p>
 <span class="go">['accept', 'hold', 'hold']</span>
 </pre></div>
 </div>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Callable" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Callable</span></code></a>[[<a class="reference internal" href="heed.base.html#heed.base.Report" title="heed.base.Report"><code class="xref py py-class docutils literal notranslate"><span class="pre">Report</span></code></a>], <a class="reference internal" href="#heed.routing.Verdict" title="heed.routing.Verdict"><code class="xref py py-class docutils literal notranslate"><span class="pre">Verdict</span></code></a>]</span></p>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="py function">
@@ -636,11 +637,6 @@ leaves a claim on a report the other release already sent, and the next
 <dd><p>A resolver from an <code class="docutils literal notranslate"><span class="pre">{origin:</span> <span class="pre">sink}</span></code> mapping (origins compared normalized).</p>
 <p>Unknown origins resolve to <code class="docutils literal notranslate"><span class="pre">default</span></code>; with no default they resolve to None, and
 the router refuses them.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Callable" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Callable</span></code></a>[[<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>], <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.15)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[<a class="reference internal" href="heed.sinks.base.html#heed.sinks.base.Sink" title="heed.sinks.base.Sink"><code class="xref py py-class docutils literal notranslate"><span class="pre">Sink</span></code></a>]]</span></p>
-</dd>
-</dl>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">heed.sinks</span><span class="w"> </span><span class="kn">import</span> <span class="n">StoreSink</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">a</span> <span class="o">=</span> <span class="n">StoreSink</span><span class="p">({})</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">resolve</span> <span class="o">=</span> <span class="n">sinks_by_origin</span><span class="p">({</span><span class="s2">"https://a.example"</span><span class="p">:</span> <span class="n">a</span><span class="p">})</span>
@@ -648,6 +644,11 @@ the router refuses them.</p>
 <span class="go">(True, None)</span>
 </pre></div>
 </div>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Callable" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Callable</span></code></a>[[<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>], <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.15)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[<a class="reference internal" href="heed.sinks.base.html#heed.sinks.base.Sink" title="heed.sinks.base.Sink"><code class="xref py py-class docutils literal notranslate"><span class="pre">Sink</span></code></a>]]</span></p>
+</dd>
+</dl>
 </dd></dl>
 
 </section>

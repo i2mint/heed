@@ -123,7 +123,7 @@ on the dedicated attachment origin. Keyword arguments go to
 * **Return type:**
   `FastAPI`
 
-### heed.serving.make_attachment_router(attachment_store, , config=None, signer=None, allow_unsigned=False, allowed_hosts=None, cross_origin=False, cache_control=None, max_bytes=None, path='/attachments', ref_pattern=re.compile('[0-9a-f]{32}\\\\\\\\.(?:png|jpg|webp)'))
+### heed.serving.make_attachment_router(attachment_store, , config=None, signer=None, allow_unsigned=False, allowed_hosts=None, cross_origin=False, cache_control=None, max_bytes=None, path='/attachments', ref_pattern=re.compile('[0-9a-f]{32}\\\\.(?:png|jpg|webp)'))
 
 A router serving `GET {path}/{ref}` from `attachment_store`, read-only.
 
@@ -159,7 +159,7 @@ one the proxy forwards: keep it the browser’s (Caddy and nginx can).
 * **Return type:**
   `APIRouter`
 
-### heed.serving.screenshot_url_resolver(base_url, signer, , ref_pattern=re.compile('[0-9a-f]{32}\\\\\\\\.(?:png|jpg|webp)'))
+### heed.serving.screenshot_url_resolver(base_url, signer, , ref_pattern=re.compile('[0-9a-f]{32}\\\\.(?:png|jpg|webp)'))
 
 A `GitHubIssuesSink(screenshot_url=...)` callable: the report’s first image
 attachment as a (signed) URL under `base_url`, or None.
