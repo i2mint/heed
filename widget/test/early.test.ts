@@ -42,3 +42,15 @@ describe("capture started by the loader (heed#62)", () => {
     expect(w.__heedRecorder).toBe(first);
   });
 });
+
+describe("an early recorder the final options do not ask for", () => {
+  it("is stopped when the element leaves capture off", async () => {
+    w.__heedEarly = { console: true, network: false };
+    await import("../src/recorder-entry");
+    const reg = w.__heedRecorder!;
+    ensureRecording(window, { console: false, network: false }, "");
+    expect(reg.early).toBeUndefined();
+    console.warn("after");
+    expect(recorded(window, { console: true, network: false })).toEqual({});
+  });
+});

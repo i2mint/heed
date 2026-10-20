@@ -37,7 +37,7 @@ const pages = new WeakMap<Window, PageRecording>();
  * that cannot load only means reports carry no capture.
  */
 export function ensureRecording(win: Window, kinds: RecordKinds, endpoint: string): void {
-  if (!kinds.console && !kinds.network) return;
+  if (!kinds.console && !kinds.network) return pages.has(win) ? undefined : dropEarly(win); // the loader asked, the options did not
   let page = pages.get(win);
   if (!page) {
     const fresh: PageRecording = { recorder: null, wanted: { console: false, network: false }, ignored: new Set() };
@@ -72,8 +72,16 @@ export function recorded(win: Window, kinds: RecordKinds): Recorded {
   return pages.get(win)?.recorder?.snapshot(kinds) ?? {};
 }
 
+/** Stop and forget a recorder the loader started early (heed#62), e.g. when the final options leave capture off. */
+function dropEarly(win: Window): void {
+  const reg = (win as HeedGlobals).__heedRecorder;
+  reg?.early?.stop();
+  if (reg) delete reg.early;
+}
+
 /** Forget the page's recorder, restoring what it wrapped (tests). */
 export function stopRecording(win: Window): void {
   pages.get(win)?.recorder?.stop();
+  dropEarly(win);
   pages.delete(win);
 }

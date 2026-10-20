@@ -106,8 +106,8 @@ type TT = { createPolicy(n: string, p: object): Policy };
     requested = true;
     inject(__HEED_BUNDLE__, __HEED_INTEGRITY__);
   }
-  // An attribute that is present counts unless it says no (the widget's own boolean rule).
-  const on = (k: string) => data[k] !== undefined && !/^(false|0|no)$/i.test(data[k]);
+  // The values the widget's own boolean option reads as true (options.ts `parseBool`).
+  const on = (k: string) => /^(|true|1|yes)$/i.test(data[k] ?? "no");
   const early = { console: on("capture-console"), network: on("capture-network") };
   if (early.console || early.network) {
     (w as unknown as { __heedEarly?: object }).__heedEarly = early;
