@@ -735,6 +735,7 @@ window.runMermaid = runMermaid;</script>
 <span class="kn">import</span><span class="w"> </span><span class="nn">functools</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">math</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">MutableMapping</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Optional</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">urllib.parse</span><span class="w"> </span><span class="kn">import</span> <span class="n">urlsplit</span>
@@ -1233,9 +1234,30 @@ window.runMermaid = runMermaid;</script>
             <span class="s2">"heed: allowed_origins is not set, so any origin may submit reports. "</span>
             <span class="s2">"Set HeedConfig(allowed_origins=[...]) in production."</span>
         <span class="p">)</span>
-    <span class="n">retry_after</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">rate_limit_window_seconds</span><span class="p">))</span>
     <span class="n">pools</span> <span class="o">=</span> <span class="n">_thread_pools</span><span class="p">(</span><span class="n">cfg</span><span class="p">)</span>
     <span class="n">router</span> <span class="o">=</span> <span class="n">APIRouter</span><span class="p">()</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_limit_wait</span><span class="p">(</span><span class="n">limiter</span><span class="p">:</span> <span class="n">RateLimiter</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Take one request for ``key``: 0 if allowed, else seconds until it would be.</span>
+
+<span class="sd">        A limiter with ``acquire`` gives its exact wait; an ``allow``-only one</span>
+<span class="sd">        (injected) gets the static window.</span>
+<span class="sd">        """</span>
+        <span class="n">acquire</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">limiter</span><span class="p">,</span> <span class="s2">"acquire"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">acquire</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">acquire</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+        <span class="k">return</span> <span class="mf">0.0</span> <span class="k">if</span> <span class="n">limiter</span><span class="o">.</span><span class="n">allow</span><span class="p">(</span><span class="n">key</span><span class="p">)</span> <span class="k">else</span> <span class="n">cfg</span><span class="o">.</span><span class="n">rate_limit_window_seconds</span>
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_enforce_limit</span><span class="p">(</span><span class="n">limiter</span><span class="p">:</span> <span class="n">RateLimiter</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">origin</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="c1"># Limiters may do network I/O (Redis): keep it off the event loop.</span>
+        <span class="n">wait</span> <span class="o">=</span> <span class="k">await</span> <span class="n">_off_loop</span><span class="p">(</span><span class="s2">"limiter"</span><span class="p">,</span> <span class="n">_limit_wait</span><span class="p">,</span> <span class="n">limiter</span><span class="p">,</span> <span class="n">key</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">wait</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">_fail</span><span class="p">(</span>
+                <span class="mi">429</span><span class="p">,</span>
+                <span class="s2">"rate limit exceeded"</span><span class="p">,</span>
+                <span class="n">origin</span><span class="p">,</span>
+                <span class="o">**</span><span class="p">{</span><span class="s2">"Retry-After"</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">math</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">wait</span><span class="p">)))},</span>
+            <span class="p">)</span>
 
     <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_off_loop</span><span class="p">(</span><span class="n">kind</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">fn</span><span class="p">:</span> <span class="n">Callable</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">"""Run a blocking ``fn`` in the ``kind`` pool (limiters may hit Redis, etc.)."""</span>
@@ -1336,12 +1358,8 @@ window.runMermaid = runMermaid;</script>
             <span class="s2">", "</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">request</span><span class="o">.</span><span class="n">headers</span><span class="o">.</span><span class="n">getlist</span><span class="p">(</span><span class="s2">"x-forwarded-for"</span><span class="p">))</span> <span class="ow">or</span> <span class="kc">None</span><span class="p">,</span>
             <span class="n">trusted_proxies</span><span class="o">=</span><span class="n">trusted_networks</span><span class="p">,</span>
         <span class="p">)</span>
-        <span class="c1"># Limiters may do network I/O (Redis): keep it off the event loop.</span>
         <span class="n">bucket</span> <span class="o">=</span> <span class="n">rate_limit_key</span><span class="p">(</span><span class="n">ip</span><span class="p">,</span> <span class="n">ipv6_prefix</span><span class="o">=</span><span class="n">cfg</span><span class="o">.</span><span class="n">ipv6_rate_limit_prefix</span><span class="p">)</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="k">await</span> <span class="n">_off_loop</span><span class="p">(</span><span class="s2">"limiter"</span><span class="p">,</span> <span class="n">ip_limiter</span><span class="o">.</span><span class="n">allow</span><span class="p">,</span> <span class="n">bucket</span><span class="p">):</span>
-            <span class="k">raise</span> <span class="n">_fail</span><span class="p">(</span>
-                <span class="mi">429</span><span class="p">,</span> <span class="s2">"rate limit exceeded"</span><span class="p">,</span> <span class="n">origin</span><span class="p">,</span> <span class="o">**</span><span class="p">{</span><span class="s2">"Retry-After"</span><span class="p">:</span> <span class="n">retry_after</span><span class="p">}</span>
-            <span class="p">)</span>
+        <span class="k">await</span> <span class="n">_enforce_limit</span><span class="p">(</span><span class="n">ip_limiter</span><span class="p">,</span> <span class="n">bucket</span><span class="p">,</span> <span class="n">origin</span><span class="p">)</span>
         <span class="n">site_sink</span> <span class="o">=</span> <span class="n">_sink_for</span><span class="p">(</span><span class="n">origin</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">site_sink</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="c1"># Same answer as a disallowed origin (no CORS echo), so a page cannot</span>
@@ -1408,10 +1426,7 @@ window.runMermaid = runMermaid;</script>
         <span class="c1"># cheaply. (Origin is a client-set header; see embedding-security.md.)</span>
         <span class="k">if</span> <span class="n">origin_rate_limiter</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">origin_key</span> <span class="o">=</span> <span class="n">normalize_origin</span><span class="p">(</span><span class="n">origin</span><span class="p">)</span> <span class="k">if</span> <span class="n">origin</span> <span class="k">else</span> <span class="s2">"-"</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="k">await</span> <span class="n">_off_loop</span><span class="p">(</span><span class="s2">"limiter"</span><span class="p">,</span> <span class="n">origin_rate_limiter</span><span class="o">.</span><span class="n">allow</span><span class="p">,</span> <span class="n">origin_key</span><span class="p">):</span>
-                <span class="k">raise</span> <span class="n">_fail</span><span class="p">(</span>
-                    <span class="mi">429</span><span class="p">,</span> <span class="s2">"rate limit exceeded"</span><span class="p">,</span> <span class="n">origin</span><span class="p">,</span> <span class="o">**</span><span class="p">{</span><span class="s2">"Retry-After"</span><span class="p">:</span> <span class="n">retry_after</span><span class="p">}</span>
-                <span class="p">)</span>
+            <span class="k">await</span> <span class="n">_enforce_limit</span><span class="p">(</span><span class="n">origin_rate_limiter</span><span class="p">,</span> <span class="n">origin_key</span><span class="p">,</span> <span class="n">origin</span><span class="p">)</span>
 
         <span class="k">try</span><span class="p">:</span>
             <span class="n">submission</span> <span class="o">=</span> <span class="n">_submission_from_fields</span><span class="p">(</span><span class="n">fields</span><span class="p">,</span> <span class="n">cfg</span><span class="p">)</span>
