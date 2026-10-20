@@ -182,8 +182,8 @@ def test_page_url_is_masked_by_default_and_opt_out():
 
 
 def test_unparseable_page_url_is_dropped():
-    from heed.ingest import _page_url
     from heed import redact_text
+    from heed.ingest import _page_url
 
     assert _page_url("http://[::1?t=secret", HeedConfig(), redact_text) == ""
 
