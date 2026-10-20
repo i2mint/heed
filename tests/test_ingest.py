@@ -158,3 +158,19 @@ def test_failing_redactor_drops_capture():
         sub, StoreSink({}), config=HeedConfig(accept_console=True), redactor=broken
     )
     assert result.ok and report.console is None
+
+
+def test_page_url_is_masked_by_default_and_opt_out():
+    """Id-like path segments, handles and query values never reach the sink (#60)."""
+    url = "https://app.example/reset/9f8e7d6c5b4a3f2e/users/12345/@ana?t=s3cr3t#f"
+    kept = "https://app.example/reset/9f8e7d6c5b4a3f2e/users/12345/@ana?t=s3cr3t#f"
+    masked, _ = process_submission(ReportSubmission(title="x", page_url=url), StoreSink({}))
+    assert masked.page_url == "https://app.example/reset/[id]/users/[id]/[user]?t=[redacted]"
+    raw, _ = process_submission(
+        ReportSubmission(title="x", page_url=url),
+        StoreSink({}),
+        config=HeedConfig(mask_page_url=False),
+    )
+    assert raw.page_url == kept
+    empty, _ = process_submission(ReportSubmission(title="x"), StoreSink({}))
+    assert empty.page_url == ""

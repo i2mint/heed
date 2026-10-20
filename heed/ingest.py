@@ -49,7 +49,7 @@ from heed.images import (
     SanitizerBusy,
     make_image_sanitizer,
 )
-from heed.redact import Redactor, redact_console, redact_network, redact_text
+from heed.redact import Redactor, redact_console, redact_network, redact_text, redact_url
 from heed.routing import Moderator, SinkResolver, Verdict, accept_all
 from heed.security import (
     IMAGE_EXTENSIONS,
@@ -182,7 +182,7 @@ def _new_report(
         category=submission.category,
         title=submission.title,
         body=submission.body,
-        page_url=submission.page_url,
+        page_url=_page_url(submission.page_url, config, redactor),
         env=submission.env,
         attachments=attachments,
         console=console,
@@ -191,6 +191,17 @@ def _new_report(
         origin=origin,
         status=Status.received,
     )
+
+
+def _page_url(page_url: str, config, redactor) -> str:
+    """``page_url`` with tokens/ids masked (see ``config.mask_page_url``); fail closed."""
+    if not page_url or not config.mask_page_url:
+        return page_url
+    try:
+        return redact_url(page_url, redactor=redactor)
+    except Exception:  # noqa: BLE001 - an unmaskable URL is dropped, not sent raw
+        logger.exception("heed: the redactor failed; dropping page_url")
+        return ""
 
 
 def _discard_attachments(attachments, attachment_store) -> None:
