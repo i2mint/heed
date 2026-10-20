@@ -29,7 +29,7 @@ Public API (Phase 1):
     Widget    make_widget_router (serves the built embeddable widget),
               widget_contract (what the widget sends; SSOT for widget/)
     Threads   Comment, CommentSubmission, add_comment, list_comments,
-              delete_comment, email_moderator, make_thread_router (a public,
+              delete_comment, email_moderator, token_moderator, make_thread_router (a public,
               persistent comment thread per key)
     Review    ReviewPage, publish_review, review_url, make_review_app (media + a
               thread under it, behind a capability link; CLI ``heed review``)
@@ -107,6 +107,7 @@ from heed.threads import (
     add_comment,
     delete_comment,
     email_moderator,
+    token_moderator,
     list_comments,
     make_thread_router,
 )
@@ -188,6 +189,7 @@ __all__ = [
     "list_comments",
     "delete_comment",
     "email_moderator",
+    "token_moderator",
     "make_thread_router",
     "ReviewPage",
     "publish_review",

@@ -245,3 +245,48 @@ def test_per_thread_rate_limit_and_isolated_threads(root, clip):
     assert post(b, "3").status_code == 201
     assert [c.body for c in stores.comments_of(a.id)] == ["1"]
     assert [c.body for c in stores.comments_of(b.id)] == ["3"]
+
+
+def test_a_token_moderator_is_not_fooled_by_a_login_alone(root, clip):
+    """#74: a session is ambient on a shared origin; the secret must be sent too."""
+    from heed.threads import MODERATOR_TOKEN_HEADER, token_moderator
+
+    page = publish_review([clip], title="x", rootdir=root)
+    secret = "correct-horse-battery"
+
+    class SetEmail:
+        def __init__(self, app, email):
+            self.app, self.email = app, email
+
+        async def __call__(self, scope, receive, send):
+            scope.setdefault("state", {})["user_email"] = self.email
+            await self.app(scope, receive, send)
+
+    app = make_review_app(
+        root, is_moderator=token_moderator(secret, also=email_moderator(["o@x.com"]))
+    )
+    owner = TestClient(SetEmail(app, "o@x.com"))
+    url = f"/threads/{page.id}"
+    cid = owner.post(url, json={"author": "a", "body": "b"}).json()["comment"]["id"]
+    hdr = {"X-Heed-Moderate": "1"}
+    # Logged in as the owner, but without the secret: no powers at all.
+    assert owner.get(url).json()["can_moderate"] is False
+    assert owner.delete(f"{url}/{cid}", headers=hdr).status_code == 403
+    assert owner.post(url, json={"author": "x", "body": "y"}).json()["comment"]["moderator"] is False
+    # The wrong secret is no better; the secret without the login is no better either.
+    bad = {**hdr, MODERATOR_TOKEN_HEADER: "wrong-wrong-wrong-wrong"}
+    assert owner.delete(f"{url}/{cid}", headers=bad).status_code == 403
+    good = {**hdr, MODERATOR_TOKEN_HEADER: secret}
+    assert TestClient(app).delete(f"{url}/{cid}", headers=good).status_code == 403
+    assert owner.get(url, headers=good).json()["can_moderate"] is True
+    assert owner.delete(f"{url}/{cid}", headers=good).status_code == 200
+
+
+def test_a_weak_moderator_token_is_refused():
+    import pytest as _pytest
+
+    from heed.threads import token_moderator
+
+    for weak in ("", "short", None):
+        with _pytest.raises(ValueError, match="token"):
+            token_moderator(weak)

@@ -44,10 +44,18 @@
     return d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
   }
 
+  // The moderator token is typed in and kept only in this page's memory: storage is
+  // shared by every app on the origin, and a script there could read it.
+  let moderatorToken = "";
+
   async function call(method, path, body, headers) {
     const res = await fetch(api + path, {
       method,
-      headers: Object.assign(body ? { "Content-Type": "application/json" } : {}, headers || {}),
+      headers: Object.assign(
+        body ? { "Content-Type": "application/json" } : {},
+        moderatorToken ? { "X-Heed-Moderator-Token": moderatorToken } : {},
+        headers || {},
+      ),
       body: body ? JSON.stringify(body) : undefined,
       credentials: "same-origin",
       cache: "no-store",
@@ -116,8 +124,17 @@
   async function loadThread() {
     const data = await call("GET", "/threads/" + encodeURIComponent(pageId));
     canModerate = !!data.can_moderate;
+    moderate.hidden = canModerate;
     renderThread(data.comments);
   }
+
+  const moderate = el("button", { class: "chip", type: "button", text: "Moderate", hidden: "", onclick: async () => {
+    const token = prompt("Moderator token");
+    if (!token) return;
+    moderatorToken = token.trim();
+    try { await loadThread(); if (!canModerate) { moderatorToken = ""; alert("That token was not accepted."); } }
+    catch (e) { moderatorToken = ""; alert(e.message); }
+  } });
 
   async function remove(c) {
     if (!confirm("Delete this comment by " + c.author + "?")) return;
@@ -188,7 +205,7 @@
       el("p", { class: "muted", text: "Published " + fmtDate(page.updated_at || page.created_at) }),
       page.note ? el("p", { class: "note", text: page.note }) : null,
       el("section", { class: "media" }, page.media.map((m) => mediaElement(page, m))),
-      el("h2", {}, "Comments ", count),
+      el("h2", {}, "Comments ", count, " ", moderate),
       list,
       form,
     );

@@ -32,7 +32,7 @@ There is no push notification yet: to wait for feedback, poll `heed review comme
 
 ## Moderate
 
-The owner sees a Delete button on every comment when logged in to the site. From a shell: `heed review delete-comment <id> <comment-id>` (the comment id is in parentheses in `heed review comments`).
+The owner sees a Delete button on every comment when the server recognises them: by login, or, when the server uses `token_moderator`, after pressing *Moderate* and typing the moderator token. From a shell: `heed review delete-comment <id> <comment-id>` (the comment id is in parentheses in `heed review comments`).
 
 ## Rules
 
