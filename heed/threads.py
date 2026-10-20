@@ -251,6 +251,11 @@ def token_moderator(
     never in storage), so such a script can neither delete comments nor post badged as
     the owner. ``also`` (e.g. :func:`email_moderator`) is required too, when given.
 
+    Use a random token (``secrets.token_urlsafe(24)``). This raises the bar, it is not a
+    wall: a hostile script on the same origin can still open the review page in a frame
+    and hook it before the owner types the token, or phish with its own prompt. A
+    dedicated origin for the review app is the real fix.
+
     >>> from types import SimpleNamespace as NS
     >>> check = token_moderator("s3cret-token-value")
     >>> check(NS(headers={"X-Heed-Moderator-Token": "s3cret-token-value"}))
@@ -258,9 +263,16 @@ def token_moderator(
     >>> check(NS(headers={}))
     False
     """
-    if not isinstance(token, str) or len(token) < MIN_TOKEN_LENGTH:
+    if (
+        not isinstance(token, str)
+        or len(token) < MIN_TOKEN_LENGTH
+        or not token.isascii()
+        or not token.isprintable()
+        or token != token.strip()
+    ):
         raise ValueError(
-            f"the moderator token must be a string of at least {MIN_TOKEN_LENGTH} characters"
+            f"the moderator token must be printable ASCII without surrounding spaces, "
+            f"at least {MIN_TOKEN_LENGTH} characters (e.g. secrets.token_urlsafe(24))"
         )
     expected = token.encode()
 

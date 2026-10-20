@@ -513,7 +513,10 @@ def main(argv: list[str] | None = None) -> int:
         if a.moderator_token_env:
             from heed.threads import token_moderator
 
-            is_moderator = token_moderator(os.environ.get(a.moderator_token_env, ""))
+            try:
+                is_moderator = token_moderator(os.environ.get(a.moderator_token_env, ""))
+            except ValueError as e:
+                p.error(f"${a.moderator_token_env}: {e}")
         app = make_review_app(a.dir, is_moderator=is_moderator)
         uvicorn.run(app, host=a.host, port=a.port)
         return 0

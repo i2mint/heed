@@ -287,6 +287,6 @@ def test_a_weak_moderator_token_is_refused():
 
     from heed.threads import token_moderator
 
-    for weak in ("", "short", None):
+    for weak in ("", "short", None, " padded-token-value-1 ", "tökén-with-non-ascii-1"):
         with _pytest.raises(ValueError, match="token"):
             token_moderator(weak)
