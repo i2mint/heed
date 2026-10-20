@@ -1,0 +1,15 @@
+heed.redact
+===========
+
+.. automodule:: heed.redact
+
+   
+   .. rubric:: Functions
+
+   .. autosummary::
+   
+      redact_console
+      redact_network
+      redact_text
+      redact_url
+   

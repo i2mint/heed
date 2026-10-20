@@ -1,4 +1,4 @@
-> built 2026-10-20 03:02 UTC from 33e206c (main) · heed 0.0.1. Details: build_info.json
+> built 2026-10-20 05:44 UTC from 916d25c (main) · heed 0.0.1. Details: build_info.json
 
 # index.html.md
 
@@ -443,9 +443,11 @@ Public API (Phase 1):
   > make_image_sanitizer, strip_image, reencode_image, attachment_headers
   > (see misc/docs/embedding-security.md)
   <br/>
+  Privacy   redact_text, redact_url (masking of opt-in console/network capture)
   Routing   sinks_by_origin, Verdict, accept_all, hold_all,
-  : make_heuristic_moderator, chain_moderators, release_held,
-    recover_claimed, discard_held
+  <br/>
+  > make_heuristic_moderator, chain_moderators, release_held,
+  > recover_claimed, discard_held
   <br/>
   Storage   make_report_store, make_holding_store, make_attachment_store
   Serving   make_attachment_router, make_attachment_app, AttachmentSigner,
@@ -488,6 +490,8 @@ True
 | [`strip_image`](_autosummary/heed.html.md#heed.strip_image)(data, media_type)                      | Keep only what renders the image; truncate at its end.                                                                              |
 | [`reencode_image`](_autosummary/heed.html.md#heed.reencode_image)(data, media_type, \*[, max_pixels]) | Strip `data`, then decode it and save its first frame afresh, same format.                                                          |
 | [`attachment_headers`](_autosummary/heed.html.md#heed.attachment_headers)(media_type, \*[, ...])          | Headers for serving a stored screenshot (issue #15).                                                                                |
+| [`redact_text`](_autosummary/heed.html.md#heed.redact_text)(text)                                  | Replace personal data and secrets in `text` by placeholders.                                                                        |
+| [`redact_url`](_autosummary/heed.html.md#heed.redact_url)(url, \*[, redactor])                    | `url` without credentials, fragment or query values (keys are kept).                                                                |
 | [`sinks_by_origin`](_autosummary/heed.html.md#heed.sinks_by_origin)(sinks, \*[, default])              | A resolver from an `{origin: sink}` mapping (origins compared normalized).                                                          |
 | [`accept_all`](_autosummary/heed.html.md#heed.accept_all)(report)                                 | The default moderator: everything goes straight to the sink.                                                                        |
 | [`hold_all`](_autosummary/heed.html.md#heed.hold_all)(report)                                   | Full pre-moderation: every report waits for a human.                                                                                |
@@ -1126,7 +1130,7 @@ report – and reports can carry personal data. Pass `delete_func` to opt back i
 * **Return type:**
   [`MutableMapping`](https://docs.python.org/3/library/collections.abc.html#collections.abc.MutableMapping)
 
-### heed.make_router(sink, , config=None, attachment_store=None, rate_limiter=None, origin_rate_limiter=None, bot_verifier=None, user_dependency=None, resolve_sink=None, moderator=None, holding_sink=None, image_sanitizer=None)
+### heed.make_router(sink, \*, config=None, attachment_store=None, rate_limiter=None, origin_rate_limiter=None, bot_verifier=None, user_dependency=None, resolve_sink=None, moderator=None, holding_sink=None, image_sanitizer=None, redactor=<function redact_text>)
 
 Build a FastAPI APIRouter exposing `POST /report` (and its CORS preflight).
 
@@ -1139,6 +1143,9 @@ Hardening defaults come from `config`; any piece can be injected instead:
 `bot_verifier` (by default built from `config.bot_secret`, i.e. off until a
 secret is configured) and `image_sanitizer` (by default from
 `config.screenshot_sanitizer`: re-encode with Pillow, else a pure-Python strip).
+Opt-in console/network capture (`config.accept_console`/`accept_network`) is
+masked by `redactor` before any sink sees it; a field the config does not accept
+is never parsed.
 
 Routing is decided server-side, never by the browser: `resolve_sink` maps the
 validated origin to that site’s sink (`sink` is then the fallback and may be
@@ -1166,13 +1173,15 @@ Return a fresh opaque report id (uuid4 hex).
 * **Return type:**
   [`str`](https://docs.python.org/3/builtins/stdtypes.html#str)
 
-### heed.process_submission(submission, sink, \*, origin='', user=None, screenshot=None, screenshot_media_type='image/png', attachment_store=None, config=None, id_gen=<function new_report_id>, clock=<function utcnow>, moderator=<function accept_all>, holding_sink=None)
+### heed.process_submission(submission, sink, \*, origin='', user=None, screenshot=None, screenshot_media_type='image/png', attachment_store=None, config=None, id_gen=<function new_report_id>, clock=<function utcnow>, moderator=<function accept_all>, holding_sink=None, redactor=<function redact_text>)
 
 Enrich `submission` into a Report, store any screenshot, and route to `sink`.
 
 Returns the (report, sink-result) pair. The server owns id/created_at/identity/
 origin/status — never the client. Opt-in capture (console/network) is dropped
-unless enabled in `config`. `moderator` decides first: `hold` sends the report
+unless enabled in `config`, and what is kept is passed through `redactor`
+(personal data and secrets masked, see `redact.py`) whatever the widget did.
+`moderator` decides first: `hold` sends the report
 (status `held`) to `holding_sink` instead, `reject` drops it (status
 `declined`).
 
@@ -1207,6 +1216,40 @@ left in place, and not returned.
 
 * **Return type:**
   [`list`](https://docs.python.org/3/builtins/stdtypes.html#list)[[`str`](https://docs.python.org/3/builtins/stdtypes.html#str)]
+
+### heed.redact_text(text)
+
+Replace personal data and secrets in `text` by placeholders.
+
+```pycon
+>>> redact_text("Authorization: Bearer abc.def.ghi")
+'Authorization: [redacted]'
+>>> redact_text("paid with 4111 1111 1111 1111, order 1234567890123")
+'paid with [card], order 1234567890123'
+>>> redact_text('{"password": "hunter2", "user": "ana"}')
+'{"password": "[redacted]", "user": "ana"}'
+```
+
+* **Return type:**
+  [`str`](https://docs.python.org/3/builtins/stdtypes.html#str)
+
+### heed.redact_url(url, \*, redactor=<function redact_text>)
+
+`url` without credentials, fragment or query values (keys are kept).
+
+Path segments that look like ids (all digits, or 12+ characters with a digit) or
+handles (`@name`) are replaced, path parameters dropped, and the rest of each
+segment redacted as text.
+
+```pycon
+>>> redact_url("/api/users/ana@example.com?q=1")
+'/api/users/[email]?q=[redacted]'
+>>> redact_url("https://app.example/reset/9f8e7d6c5b4a3f2e;jsessionid=X/42")
+'https://app.example/reset/[id]/[id]'
+```
+
+* **Return type:**
+  [`str`](https://docs.python.org/3/builtins/stdtypes.html#str)
 
 ### heed.reencode_image(data, media_type, , max_pixels=25000000)
 
@@ -1318,6 +1361,7 @@ overrides them.
 | [`config`](_autosummary/heed.config.html.md#module-heed.config)     | Configuration for the heed backend (smart defaults; keyword-only).                 |
 | [`images`](_autosummary/heed.images.html.md#module-heed.images)     | Neutralise uploaded screenshots before they are stored (issue #15).                |
 | [`ingest`](_autosummary/heed.ingest.html.md#module-heed.ingest)     | The ingest layer — build a Report from a submission and route it to a sink.        |
+| [`redact`](_autosummary/heed.redact.html.md#module-heed.redact)     | Redaction of personal data and secrets in captured console and network entries.    |
 | [`routing`](_autosummary/heed.routing.html.md#module-heed.routing)   | Where a report goes: server-side site resolution and moderation (holding state).   |
 | [`security`](_autosummary/heed.security.html.md#module-heed.security) | Public-endpoint hardening (the ingest endpoint is unauthenticated and hostile).    |
 | [`serving`](_autosummary/heed.serving.html.md#module-heed.serving)   | Serve stored screenshots: a read-only route meant for its own origin (issue #19).  |
@@ -1476,7 +1520,7 @@ script and receives its reports.
 * **Return type:**
   `FastAPI`
 
-### heed.ingest.make_router(sink, , config=None, attachment_store=None, rate_limiter=None, origin_rate_limiter=None, bot_verifier=None, user_dependency=None, resolve_sink=None, moderator=None, holding_sink=None, image_sanitizer=None)
+### heed.ingest.make_router(sink, \*, config=None, attachment_store=None, rate_limiter=None, origin_rate_limiter=None, bot_verifier=None, user_dependency=None, resolve_sink=None, moderator=None, holding_sink=None, image_sanitizer=None, redactor=<function redact_text>)
 
 Build a FastAPI APIRouter exposing `POST /report` (and its CORS preflight).
 
@@ -1489,6 +1533,9 @@ Hardening defaults come from `config`; any piece can be injected instead:
 `bot_verifier` (by default built from `config.bot_secret`, i.e. off until a
 secret is configured) and `image_sanitizer` (by default from
 `config.screenshot_sanitizer`: re-encode with Pillow, else a pure-Python strip).
+Opt-in console/network capture (`config.accept_console`/`accept_network`) is
+masked by `redactor` before any sink sees it; a field the config does not accept
+is never parsed.
 
 Routing is decided server-side, never by the browser: `resolve_sink` maps the
 validated origin to that site’s sink (`sink` is then the fallback and may be
@@ -1498,13 +1545,15 @@ None; an origin resolving to no sink gets 403). `moderator` may hold reports in
 * **Return type:**
   `APIRouter`
 
-### heed.ingest.process_submission(submission, sink, \*, origin='', user=None, screenshot=None, screenshot_media_type='image/png', attachment_store=None, config=None, id_gen=<function new_report_id>, clock=<function utcnow>, moderator=<function accept_all>, holding_sink=None)
+### heed.ingest.process_submission(submission, sink, \*, origin='', user=None, screenshot=None, screenshot_media_type='image/png', attachment_store=None, config=None, id_gen=<function new_report_id>, clock=<function utcnow>, moderator=<function accept_all>, holding_sink=None, redactor=<function redact_text>)
 
 Enrich `submission` into a Report, store any screenshot, and route to `sink`.
 
 Returns the (report, sink-result) pair. The server owns id/created_at/identity/
 origin/status — never the client. Opt-in capture (console/network) is dropped
-unless enabled in `config`. `moderator` decides first: `hold` sends the report
+unless enabled in `config`, and what is kept is passed through `redactor`
+(personal data and secrets masked, see `redact.py`) whatever the widget did.
+`moderator` decides first: `hold` sends the report
 (status `held`) to `holding_sink` instead, `reject` drops it (status
 `declined`).
 
@@ -1520,6 +1569,87 @@ has no length header), so an oversized body is never buffered whole.
 
 * **Return type:**
   [`Optional`](https://docs.python.org/3/library/typing.html#typing.Optional)[[`bytes`](https://docs.python.org/3/builtins/stdtypes.html#bytes)]
+
+
+# _autosummary/heed.redact.html.md
+
+# heed.redact
+
+Redaction of personal data and secrets in captured console and network entries.
+
+Opt-in capture (heed#7) sends console messages and request URLs, and both routinely
+carry things nobody meant to report: an e-mail address in a log line, a session token
+in a query string, a bearer header someone logged while debugging. The widget masks
+them before anything leaves the page (redact *before* capture); the server applies
+the same rules again here, because the ingest endpoint is public and a client can send
+anything. The rules are deliberately greedy: a lost hex string costs a little
+debugging, a leaked token costs an incident.
+
+The widget’s `mask.ts` mirrors these rules; keep the two in step.
+
+```pycon
+>>> redact_text("login failed for ana@example.com with token=abc123")
+'login failed for [email] with token=[redacted]'
+>>> redact_url("https://u:pw@app.example/a/b?session=xyz&page=2#top")
+'https://app.example/a/b?session=[redacted]&page=[redacted]'
+```
+
+### Functions
+
+| [`redact_console`](_autosummary/heed.redact.html.md#heed.redact.redact_console)(entries, \*[, redactor])   | Console entries with their level, message and source redacted.                                                            |
+|--------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------|
+| [`redact_network`](_autosummary/heed.redact.html.md#heed.redact.redact_network)(entries, \*[, redactor])   | Network entries with their method redacted and their URL stripped of credentials, query values and id-like path segments. |
+| [`redact_text`](_autosummary/heed.redact.html.md#heed.redact.redact_text)(text)                         | Replace personal data and secrets in `text` by placeholders.                                                              |
+| [`redact_url`](_autosummary/heed.redact.html.md#heed.redact.redact_url)(url, \*[, redactor])           | `url` without credentials, fragment or query values (keys are kept).                                                      |
+
+### heed.redact.redact_console(entries, \*, redactor=<function redact_text>)
+
+Console entries with their level, message and source redacted.
+
+* **Return type:**
+  [`list`](https://docs.python.org/3/builtins/stdtypes.html#list)[[`LogEntry`](_autosummary/heed.base.html.md#heed.base.LogEntry)]
+
+### heed.redact.redact_network(entries, \*, redactor=<function redact_text>)
+
+Network entries with their method redacted and their URL stripped of
+credentials, query values and id-like path segments.
+
+* **Return type:**
+  [`list`](https://docs.python.org/3/builtins/stdtypes.html#list)[[`NetEntry`](_autosummary/heed.base.html.md#heed.base.NetEntry)]
+
+### heed.redact.redact_text(text)
+
+Replace personal data and secrets in `text` by placeholders.
+
+```pycon
+>>> redact_text("Authorization: Bearer abc.def.ghi")
+'Authorization: [redacted]'
+>>> redact_text("paid with 4111 1111 1111 1111, order 1234567890123")
+'paid with [card], order 1234567890123'
+>>> redact_text('{"password": "hunter2", "user": "ana"}')
+'{"password": "[redacted]", "user": "ana"}'
+```
+
+* **Return type:**
+  [`str`](https://docs.python.org/3/builtins/stdtypes.html#str)
+
+### heed.redact.redact_url(url, \*, redactor=<function redact_text>)
+
+`url` without credentials, fragment or query values (keys are kept).
+
+Path segments that look like ids (all digits, or 12+ characters with a digit) or
+handles (`@name`) are replaced, path parameters dropped, and the rest of each
+segment redacted as text.
+
+```pycon
+>>> redact_url("/api/users/ana@example.com?q=1")
+'/api/users/[email]?q=[redacted]'
+>>> redact_url("https://app.example/reset/9f8e7d6c5b4a3f2e;jsessionid=X/42")
+'https://app.example/reset/[id]/[id]'
+```
+
+* **Return type:**
+  [`str`](https://docs.python.org/3/builtins/stdtypes.html#str)
 
 
 # _autosummary/heed.routing.html.md
@@ -2839,7 +2969,7 @@ overrides them.
 
 # About this build
 
-This documentation was built on **2026-10-20 03:02 UTC** from commit <a href="https://github.com/i2mint/heed/commit/33e206c8a339a6becd7cc98ea06626da9011d613"><code>33e206c</code></a> on branch <code>main</code>, for **heed 0.0.1** (from <code>pyproject.toml</code>).
+This documentation was built on **2026-10-20 05:44 UTC** from commit <a href="https://github.com/i2mint/heed/commit/916d25c30a4969708e6b823d849726b00322479a"><code>916d25c</code></a> on branch <code>main</code>, for **heed 0.0.1** (from <code>pyproject.toml</code>).
 
 #### WARNING
 The documentation and the package may be misaligned:
@@ -2850,7 +2980,7 @@ The documentation and the package may be misaligned:
 
 |                     |                                                                                                                                                    |
 |---------------------|----------------------------------------------------------------------------------------------------------------------------------------------------|
-| Commit              | <a href="https://github.com/i2mint/heed/commit/33e206c8a339a6becd7cc98ea06626da9011d613"><code>33e206c8a339a6becd7cc98ea06626da9011d613</code></a> |
+| Commit              | <a href="https://github.com/i2mint/heed/commit/916d25c30a4969708e6b823d849726b00322479a"><code>916d25c30a4969708e6b823d849726b00322479a</code></a> |
 | Branch              | <code>main</code>                                                                                                                                  |
 | Tags at this commit | none                                                                                                                                               |
 | Working tree        | clean                                                                                                                                              |
@@ -2861,9 +2991,9 @@ The documentation and the package may be misaligned:
 |              |                                                                                            |
 |--------------|--------------------------------------------------------------------------------------------|
 | Repository   | <code>i2mint/heed</code>                                                                   |
-| Run          | <a href="https://github.com/i2mint/heed/actions/runs/39362022775">39362022775</a>          |
+| Run          | <a href="https://github.com/i2mint/heed/actions/runs/39376324611">39376324611</a>          |
 | Ref          | <code>refs/heads/main</code>                                                               |
-| Event commit | <code>33e206c8a339a6becd7cc98ea06626da9011d613</code> (in the history of the built commit) |
+| Event commit | <code>916d25c30a4969708e6b823d849726b00322479a</code> (in the history of the built commit) |
 
 ## Tools
 
@@ -2894,7 +3024,7 @@ Latest release: <a href="https://pypi.org/project/heed/0.1.0/">0.1.0</a>, newer 
 
 ```bash
 git clone https://github.com/i2mint/heed && cd heed
-git checkout 33e206c8a339a6becd7cc98ea06626da9011d613
+git checkout 916d25c30a4969708e6b823d849726b00322479a
 pip install "epythet==0.2.18"
 epythet quickstart . --ignore tests/ scrap/ examples/
 ```

@@ -763,6 +763,7 @@ window.runMermaid = runMermaid;</script>
     <span class="n">SanitizerBusy</span><span class="p">,</span>
     <span class="n">make_image_sanitizer</span><span class="p">,</span>
 <span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">heed.redact</span><span class="w"> </span><span class="kn">import</span> <span class="n">Redactor</span><span class="p">,</span> <span class="n">redact_console</span><span class="p">,</span> <span class="n">redact_network</span><span class="p">,</span> <span class="n">redact_text</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">heed.routing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Moderator</span><span class="p">,</span> <span class="n">SinkResolver</span><span class="p">,</span> <span class="n">Verdict</span><span class="p">,</span> <span class="n">accept_all</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">heed.security</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">IMAGE_EXTENSIONS</span><span class="p">,</span>
@@ -783,7 +784,9 @@ window.runMermaid = runMermaid;</script>
 <span class="kn">from</span><span class="w"> </span><span class="nn">heed.widget</span><span class="w"> </span><span class="kn">import</span> <span class="n">make_widget_router</span>
 
 <span class="n">_FORM_MEDIA_TYPES</span> <span class="o">=</span> <span class="p">(</span><span class="s2">"multipart/form-data"</span><span class="p">,</span> <span class="s2">"application/x-www-form-urlencoded"</span><span class="p">)</span>
-<span class="n">_TEXT_FIELDS</span> <span class="o">=</span> <span class="p">(</span><span class="s2">"title"</span><span class="p">,</span> <span class="s2">"body"</span><span class="p">,</span> <span class="s2">"category"</span><span class="p">,</span> <span class="s2">"page_url"</span><span class="p">,</span> <span class="s2">"env"</span><span class="p">,</span> <span class="s2">"anon_id"</span><span class="p">)</span>
+<span class="n">_TEXT_FIELDS</span> <span class="o">=</span> <span class="p">(</span>
+    <span class="s2">"title"</span><span class="p">,</span> <span class="s2">"body"</span><span class="p">,</span> <span class="s2">"category"</span><span class="p">,</span> <span class="s2">"page_url"</span><span class="p">,</span> <span class="s2">"env"</span><span class="p">,</span> <span class="s2">"anon_id"</span><span class="p">,</span> <span class="s2">"console"</span><span class="p">,</span> <span class="s2">"network"</span>
+<span class="p">)</span>
 <span class="n">_MAX_LOC_CHARS</span> <span class="o">=</span> <span class="mi">64</span>
 <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s2">"heed.ingest"</span><span class="p">)</span>
 <span class="c1"># Sent on every /report response, success or error.</span>
@@ -806,12 +809,15 @@ window.runMermaid = runMermaid;</script>
     <span class="n">clock</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[],</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="n">utcnow</span><span class="p">,</span>
     <span class="n">moderator</span><span class="p">:</span> <span class="n">Moderator</span> <span class="o">=</span> <span class="n">accept_all</span><span class="p">,</span>
     <span class="n">holding_sink</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Sink</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">redactor</span><span class="p">:</span> <span class="n">Redactor</span> <span class="o">=</span> <span class="n">redact_text</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Report</span><span class="p">,</span> <span class="n">SinkResult</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">"""Enrich ``submission`` into a Report, store any screenshot, and route to ``sink``.</span>
 
 <span class="sd">    Returns the (report, sink-result) pair. The server owns id/created_at/identity/</span>
 <span class="sd">    origin/status — never the client. Opt-in capture (console/network) is dropped</span>
-<span class="sd">    unless enabled in ``config``. ``moderator`` decides first: ``hold`` sends the report</span>
+<span class="sd">    unless enabled in ``config``, and what is kept is passed through ``redactor``</span>
+<span class="sd">    (personal data and secrets masked, see ``redact.py``) whatever the widget did.</span>
+<span class="sd">    ``moderator`` decides first: ``hold`` sends the report</span>
 <span class="sd">    (status ``held``) to ``holding_sink`` instead, ``reject`` drops it (status</span>
 <span class="sd">    ``declined``).</span>
 <span class="sd">    """</span>
@@ -846,6 +852,7 @@ window.runMermaid = runMermaid;</script>
             <span class="n">user</span><span class="o">=</span><span class="n">user</span><span class="p">,</span>
             <span class="n">config</span><span class="o">=</span><span class="n">config</span><span class="p">,</span>
             <span class="n">clock</span><span class="o">=</span><span class="n">clock</span><span class="p">,</span>
+            <span class="n">redactor</span><span class="o">=</span><span class="n">redactor</span><span class="p">,</span>
         <span class="p">)</span>
     <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>  <span class="c1"># nothing will reference the screenshot: don't keep it</span>
         <span class="n">_discard_attachments</span><span class="p">(</span><span class="n">attachments</span><span class="p">,</span> <span class="n">attachment_store</span><span class="p">)</span>
@@ -875,9 +882,17 @@ window.runMermaid = runMermaid;</script>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_new_report</span><span class="p">(</span>
-    <span class="n">submission</span><span class="p">,</span> <span class="n">report_id</span><span class="p">,</span> <span class="n">attachments</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">origin</span><span class="p">,</span> <span class="n">user</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="n">clock</span>
+    <span class="n">submission</span><span class="p">,</span> <span class="n">report_id</span><span class="p">,</span> <span class="n">attachments</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">origin</span><span class="p">,</span> <span class="n">user</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="n">clock</span><span class="p">,</span> <span class="n">redactor</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Report</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""The Report for ``submission``. The server owns id, time, identity and origin."""</span>
+    <span class="n">console</span> <span class="o">=</span> <span class="n">submission</span><span class="o">.</span><span class="n">console</span> <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">accept_console</span> <span class="k">else</span> <span class="kc">None</span>
+    <span class="n">network</span> <span class="o">=</span> <span class="n">submission</span><span class="o">.</span><span class="n">network</span> <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">accept_network</span> <span class="k">else</span> <span class="kc">None</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">console</span> <span class="o">=</span> <span class="n">redact_console</span><span class="p">(</span><span class="n">console</span><span class="p">,</span> <span class="n">redactor</span><span class="o">=</span><span class="n">redactor</span><span class="p">)</span> <span class="k">if</span> <span class="n">console</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="n">network</span> <span class="o">=</span> <span class="n">redact_network</span><span class="p">(</span><span class="n">network</span><span class="p">,</span> <span class="n">redactor</span><span class="o">=</span><span class="n">redactor</span><span class="p">)</span> <span class="k">if</span> <span class="n">network</span> <span class="k">else</span> <span class="kc">None</span>
+    <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>  <span class="c1"># noqa: BLE001 - fail closed: no capture rather than unmasked</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span><span class="s2">"heed: the redactor failed; dropping console/network capture"</span><span class="p">)</span>
+        <span class="n">console</span> <span class="o">=</span> <span class="n">network</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="k">return</span> <span class="n">Report</span><span class="p">(</span>
         <span class="nb">id</span><span class="o">=</span><span class="n">report_id</span><span class="p">,</span>
         <span class="n">created_at</span><span class="o">=</span><span class="n">clock</span><span class="p">(),</span>
@@ -887,8 +902,8 @@ window.runMermaid = runMermaid;</script>
         <span class="n">page_url</span><span class="o">=</span><span class="n">submission</span><span class="o">.</span><span class="n">page_url</span><span class="p">,</span>
         <span class="n">env</span><span class="o">=</span><span class="n">submission</span><span class="o">.</span><span class="n">env</span><span class="p">,</span>
         <span class="n">attachments</span><span class="o">=</span><span class="n">attachments</span><span class="p">,</span>
-        <span class="n">console</span><span class="o">=</span><span class="n">submission</span><span class="o">.</span><span class="n">console</span> <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">accept_console</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">network</span><span class="o">=</span><span class="n">submission</span><span class="o">.</span><span class="n">network</span> <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">accept_network</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">console</span><span class="o">=</span><span class="n">console</span><span class="p">,</span>
+        <span class="n">network</span><span class="o">=</span><span class="n">network</span><span class="p">,</span>
         <span class="n">identity</span><span class="o">=</span><span class="n">Identity</span><span class="p">(</span><span class="n">anon_id</span><span class="o">=</span><span class="n">submission</span><span class="o">.</span><span class="n">anon_id</span> <span class="ow">or</span> <span class="n">report_id</span><span class="p">,</span> <span class="n">user</span><span class="o">=</span><span class="n">user</span><span class="p">),</span>
         <span class="n">origin</span><span class="o">=</span><span class="n">origin</span><span class="p">,</span>
         <span class="n">status</span><span class="o">=</span><span class="n">Status</span><span class="o">.</span><span class="n">received</span><span class="p">,</span>
@@ -917,18 +932,38 @@ window.runMermaid = runMermaid;</script>
     <span class="n">page_url</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
     <span class="n">env</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
     <span class="n">anon_id</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+    <span class="n">console</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">network</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ReportSubmission</span><span class="p">:</span>
-    <span class="n">env_obj</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">env</span><span class="p">)</span> <span class="k">if</span> <span class="n">env</span> <span class="k">else</span> <span class="p">{}</span>
-    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">env_obj</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"env must be a JSON object"</span><span class="p">)</span>
+<span class="w">    </span><span class="sd">"""The submission for the form's text fields. A malformed JSON field raises</span>
+<span class="sd">    ``_BadJsonField`` naming it; a well-formed one that breaks the model raises</span>
+<span class="sd">    ``ValidationError``."""</span>
+    <span class="n">env_obj</span> <span class="o">=</span> <span class="n">_json_field</span><span class="p">(</span><span class="s2">"env"</span><span class="p">,</span> <span class="n">env</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="k">if</span> <span class="n">env</span> <span class="k">else</span> <span class="p">{}</span>
     <span class="k">return</span> <span class="n">ReportSubmission</span><span class="p">(</span>
         <span class="n">title</span><span class="o">=</span><span class="n">title</span><span class="p">,</span>
         <span class="n">body</span><span class="o">=</span><span class="n">body</span><span class="p">,</span>
         <span class="n">category</span><span class="o">=</span><span class="n">category</span><span class="p">,</span>
         <span class="n">page_url</span><span class="o">=</span><span class="n">page_url</span><span class="p">,</span>
         <span class="n">env</span><span class="o">=</span><span class="n">env_obj</span><span class="p">,</span>
+        <span class="n">console</span><span class="o">=</span><span class="n">_json_field</span><span class="p">(</span><span class="s2">"console"</span><span class="p">,</span> <span class="n">console</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span> <span class="k">if</span> <span class="n">console</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">network</span><span class="o">=</span><span class="n">_json_field</span><span class="p">(</span><span class="s2">"network"</span><span class="p">,</span> <span class="n">network</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span> <span class="k">if</span> <span class="n">network</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">anon_id</span><span class="o">=</span><span class="n">anon_id</span> <span class="ow">or</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">_BadJsonField</span><span class="p">(</span><span class="ne">ValueError</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""A form field that should hold JSON of a given shape does not."""</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_json_field</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">raw</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">kind</span><span class="p">:</span> <span class="nb">type</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+    <span class="n">shape</span> <span class="o">=</span> <span class="s2">"a JSON object"</span> <span class="k">if</span> <span class="n">kind</span> <span class="ow">is</span> <span class="nb">dict</span> <span class="k">else</span> <span class="s2">"a JSON array"</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">value</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">raw</span><span class="p">)</span>
+    <span class="k">except</span> <span class="p">(</span><span class="ne">ValueError</span><span class="p">,</span> <span class="ne">RecursionError</span><span class="p">)</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">_BadJsonField</span><span class="p">(</span><span class="sa">f</span><span class="s2">"invalid </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">: must be </span><span class="si">{</span><span class="n">shape</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">kind</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="n">_BadJsonField</span><span class="p">(</span><span class="sa">f</span><span class="s2">"invalid </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">: must be </span><span class="si">{</span><span class="n">shape</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">value</span>
 
 
 <div class="viewcode-block" id="read_capped_body">
@@ -999,6 +1034,14 @@ window.runMermaid = runMermaid;</script>
                         <span class="s2">"page_url"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"type"</span><span class="p">:</span> <span class="s2">"string"</span><span class="p">},</span>
                         <span class="s2">"env"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"type"</span><span class="p">:</span> <span class="s2">"string"</span><span class="p">,</span> <span class="s2">"description"</span><span class="p">:</span> <span class="s2">"JSON object"</span><span class="p">},</span>
                         <span class="s2">"anon_id"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"type"</span><span class="p">:</span> <span class="s2">"string"</span><span class="p">},</span>
+                        <span class="s2">"console"</span><span class="p">:</span> <span class="p">{</span>
+                            <span class="s2">"type"</span><span class="p">:</span> <span class="s2">"string"</span><span class="p">,</span>
+                            <span class="s2">"description"</span><span class="p">:</span> <span class="s2">"JSON array of LogEntry (opt-in capture)"</span><span class="p">,</span>
+                        <span class="p">},</span>
+                        <span class="s2">"network"</span><span class="p">:</span> <span class="p">{</span>
+                            <span class="s2">"type"</span><span class="p">:</span> <span class="s2">"string"</span><span class="p">,</span>
+                            <span class="s2">"description"</span><span class="p">:</span> <span class="s2">"JSON array of NetEntry (opt-in capture)"</span><span class="p">,</span>
+                        <span class="p">},</span>
                         <span class="s2">"bot_token"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"type"</span><span class="p">:</span> <span class="s2">"string"</span><span class="p">},</span>
                         <span class="s2">"screenshot"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"type"</span><span class="p">:</span> <span class="s2">"string"</span><span class="p">,</span> <span class="s2">"format"</span><span class="p">:</span> <span class="s2">"binary"</span><span class="p">},</span>
                     <span class="p">},</span>
@@ -1024,6 +1067,7 @@ window.runMermaid = runMermaid;</script>
     <span class="n">moderator</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Moderator</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">holding_sink</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Sink</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">image_sanitizer</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">ImageSanitizer</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">redactor</span><span class="p">:</span> <span class="n">Redactor</span> <span class="o">=</span> <span class="n">redact_text</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">APIRouter</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Build a FastAPI APIRouter exposing ``POST /report`` (and its CORS preflight).</span>
 
@@ -1036,6 +1080,9 @@ window.runMermaid = runMermaid;</script>
 <span class="sd">    ``bot_verifier`` (by default built from ``config.bot_secret``, i.e. off until a</span>
 <span class="sd">    secret is configured) and ``image_sanitizer`` (by default from</span>
 <span class="sd">    ``config.screenshot_sanitizer``: re-encode with Pillow, else a pure-Python strip).</span>
+<span class="sd">    Opt-in console/network capture (``config.accept_console``/``accept_network``) is</span>
+<span class="sd">    masked by ``redactor`` before any sink sees it; a field the config does not accept</span>
+<span class="sd">    is never parsed.</span>
 
 <span class="sd">    Routing is decided server-side, never by the browser: ``resolve_sink`` maps the</span>
 <span class="sd">    validated origin to that site's sink (``sink`` is then the fallback and may be</span>
@@ -1265,12 +1312,16 @@ window.runMermaid = runMermaid;</script>
                 <span class="n">page_url</span><span class="o">=</span><span class="n">text</span><span class="p">[</span><span class="s2">"page_url"</span><span class="p">]</span> <span class="ow">or</span> <span class="s2">""</span><span class="p">,</span>
                 <span class="n">env</span><span class="o">=</span><span class="n">text</span><span class="p">[</span><span class="s2">"env"</span><span class="p">]</span> <span class="ow">or</span> <span class="s2">"</span><span class="si">{}</span><span class="s2">"</span><span class="p">,</span>
                 <span class="n">anon_id</span><span class="o">=</span><span class="n">text</span><span class="p">[</span><span class="s2">"anon_id"</span><span class="p">],</span>
+                <span class="n">console</span><span class="o">=</span><span class="n">text</span><span class="p">[</span><span class="s2">"console"</span><span class="p">]</span> <span class="k">if</span> <span class="n">cfg</span><span class="o">.</span><span class="n">accept_console</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+                <span class="n">network</span><span class="o">=</span><span class="n">text</span><span class="p">[</span><span class="s2">"network"</span><span class="p">]</span> <span class="k">if</span> <span class="n">cfg</span><span class="o">.</span><span class="n">accept_network</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
             <span class="p">)</span>
         <span class="k">except</span> <span class="n">ValidationError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="n">detail</span> <span class="o">=</span> <span class="n">_safe_errors</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
             <span class="k">raise</span> <span class="n">_fail</span><span class="p">(</span><span class="mi">422</span><span class="p">,</span> <span class="n">detail</span><span class="p">,</span> <span class="n">origin</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span>
-        <span class="k">except</span> <span class="p">(</span><span class="ne">ValueError</span><span class="p">,</span> <span class="ne">RecursionError</span><span class="p">)</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="n">_fail</span><span class="p">(</span><span class="mi">422</span><span class="p">,</span> <span class="s2">"invalid env: must be a JSON object"</span><span class="p">,</span> <span class="n">origin</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span>
+        <span class="k">except</span> <span class="n">_BadJsonField</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">_fail</span><span class="p">(</span><span class="mi">422</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">),</span> <span class="n">origin</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span>
+        <span class="k">except</span> <span class="ne">RecursionError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>  <span class="c1"># nesting too deep for the validator</span>
+            <span class="k">raise</span> <span class="n">_fail</span><span class="p">(</span><span class="mi">422</span><span class="p">,</span> <span class="s2">"invalid form data: nested too deeply"</span><span class="p">,</span> <span class="n">origin</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span>
 
         <span class="n">shot</span> <span class="o">=</span> <span class="n">fields</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"screenshot"</span><span class="p">)</span> <span class="ow">or</span> <span class="kc">None</span>
         <span class="n">shot_type</span> <span class="o">=</span> <span class="s2">"image/png"</span>
@@ -1311,6 +1362,7 @@ window.runMermaid = runMermaid;</script>
                 <span class="n">config</span><span class="o">=</span><span class="n">cfg</span><span class="p">,</span>
                 <span class="n">moderator</span><span class="o">=</span><span class="n">moderator</span> <span class="ow">or</span> <span class="n">accept_all</span><span class="p">,</span>
                 <span class="n">holding_sink</span><span class="o">=</span><span class="n">holding_sink</span><span class="p">,</span>
+                <span class="n">redactor</span><span class="o">=</span><span class="n">redactor</span><span class="p">,</span>
             <span class="p">)</span>
         <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>  <span class="c1"># the sink failed: say so with CORS, not a bare 500</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span><span class="s2">"heed: a report could not be processed or delivered"</span><span class="p">)</span>

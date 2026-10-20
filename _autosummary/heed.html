@@ -325,6 +325,7 @@
 <li class="toctree-l2"><a class="reference internal" href="heed.config.html">heed.config</a></li>
 <li class="toctree-l2"><a class="reference internal" href="heed.images.html">heed.images</a></li>
 <li class="toctree-l2"><a class="reference internal" href="heed.ingest.html">heed.ingest</a></li>
+<li class="toctree-l2"><a class="reference internal" href="heed.redact.html">heed.redact</a></li>
 <li class="toctree-l2"><a class="reference internal" href="heed.routing.html">heed.routing</a></li>
 <li class="toctree-l2"><a class="reference internal" href="heed.security.html">heed.security</a></li>
 <li class="toctree-l2"><a class="reference internal" href="heed.serving.html">heed.serving</a></li>
@@ -423,11 +424,12 @@ Hardening RateLimiter, InMemoryRateLimiter, RedisRateLimiter, make_rate_limiter,
 make_image_sanitizer, strip_image, reencode_image, attachment_headers
 (see misc/docs/embedding-security.md)</p>
 </div></blockquote>
-<dl class="simple">
-<dt>Routing   sinks_by_origin, Verdict, accept_all, hold_all,</dt><dd><p>make_heuristic_moderator, chain_moderators, release_held,
+<p>Privacy   redact_text, redact_url (masking of opt-in console/network capture)
+Routing   sinks_by_origin, Verdict, accept_all, hold_all,</p>
+<blockquote>
+<div><p>make_heuristic_moderator, chain_moderators, release_held,
 recover_claimed, discard_held</p>
-</dd>
-</dl>
+</div></blockquote>
 <p>Storage   make_report_store, make_holding_store, make_attachment_store
 Serving   make_attachment_router, make_attachment_app, AttachmentSigner,</p>
 <blockquote>
@@ -505,6 +507,12 @@ Serving   make_attachment_router, make_attachment_app, AttachmentSigner,</p>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="#heed.attachment_headers" title="heed.attachment_headers"><code class="xref py py-obj docutils literal notranslate"><span class="pre">attachment_headers</span></code></a>(media_type, *[, ...])</p></td>
 <td><p>Headers for serving a stored screenshot (issue #15).</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#heed.redact_text" title="heed.redact_text"><code class="xref py py-obj docutils literal notranslate"><span class="pre">redact_text</span></code></a>(text)</p></td>
+<td><p>Replace personal data and secrets in <code class="docutils literal notranslate"><span class="pre">text</span></code> by placeholders.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#heed.redact_url" title="heed.redact_url"><code class="xref py py-obj docutils literal notranslate"><span class="pre">redact_url</span></code></a>(url, *[, redactor])</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">url</span></code> without credentials, fragment or query values (keys are kept).</p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="#heed.sinks_by_origin" title="heed.sinks_by_origin"><code class="xref py py-obj docutils literal notranslate"><span class="pre">sinks_by_origin</span></code></a>(sinks, *[, default])</p></td>
 <td><p>A resolver from an <code class="docutils literal notranslate"><span class="pre">{origin:</span> <span class="pre">sink}</span></code> mapping (origins compared normalized).</p></td>
@@ -1414,7 +1422,7 @@ report – and reports can carry personal data. Pass <code class="docutils liter
 
 <dl class="py function">
 <dt class="sig sig-object py" id="heed.make_router">
-<span class="sig-prename descclassname"><span class="pre">heed.</span></span><span class="sig-name descname"><span class="pre">make_router</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sink</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">config</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">attachment_store</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rate_limiter</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">origin_rate_limiter</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bot_verifier</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">user_dependency</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">resolve_sink</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">moderator</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">holding_sink</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">image_sanitizer</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/ingest.html#make_router"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.make_router" title="Link to this definition">#</a></dt>
+<span class="sig-prename descclassname"><span class="pre">heed.</span></span><span class="sig-name descname"><span class="pre">make_router</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sink</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">config</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">attachment_store</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rate_limiter</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">origin_rate_limiter</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bot_verifier</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">user_dependency</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">resolve_sink</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">moderator</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">holding_sink</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">image_sanitizer</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">redactor</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;function</span> <span class="pre">redact_text&gt;</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/ingest.html#make_router"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.make_router" title="Link to this definition">#</a></dt>
 <dd><p>Build a FastAPI APIRouter exposing <code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/report</span></code> (and its CORS preflight).</p>
 <p>Run standalone via <a class="reference internal" href="#heed.make_app" title="heed.make_app"><code class="xref py py-func docutils literal notranslate"><span class="pre">make_app()</span></code></a>, or <code class="docutils literal notranslate"><span class="pre">include_router</span></code> it into an enlace app.
 Provide <code class="docutils literal notranslate"><span class="pre">user_dependency</span></code> (a FastAPI dependency returning a user id or None) to
@@ -1423,7 +1431,10 @@ bind identity when an auth layer like enlace_auth is present.</p>
 <code class="docutils literal notranslate"><span class="pre">rate_limiter</span></code> (per client IP), <code class="docutils literal notranslate"><span class="pre">origin_rate_limiter</span></code> (per Origin) and
 <code class="docutils literal notranslate"><span class="pre">bot_verifier</span></code> (by default built from <code class="docutils literal notranslate"><span class="pre">config.bot_secret</span></code>, i.e. off until a
 secret is configured) and <code class="docutils literal notranslate"><span class="pre">image_sanitizer</span></code> (by default from
-<code class="docutils literal notranslate"><span class="pre">config.screenshot_sanitizer</span></code>: re-encode with Pillow, else a pure-Python strip).</p>
+<code class="docutils literal notranslate"><span class="pre">config.screenshot_sanitizer</span></code>: re-encode with Pillow, else a pure-Python strip).
+Opt-in console/network capture (<code class="docutils literal notranslate"><span class="pre">config.accept_console</span></code>/<code class="docutils literal notranslate"><span class="pre">accept_network</span></code>) is
+masked by <code class="docutils literal notranslate"><span class="pre">redactor</span></code> before any sink sees it; a field the config does not accept
+is never parsed.</p>
 <p>Routing is decided server-side, never by the browser: <code class="docutils literal notranslate"><span class="pre">resolve_sink</span></code> maps the
 validated origin to that site’s sink (<code class="docutils literal notranslate"><span class="pre">sink</span></code> is then the fallback and may be
 None; an origin resolving to no sink gets 403). <code class="docutils literal notranslate"><span class="pre">moderator</span></code> may hold reports in
@@ -1462,11 +1473,13 @@ files shipped in the package; point it elsewhere to serve another build.</p>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="heed.process_submission">
-<span class="sig-prename descclassname"><span class="pre">heed.</span></span><span class="sig-name descname"><span class="pre">process_submission</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">submission</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sink</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">origin</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">user</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">screenshot</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">screenshot_media_type</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'image/png'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">attachment_store</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">config</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">id_gen</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;function</span> <span class="pre">new_report_id&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">clock</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;function</span> <span class="pre">utcnow&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">moderator</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;function</span> <span class="pre">accept_all&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">holding_sink</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/ingest.html#process_submission"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.process_submission" title="Link to this definition">#</a></dt>
+<span class="sig-prename descclassname"><span class="pre">heed.</span></span><span class="sig-name descname"><span class="pre">process_submission</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">submission</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sink</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">origin</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">user</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">screenshot</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">screenshot_media_type</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'image/png'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">attachment_store</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">config</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">id_gen</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;function</span> <span class="pre">new_report_id&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">clock</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;function</span> <span class="pre">utcnow&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">moderator</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;function</span> <span class="pre">accept_all&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">holding_sink</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">redactor</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;function</span> <span class="pre">redact_text&gt;</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/ingest.html#process_submission"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.process_submission" title="Link to this definition">#</a></dt>
 <dd><p>Enrich <code class="docutils literal notranslate"><span class="pre">submission</span></code> into a Report, store any screenshot, and route to <code class="docutils literal notranslate"><span class="pre">sink</span></code>.</p>
 <p>Returns the (report, sink-result) pair. The server owns id/created_at/identity/
 origin/status — never the client. Opt-in capture (console/network) is dropped
-unless enabled in <code class="docutils literal notranslate"><span class="pre">config</span></code>. <code class="docutils literal notranslate"><span class="pre">moderator</span></code> decides first: <code class="docutils literal notranslate"><span class="pre">hold</span></code> sends the report
+unless enabled in <code class="docutils literal notranslate"><span class="pre">config</span></code>, and what is kept is passed through <code class="docutils literal notranslate"><span class="pre">redactor</span></code>
+(personal data and secrets masked, see <code class="docutils literal notranslate"><span class="pre">redact.py</span></code>) whatever the widget did.
+<code class="docutils literal notranslate"><span class="pre">moderator</span></code> decides first: <code class="docutils literal notranslate"><span class="pre">hold</span></code> sends the report
 (status <code class="docutils literal notranslate"><span class="pre">held</span></code>) to <code class="docutils literal notranslate"><span class="pre">holding_sink</span></code> instead, <code class="docutils literal notranslate"><span class="pre">reject</span></code> drops it (status
 <code class="docutils literal notranslate"><span class="pre">declined</span></code>).</p>
 <dl class="field-list simple">
@@ -1502,6 +1515,45 @@ left in place, and not returned.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a>[<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>]</span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="heed.redact_text">
+<span class="sig-prename descclassname"><span class="pre">heed.</span></span><span class="sig-name descname"><span class="pre">redact_text</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">text</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/redact.html#redact_text"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.redact_text" title="Link to this definition">#</a></dt>
+<dd><p>Replace personal data and secrets in <code class="docutils literal notranslate"><span class="pre">text</span></code> by placeholders.</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">redact_text</span><span class="p">(</span><span class="s2">"Authorization: Bearer abc.def.ghi"</span><span class="p">)</span>
+<span class="go">'Authorization: [redacted]'</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">redact_text</span><span class="p">(</span><span class="s2">"paid with 4111 1111 1111 1111, order 1234567890123"</span><span class="p">)</span>
+<span class="go">'paid with [card], order 1234567890123'</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">redact_text</span><span class="p">(</span><span class="s1">'{"password": "hunter2", "user": "ana"}'</span><span class="p">)</span>
+<span class="go">'{"password": "[redacted]", "user": "ana"}'</span>
+</pre></div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="heed.redact_url">
+<span class="sig-prename descclassname"><span class="pre">heed.</span></span><span class="sig-name descname"><span class="pre">redact_url</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">url</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">redactor</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;function</span> <span class="pre">redact_text&gt;</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/redact.html#redact_url"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.redact_url" title="Link to this definition">#</a></dt>
+<dd><p><code class="docutils literal notranslate"><span class="pre">url</span></code> without credentials, fragment or query values (keys are kept).</p>
+<p>Path segments that look like ids (all digits, or 12+ characters with a digit) or
+handles (<code class="docutils literal notranslate"><span class="pre">&#64;name</span></code>) are replaced, path parameters dropped, and the rest of each
+segment redacted as text.</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">redact_url</span><span class="p">(</span><span class="s2">"/api/users/ana@example.com?q=1"</span><span class="p">)</span>
+<span class="go">'/api/users/[email]?q=[redacted]'</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">redact_url</span><span class="p">(</span><span class="s2">"https://app.example/reset/9f8e7d6c5b4a3f2e;jsessionid=X/42"</span><span class="p">)</span>
+<span class="go">'https://app.example/reset/[id]/[id]'</span>
+</pre></div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></span></p>
 </dd>
 </dl>
 </dd></dl>
@@ -1644,22 +1696,25 @@ overrides them.</p>
 <tr class="row-odd"><td><p><a class="reference internal" href="heed.ingest.html#module-heed.ingest" title="heed.ingest"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ingest</span></code></a></p></td>
 <td><p>The ingest layer — build a Report from a submission and route it to a sink.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="heed.routing.html#module-heed.routing" title="heed.routing"><code class="xref py py-obj docutils literal notranslate"><span class="pre">routing</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="heed.redact.html#module-heed.redact" title="heed.redact"><code class="xref py py-obj docutils literal notranslate"><span class="pre">redact</span></code></a></p></td>
+<td><p>Redaction of personal data and secrets in captured console and network entries.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="heed.routing.html#module-heed.routing" title="heed.routing"><code class="xref py py-obj docutils literal notranslate"><span class="pre">routing</span></code></a></p></td>
 <td><p>Where a report goes: server-side site resolution and moderation (holding state).</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="heed.security.html#module-heed.security" title="heed.security"><code class="xref py py-obj docutils literal notranslate"><span class="pre">security</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="heed.security.html#module-heed.security" title="heed.security"><code class="xref py py-obj docutils literal notranslate"><span class="pre">security</span></code></a></p></td>
 <td><p>Public-endpoint hardening (the ingest endpoint is unauthenticated and hostile).</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="heed.serving.html#module-heed.serving" title="heed.serving"><code class="xref py py-obj docutils literal notranslate"><span class="pre">serving</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="heed.serving.html#module-heed.serving" title="heed.serving"><code class="xref py py-obj docutils literal notranslate"><span class="pre">serving</span></code></a></p></td>
 <td><p>Serve stored screenshots: a read-only route meant for its own origin (issue #19).</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="heed.sinks.html#module-heed.sinks" title="heed.sinks"><code class="xref py py-obj docutils literal notranslate"><span class="pre">sinks</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="heed.sinks.html#module-heed.sinks" title="heed.sinks"><code class="xref py py-obj docutils literal notranslate"><span class="pre">sinks</span></code></a></p></td>
 <td><p>Sinks: pluggable report destinations (strategy pattern).</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="heed.storage.html#module-heed.storage" title="heed.storage"><code class="xref py py-obj docutils literal notranslate"><span class="pre">storage</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="heed.storage.html#module-heed.storage" title="heed.storage"><code class="xref py py-obj docutils literal notranslate"><span class="pre">storage</span></code></a></p></td>
 <td><p>Storage helpers — dol-backed stores for reports and binary attachments.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="heed.widget.html#module-heed.widget" title="heed.widget"><code class="xref py py-obj docutils literal notranslate"><span class="pre">widget</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="heed.widget.html#module-heed.widget" title="heed.widget"><code class="xref py py-obj docutils literal notranslate"><span class="pre">widget</span></code></a></p></td>
 <td><p>Serve the embeddable widget, and state the contract it is built against.</p></td>
 </tr>
 </tbody>
@@ -1820,6 +1875,8 @@ overrides them.</p>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.new_report_id"><code class="docutils literal notranslate"><span class="pre">new_report_id()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.process_submission"><code class="docutils literal notranslate"><span class="pre">process_submission()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.recover_claimed"><code class="docutils literal notranslate"><span class="pre">recover_claimed()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.redact_text"><code class="docutils literal notranslate"><span class="pre">redact_text()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.redact_url"><code class="docutils literal notranslate"><span class="pre">redact_url()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.reencode_image"><code class="docutils literal notranslate"><span class="pre">reencode_image()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.release_held"><code class="docutils literal notranslate"><span class="pre">release_held()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.roadmap"><code class="docutils literal notranslate"><span class="pre">roadmap()</span></code></a></li>

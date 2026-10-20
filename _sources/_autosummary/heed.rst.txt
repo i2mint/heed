@@ -26,6 +26,8 @@
       strip_image
       reencode_image
       attachment_headers
+      redact_text
+      redact_url
       sinks_by_origin
       accept_all
       hold_all
@@ -79,6 +81,7 @@
    config
    images
    ingest
+   redact
    routing
    security
    serving

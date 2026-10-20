@@ -25,9 +25,11 @@ Public API (Phase 1):
   > make_image_sanitizer, strip_image, reencode_image, attachment_headers
   > (see misc/docs/embedding-security.md)
   <br/>
+  Privacy   redact_text, redact_url (masking of opt-in console/network capture)
   Routing   sinks_by_origin, Verdict, accept_all, hold_all,
-  : make_heuristic_moderator, chain_moderators, release_held,
-    recover_claimed, discard_held
+  <br/>
+  > make_heuristic_moderator, chain_moderators, release_held,
+  > recover_claimed, discard_held
   <br/>
   Storage   make_report_store, make_holding_store, make_attachment_store
   Serving   make_attachment_router, make_attachment_app, AttachmentSigner,
@@ -70,6 +72,8 @@ True
 | [`strip_image`](#heed.strip_image)(data, media_type)                      | Keep only what renders the image; truncate at its end.                                                                              |
 | [`reencode_image`](#heed.reencode_image)(data, media_type, \*[, max_pixels]) | Strip `data`, then decode it and save its first frame afresh, same format.                                                          |
 | [`attachment_headers`](#heed.attachment_headers)(media_type, \*[, ...])          | Headers for serving a stored screenshot (issue #15).                                                                                |
+| [`redact_text`](#heed.redact_text)(text)                                  | Replace personal data and secrets in `text` by placeholders.                                                                        |
+| [`redact_url`](#heed.redact_url)(url, \*[, redactor])                    | `url` without credentials, fragment or query values (keys are kept).                                                                |
 | [`sinks_by_origin`](#heed.sinks_by_origin)(sinks, \*[, default])              | A resolver from an `{origin: sink}` mapping (origins compared normalized).                                                          |
 | [`accept_all`](#heed.accept_all)(report)                                 | The default moderator: everything goes straight to the sink.                                                                        |
 | [`hold_all`](#heed.hold_all)(report)                                   | Full pre-moderation: every report waits for a human.                                                                                |
@@ -708,7 +712,7 @@ report – and reports can carry personal data. Pass `delete_func` to opt back i
 * **Return type:**
   [`MutableMapping`](https://docs.python.org/3/library/collections.abc.html#collections.abc.MutableMapping)
 
-### heed.make_router(sink, , config=None, attachment_store=None, rate_limiter=None, origin_rate_limiter=None, bot_verifier=None, user_dependency=None, resolve_sink=None, moderator=None, holding_sink=None, image_sanitizer=None)
+### heed.make_router(sink, \*, config=None, attachment_store=None, rate_limiter=None, origin_rate_limiter=None, bot_verifier=None, user_dependency=None, resolve_sink=None, moderator=None, holding_sink=None, image_sanitizer=None, redactor=<function redact_text>)
 
 Build a FastAPI APIRouter exposing `POST /report` (and its CORS preflight).
 
@@ -721,6 +725,9 @@ Hardening defaults come from `config`; any piece can be injected instead:
 `bot_verifier` (by default built from `config.bot_secret`, i.e. off until a
 secret is configured) and `image_sanitizer` (by default from
 `config.screenshot_sanitizer`: re-encode with Pillow, else a pure-Python strip).
+Opt-in console/network capture (`config.accept_console`/`accept_network`) is
+masked by `redactor` before any sink sees it; a field the config does not accept
+is never parsed.
 
 Routing is decided server-side, never by the browser: `resolve_sink` maps the
 validated origin to that site’s sink (`sink` is then the fallback and may be
@@ -748,13 +755,15 @@ Return a fresh opaque report id (uuid4 hex).
 * **Return type:**
   [`str`](https://docs.python.org/3/builtins/stdtypes.html#str)
 
-### heed.process_submission(submission, sink, \*, origin='', user=None, screenshot=None, screenshot_media_type='image/png', attachment_store=None, config=None, id_gen=<function new_report_id>, clock=<function utcnow>, moderator=<function accept_all>, holding_sink=None)
+### heed.process_submission(submission, sink, \*, origin='', user=None, screenshot=None, screenshot_media_type='image/png', attachment_store=None, config=None, id_gen=<function new_report_id>, clock=<function utcnow>, moderator=<function accept_all>, holding_sink=None, redactor=<function redact_text>)
 
 Enrich `submission` into a Report, store any screenshot, and route to `sink`.
 
 Returns the (report, sink-result) pair. The server owns id/created_at/identity/
 origin/status — never the client. Opt-in capture (console/network) is dropped
-unless enabled in `config`. `moderator` decides first: `hold` sends the report
+unless enabled in `config`, and what is kept is passed through `redactor`
+(personal data and secrets masked, see `redact.py`) whatever the widget did.
+`moderator` decides first: `hold` sends the report
 (status `held`) to `holding_sink` instead, `reject` drops it (status
 `declined`).
 
@@ -789,6 +798,40 @@ left in place, and not returned.
 
 * **Return type:**
   [`list`](https://docs.python.org/3/builtins/stdtypes.html#list)[[`str`](https://docs.python.org/3/builtins/stdtypes.html#str)]
+
+### heed.redact_text(text)
+
+Replace personal data and secrets in `text` by placeholders.
+
+```pycon
+>>> redact_text("Authorization: Bearer abc.def.ghi")
+'Authorization: [redacted]'
+>>> redact_text("paid with 4111 1111 1111 1111, order 1234567890123")
+'paid with [card], order 1234567890123'
+>>> redact_text('{"password": "hunter2", "user": "ana"}')
+'{"password": "[redacted]", "user": "ana"}'
+```
+
+* **Return type:**
+  [`str`](https://docs.python.org/3/builtins/stdtypes.html#str)
+
+### heed.redact_url(url, \*, redactor=<function redact_text>)
+
+`url` without credentials, fragment or query values (keys are kept).
+
+Path segments that look like ids (all digits, or 12+ characters with a digit) or
+handles (`@name`) are replaced, path parameters dropped, and the rest of each
+segment redacted as text.
+
+```pycon
+>>> redact_url("/api/users/ana@example.com?q=1")
+'/api/users/[email]?q=[redacted]'
+>>> redact_url("https://app.example/reset/9f8e7d6c5b4a3f2e;jsessionid=X/42")
+'https://app.example/reset/[id]/[id]'
+```
+
+* **Return type:**
+  [`str`](https://docs.python.org/3/builtins/stdtypes.html#str)
 
 ### heed.reencode_image(data, media_type, , max_pixels=25000000)
 
@@ -900,6 +943,7 @@ overrides them.
 | [`config`](heed.config.html.md#module-heed.config)     | Configuration for the heed backend (smart defaults; keyword-only).                 |
 | [`images`](heed.images.html.md#module-heed.images)     | Neutralise uploaded screenshots before they are stored (issue #15).                |
 | [`ingest`](heed.ingest.html.md#module-heed.ingest)     | The ingest layer — build a Report from a submission and route it to a sink.        |
+| [`redact`](heed.redact.html.md#module-heed.redact)     | Redaction of personal data and secrets in captured console and network entries.    |
 | [`routing`](heed.routing.html.md#module-heed.routing)   | Where a report goes: server-side site resolution and moderation (holding state).   |
 | [`security`](heed.security.html.md#module-heed.security) | Public-endpoint hardening (the ingest endpoint is unauthenticated and hostile).    |
 | [`serving`](heed.serving.html.md#module-heed.serving)   | Serve stored screenshots: a read-only route meant for its own origin (issue #19).  |

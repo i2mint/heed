@@ -39,7 +39,7 @@ script and receives its reports.
 * **Return type:**
   `FastAPI`
 
-### heed.ingest.make_router(sink, , config=None, attachment_store=None, rate_limiter=None, origin_rate_limiter=None, bot_verifier=None, user_dependency=None, resolve_sink=None, moderator=None, holding_sink=None, image_sanitizer=None)
+### heed.ingest.make_router(sink, \*, config=None, attachment_store=None, rate_limiter=None, origin_rate_limiter=None, bot_verifier=None, user_dependency=None, resolve_sink=None, moderator=None, holding_sink=None, image_sanitizer=None, redactor=<function redact_text>)
 
 Build a FastAPI APIRouter exposing `POST /report` (and its CORS preflight).
 
@@ -52,6 +52,9 @@ Hardening defaults come from `config`; any piece can be injected instead:
 `bot_verifier` (by default built from `config.bot_secret`, i.e. off until a
 secret is configured) and `image_sanitizer` (by default from
 `config.screenshot_sanitizer`: re-encode with Pillow, else a pure-Python strip).
+Opt-in console/network capture (`config.accept_console`/`accept_network`) is
+masked by `redactor` before any sink sees it; a field the config does not accept
+is never parsed.
 
 Routing is decided server-side, never by the browser: `resolve_sink` maps the
 validated origin to that site’s sink (`sink` is then the fallback and may be
@@ -61,13 +64,15 @@ None; an origin resolving to no sink gets 403). `moderator` may hold reports in
 * **Return type:**
   `APIRouter`
 
-### heed.ingest.process_submission(submission, sink, \*, origin='', user=None, screenshot=None, screenshot_media_type='image/png', attachment_store=None, config=None, id_gen=<function new_report_id>, clock=<function utcnow>, moderator=<function accept_all>, holding_sink=None)
+### heed.ingest.process_submission(submission, sink, \*, origin='', user=None, screenshot=None, screenshot_media_type='image/png', attachment_store=None, config=None, id_gen=<function new_report_id>, clock=<function utcnow>, moderator=<function accept_all>, holding_sink=None, redactor=<function redact_text>)
 
 Enrich `submission` into a Report, store any screenshot, and route to `sink`.
 
 Returns the (report, sink-result) pair. The server owns id/created_at/identity/
 origin/status — never the client. Opt-in capture (console/network) is dropped
-unless enabled in `config`. `moderator` decides first: `hold` sends the report
+unless enabled in `config`, and what is kept is passed through `redactor`
+(personal data and secrets masked, see `redact.py`) whatever the widget did.
+`moderator` decides first: `hold` sends the report
 (status `held`) to `holding_sink` instead, `reject` drops it (status
 `declined`).
 
