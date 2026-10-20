@@ -21,6 +21,7 @@ imported at module level.
 import functools
 import json
 import logging
+import math
 from collections.abc import Callable, MutableMapping
 from typing import Any, Optional
 from urllib.parse import urlsplit
@@ -511,9 +512,30 @@ def make_router(
             "heed: allowed_origins is not set, so any origin may submit reports. "
             "Set HeedConfig(allowed_origins=[...]) in production."
         )
-    retry_after = str(int(cfg.rate_limit_window_seconds))
     pools = _thread_pools(cfg)
     router = APIRouter()
+
+    def _limit_wait(limiter: RateLimiter, key: str) -> float:
+        """Take one request for ``key``: 0 if allowed, else seconds until it would be.
+
+        A limiter with ``acquire`` gives its exact wait; an ``allow``-only one
+        (injected) gets the static window.
+        """
+        acquire = getattr(limiter, "acquire", None)
+        if acquire is not None:
+            return acquire(key)
+        return 0.0 if limiter.allow(key) else cfg.rate_limit_window_seconds
+
+    async def _enforce_limit(limiter: RateLimiter, key: str, origin) -> None:
+        # Limiters may do network I/O (Redis): keep it off the event loop.
+        wait = await _off_loop("limiter", _limit_wait, limiter, key)
+        if wait > 0:
+            raise _fail(
+                429,
+                "rate limit exceeded",
+                origin,
+                **{"Retry-After": str(max(1, math.ceil(wait)))},
+            )
 
     async def _off_loop(kind: str, fn: Callable, *args, **kwargs):
         """Run a blocking ``fn`` in the ``kind`` pool (limiters may hit Redis, etc.)."""
@@ -614,12 +636,8 @@ def make_router(
             ", ".join(request.headers.getlist("x-forwarded-for")) or None,
             trusted_proxies=trusted_networks,
         )
-        # Limiters may do network I/O (Redis): keep it off the event loop.
         bucket = rate_limit_key(ip, ipv6_prefix=cfg.ipv6_rate_limit_prefix)
-        if not await _off_loop("limiter", ip_limiter.allow, bucket):
-            raise _fail(
-                429, "rate limit exceeded", origin, **{"Retry-After": retry_after}
-            )
+        await _enforce_limit(ip_limiter, bucket, origin)
         site_sink = _sink_for(origin)
         if site_sink is None:
             # Same answer as a disallowed origin (no CORS echo), so a page cannot
@@ -686,10 +704,7 @@ def make_router(
         # cheaply. (Origin is a client-set header; see embedding-security.md.)
         if origin_rate_limiter is not None:
             origin_key = normalize_origin(origin) if origin else "-"
-            if not await _off_loop("limiter", origin_rate_limiter.allow, origin_key):
-                raise _fail(
-                    429, "rate limit exceeded", origin, **{"Retry-After": retry_after}
-                )
+            await _enforce_limit(origin_rate_limiter, origin_key, origin)
 
         try:
             submission = _submission_from_fields(fields, cfg)

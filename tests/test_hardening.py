@@ -174,13 +174,25 @@ def test_extra_file_field_rejected():
 
 
 def test_ip_rate_limit_returns_429_with_retry_after():
-    limiter = InMemoryRateLimiter(max_per_window=2)
+    now = [0.0]
+    limiter = InMemoryRateLimiter(max_per_window=2, clock=lambda: now[0])
     client = _client(rate_limiter=limiter)
     codes = [_post(client).status_code for _ in range(3)]
     assert codes == [200, 200, 429]
+    now[0] = 44.5
     resp = _post(client)
-    assert resp.headers["retry-after"] == "60"
+    # The limiter's exact wait (rounded up), not the whole window (i2mint/heed#85)
+    assert resp.headers["retry-after"] == "16"
     assert resp.headers["access-control-allow-origin"] == ORIGIN
+
+
+def test_allow_only_limiter_gets_the_window_as_retry_after():
+    class AllowOnly:
+        def allow(self, key):
+            return False
+
+    resp = _post(_client(rate_limiter=AllowOnly()))
+    assert resp.status_code == 429 and resp.headers["retry-after"] == "60"
 
 
 def test_origin_rate_limit_is_separate():
