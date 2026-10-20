@@ -4,8 +4,9 @@ heed — embeddable, no-install, framework-agnostic end-user feedback.
 
 `heed` lets any visitor of a deployed web app report a bug or request a feature, with
 useful context gathered automatically, routed to a pluggable backend (GitHub Issues
-first). It works standalone and integrates with `enlace` as an optional add-on,
-without depending on it.
+first). It works standalone and integrates with `enlace` as an optional add-on; the
+only part of enlace it uses is the stdlib-only `enlace.ratelimit` (trusted-proxy
+client address and limiters), shared so the mechanism is implemented once.
 
 Phase 1 ships the backend core and the embeddable widget (`widget/`, served by
 [`make_widget_router()`](#heed.make_widget_router)). The competitive
@@ -474,7 +475,7 @@ Configuration for the model, should be a dictionary conforming to [`ConfigDict`]
 
 ### *class* heed.InMemoryRateLimiter(\*, max_per_window=30, window_seconds=60.0, max_keys=100000, clock=<built-in function monotonic>)
 
-Bases: [`object`](https://docs.python.org/3/builtins/functions.html#object)
+Bases: `_WindowKnobs`, `SlidingWindowLimiter`
 
 Sliding-window, in-memory limiter. Per process — NOT shared across workers.
 
@@ -521,24 +522,26 @@ Decide whether a request keyed by `key` (e.g. client IP) is allowed now.
 
 ### *class* heed.RedisRateLimiter(client, \*, max_per_window=30, window_seconds=60.0, namespace='heed:rl', fallback=None, max_keys=100000, clock=<built-in function time>)
 
-Bases: [`object`](https://docs.python.org/3/builtins/functions.html#object)
+Bases: `_WindowKnobs`, `RedisLimiter`
 
 Fixed-window limiter in Redis — one count shared by every worker and host.
 
 `client` is any redis-py compatible client (injected; tests use a fake). When
 Redis errors, the request is decided by `fallback` (a per-process in-memory
 limiter by default), so an outage degrades protection instead of either dropping
-all feedback or removing the limit.
+all feedback or removing the limit. `from_url()` builds the client from a
+`redis://` URL (needs the `[redis]` extra).
 
-#### *classmethod* from_url(url, , socket_timeout=0.5, \*\*kwargs)
+After a Redis error the fallback alone decides for `retry_seconds` (5 s by
+default) before Redis is tried again, so a hung Redis costs one socket timeout
+per interval, not one per request; one warning per outage is logged, on the
+`enlace.ratelimit` logger. An `allow`-only `fallback` is wrapped to answer
+`acquire` too, so `.fallback` is then that wrapper (its `.limiter` is
+yours). Counters are named `{namespace}:{window}:{key}:{window number}`.
 
-Build from a `redis://` URL (needs the `[redis]` extra).
+#### install_hint *= "pip install 'heed[redis]'"*
 
-`socket_timeout` bounds both connect and reads, so a hung Redis costs at most
-that long before the fallback limiter decides.
-
-* **Return type:**
-  [`RedisRateLimiter`](heed.security.html.md#heed.security.RedisRateLimiter)
+Shown when the optional `redis` client is not installed.
 
 ### *class* heed.Report(\*, id=<factory>, created_at=<factory>, category=Category.bug, title, body='', page_url='', env=<factory>, attachments=<factory>, console=None, network=None, identity, origin='', status=Status.received, labels=<factory>, extra=<factory>)
 

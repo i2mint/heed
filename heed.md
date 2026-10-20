@@ -1,4 +1,4 @@
-> built 2026-10-20 14:59 UTC from 8a026e5 (main) · heed 0.0.1. Details: build_info.json
+> built 2026-10-20 15:43 UTC from 07fa2ee (main) · heed 0.0.1. Details: build_info.json
 
 # index.html.md
 
@@ -10,8 +10,9 @@
 that lets *any visitor* of your deployed web app report a bug or request a feature,
 with useful context gathered automatically, routed to a pluggable backend (GitHub
 Issues first). Works standalone; integrates cleanly with
-[`enlace`](https://github.com/i2mint/enlace) as an optional add-on, but does **not**
-depend on it.
+[`enlace`](https://github.com/i2mint/enlace) as an optional add-on, and never needs an
+enlace platform to run. It only reuses enlace’s stdlib-only rate-limit helpers, though
+installing heed installs the `enlace` package with its own dependencies (uvicorn, cw).
 
 > **Status: design phase.** The competitive landscape, the design rationale, and the
 > roadmap live in [`misc/docs/`](). Work is tracked in GitHub
@@ -41,8 +42,11 @@ routes wherever you want.
 
 ## Design principles
 
-- **Standalone first.** No hard `enlace` dependency; enlace integration is an optional
-  `[enlace]` extra with lazy imports.
+- **Standalone first.** heed never needs an enlace platform: the router mounts in any
+  FastAPI app. The one thing it takes from the `enlace` package is `enlace.ratelimit`
+  (trusted-proxy client address + limiters, standard library only), so that security
+  mechanism has one implementation and one test suite; mounting into enlace stays an
+  optional `[enlace]` extra.
 - **Privacy by default.** Heavy capture (console, network, session replay) is opt-in;
   PII masking is designed in, not bolted on.
 - **Public endpoint = hostile input.** Rate limiting, origin checks, payload caps, and
@@ -524,8 +528,9 @@ heed — embeddable, no-install, framework-agnostic end-user feedback.
 
 `heed` lets any visitor of a deployed web app report a bug or request a feature, with
 useful context gathered automatically, routed to a pluggable backend (GitHub Issues
-first). It works standalone and integrates with `enlace` as an optional add-on,
-without depending on it.
+first). It works standalone and integrates with `enlace` as an optional add-on; the
+only part of enlace it uses is the stdlib-only `enlace.ratelimit` (trusted-proxy
+client address and limiters), shared so the mechanism is implemented once.
 
 Phase 1 ships the backend core and the embeddable widget (`widget/`, served by
 [`make_widget_router()`](_autosummary/heed.html.md#heed.make_widget_router)). The competitive
@@ -994,7 +999,7 @@ Configuration for the model, should be a dictionary conforming to [`ConfigDict`]
 
 ### *class* heed.InMemoryRateLimiter(\*, max_per_window=30, window_seconds=60.0, max_keys=100000, clock=<built-in function monotonic>)
 
-Bases: [`object`](https://docs.python.org/3/builtins/functions.html#object)
+Bases: `_WindowKnobs`, `SlidingWindowLimiter`
 
 Sliding-window, in-memory limiter. Per process — NOT shared across workers.
 
@@ -1041,24 +1046,26 @@ Decide whether a request keyed by `key` (e.g. client IP) is allowed now.
 
 ### *class* heed.RedisRateLimiter(client, \*, max_per_window=30, window_seconds=60.0, namespace='heed:rl', fallback=None, max_keys=100000, clock=<built-in function time>)
 
-Bases: [`object`](https://docs.python.org/3/builtins/functions.html#object)
+Bases: `_WindowKnobs`, `RedisLimiter`
 
 Fixed-window limiter in Redis — one count shared by every worker and host.
 
 `client` is any redis-py compatible client (injected; tests use a fake). When
 Redis errors, the request is decided by `fallback` (a per-process in-memory
 limiter by default), so an outage degrades protection instead of either dropping
-all feedback or removing the limit.
+all feedback or removing the limit. `from_url()` builds the client from a
+`redis://` URL (needs the `[redis]` extra).
 
-#### *classmethod* from_url(url, , socket_timeout=0.5, \*\*kwargs)
+After a Redis error the fallback alone decides for `retry_seconds` (5 s by
+default) before Redis is tried again, so a hung Redis costs one socket timeout
+per interval, not one per request; one warning per outage is logged, on the
+`enlace.ratelimit` logger. An `allow`-only `fallback` is wrapped to answer
+`acquire` too, so `.fallback` is then that wrapper (its `.limiter` is
+yours). Counters are named `{namespace}:{window}:{key}:{window number}`.
 
-Build from a `redis://` URL (needs the `[redis]` extra).
+#### install_hint *= "pip install 'heed[redis]'"*
 
-`socket_timeout` bounds both connect and reads, so a hung Redis costs at most
-that long before the fallback limiter decides.
-
-* **Return type:**
-  [`RedisRateLimiter`](_autosummary/heed.security.html.md#heed.security.RedisRateLimiter)
+Shown when the optional `redis` client is not installed.
 
 ### *class* heed.Report(\*, id=<factory>, created_at=<factory>, category=Category.bug, title, body='', page_url='', env=<factory>, attachments=<factory>, console=None, network=None, identity, origin='', status=Status.received, labels=<factory>, extra=<factory>)
 
@@ -2712,22 +2719,19 @@ composes them and deployments swap implementations without touching it:
 
 ### Module Attributes
 
-| [`DEFAULT_MAX_KEYS`](_autosummary/heed.security.html.md#heed.security.DEFAULT_MAX_KEYS)             | Keys an in-memory limiter tracks before evicting the least recently seen.                                                                                                                 |
-|-------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| [`DEFAULT_REDIS_SOCKET_TIMEOUT`](_autosummary/heed.security.html.md#heed.security.DEFAULT_REDIS_SOCKET_TIMEOUT) | a hung Redis costs at most this long.                                                                                                                                                     |
-| [`ATTACHMENT_RESPONSE_HEADERS`](_autosummary/heed.security.html.md#heed.security.ATTACHMENT_RESPONSE_HEADERS)  | Response headers for serving a stored attachment, whatever its bytes contain: never sniffed as another type, never allowed to run script or load anything, never cached by shared caches. |
+| [`ATTACHMENT_RESPONSE_HEADERS`](_autosummary/heed.security.html.md#heed.security.ATTACHMENT_RESPONSE_HEADERS)   | Response headers for serving a stored attachment, whatever its bytes contain: never sniffed as another type, never allowed to run script or load anything, never cached by shared caches.   |
+|--------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 
 ### Functions
 
 | [`attachment_headers`](_autosummary/heed.security.html.md#heed.security.attachment_headers)(media_type, \*[, ...])         | Headers for serving a stored screenshot (issue #15).                            |
 |----------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------|
-| [`client_ip`](_autosummary/heed.security.html.md#heed.security.client_ip)(peer, forwarded_for, \*[, ...])         | The client address to rate-limit on.                                            |
+| [`client_ip`](_autosummary/heed.security.html.md#heed.security.client_ip)(peer, forwarded_for, \*[, ...])         | The client address to rate-limit on (`enlace.ratelimit.client_address()`).      |
 | [`cors_headers`](_autosummary/heed.security.html.md#heed.security.cors_headers)(origin, allowed, \*[, ...])          | CORS response headers for `origin`, or `{}` when it is not allowed.             |
 | [`make_bot_verifier`](_autosummary/heed.security.html.md#heed.security.make_bot_verifier)(provider, secret, \*\*kwargs)   | Return a verifier, or `None` (gate off) when no secret is configured.           |
 | [`make_rate_limiter`](_autosummary/heed.security.html.md#heed.security.make_rate_limiter)([backend, window_seconds, ...]) | Build a limiter from the `rate_limiter_backends` registry by name.              |
 | [`normalize_origin`](_autosummary/heed.security.html.md#heed.security.normalize_origin)(origin)                          | Canonical form of an origin for comparison (lower-case, no trailing slash).     |
 | [`origin_allowed`](_autosummary/heed.security.html.md#heed.security.origin_allowed)(origin, allowed)                   | True if origin is permitted; `allowed=None` allows any (the dev default).       |
-| [`parse_networks`](_autosummary/heed.security.html.md#heed.security.parse_networks)(proxies)                           | Parse IPs/CIDRs (strings or network objects) into networks; raises ValueError.  |
 | [`preflight_headers`](_autosummary/heed.security.html.md#heed.security.preflight_headers)(origin, allowed, \*[, ...])     | Headers answering a CORS preflight, or `{}` when the origin is not allowed.     |
 | [`rate_limit_key`](_autosummary/heed.security.html.md#heed.security.rate_limit_key)(ip, \*[, ipv6_prefix])             | The bucket key for `ip`: IPv4 as-is, IPv6 grouped by its /`ipv6_prefix`.        |
 | [`sniff_image_type`](_autosummary/heed.security.html.md#heed.security.sniff_image_type)(data)                            | The media type of `data` from its magic bytes, or None if not an allowed image. |
@@ -2753,20 +2757,9 @@ Bases: [`Protocol`](https://docs.python.org/3/library/typing.html#typing.Protoco
 
 Verify a human-challenge token server-side; True means “looks human”.
 
-### heed.security.DEFAULT_MAX_KEYS *= 100000*
-
-Keys an in-memory limiter tracks before evicting the least recently seen.
-
-### heed.security.DEFAULT_REDIS_SOCKET_TIMEOUT *= 0.5*
-
-a hung Redis costs at most this long.
-
-* **Type:**
-  Connect/read timeout of the Redis limiter
-
 ### *class* heed.security.InMemoryRateLimiter(\*, max_per_window=30, window_seconds=60.0, max_keys=100000, clock=<built-in function monotonic>)
 
-Bases: [`object`](https://docs.python.org/3/builtins/functions.html#object)
+Bases: `_WindowKnobs`, `SlidingWindowLimiter`
 
 Sliding-window, in-memory limiter. Per process — NOT shared across workers.
 
@@ -2783,24 +2776,26 @@ Decide whether a request keyed by `key` (e.g. client IP) is allowed now.
 
 ### *class* heed.security.RedisRateLimiter(client, \*, max_per_window=30, window_seconds=60.0, namespace='heed:rl', fallback=None, max_keys=100000, clock=<built-in function time>)
 
-Bases: [`object`](https://docs.python.org/3/builtins/functions.html#object)
+Bases: `_WindowKnobs`, `RedisLimiter`
 
 Fixed-window limiter in Redis — one count shared by every worker and host.
 
 `client` is any redis-py compatible client (injected; tests use a fake). When
 Redis errors, the request is decided by `fallback` (a per-process in-memory
 limiter by default), so an outage degrades protection instead of either dropping
-all feedback or removing the limit.
+all feedback or removing the limit. `from_url()` builds the client from a
+`redis://` URL (needs the `[redis]` extra).
 
-#### *classmethod* from_url(url, , socket_timeout=0.5, \*\*kwargs)
+After a Redis error the fallback alone decides for `retry_seconds` (5 s by
+default) before Redis is tried again, so a hung Redis costs one socket timeout
+per interval, not one per request; one warning per outage is logged, on the
+`enlace.ratelimit` logger. An `allow`-only `fallback` is wrapped to answer
+`acquire` too, so `.fallback` is then that wrapper (its `.limiter` is
+yours). Counters are named `{namespace}:{window}:{key}:{window number}`.
 
-Build from a `redis://` URL (needs the `[redis]` extra).
+#### install_hint *= "pip install 'heed[redis]'"*
 
-`socket_timeout` bounds both connect and reads, so a hung Redis costs at most
-that long before the fallback limiter decides.
-
-* **Return type:**
-  [`RedisRateLimiter`](_autosummary/heed.security.html.md#heed.security.RedisRateLimiter)
+Shown when the optional `redis` client is not installed.
 
 ### *class* heed.security.SiteverifyBotVerifier(secret, \*, verify_url='https://challenges.cloudflare.com/turnstile/v0/siteverify', expected_hostnames=None, timeout=5.0, max_token_chars=4096, http_post=<function \_urllib_post_form>)
 
@@ -2835,11 +2830,12 @@ screenshot embedded elsewhere (e.g. in a GitHub issue) needs.
 
 ### heed.security.client_ip(peer, forwarded_for, , trusted_proxies=())
 
-The client address to rate-limit on.
+The client address to rate-limit on (`enlace.ratelimit.client_address()`).
 
 `X-Forwarded-For` is attacker-controlled unless the direct peer is a trusted
 proxy, so it is only consulted then — and read right-to-left, skipping trusted
-hops, so a client cannot prepend a fake address.
+hops, so a client cannot prepend a fake address. A hop that is not an address
+stops the walk (the peer is used).
 
 ```pycon
 >>> client_ip("10.0.0.1", "6.6.6.6, 1.2.3.4", trusted_proxies=["10.0.0.0/8"])
@@ -2904,20 +2900,6 @@ False
 * **Return type:**
   [`bool`](https://docs.python.org/3/builtins/functions.html#bool)
 
-### heed.security.parse_networks(proxies)
-
-Parse IPs/CIDRs (strings or network objects) into networks; raises ValueError.
-
-Call it once at startup so a typo fails loudly there, not on every request.
-
-```pycon
->>> parse_networks(["127.0.0.1", "10.0.0.0/8"])
-[IPv4Network('127.0.0.1/32'), IPv4Network('10.0.0.0/8')]
-```
-
-* **Return type:**
-  [`list`](https://docs.python.org/3/builtins/stdtypes.html#list)[[`IPv4Network`](https://docs.python.org/3/library/ipaddress.html#ipaddress.IPv4Network) | [`IPv6Network`](https://docs.python.org/3/library/ipaddress.html#ipaddress.IPv6Network)]
-
 ### heed.security.preflight_headers(origin, allowed, , allow_credentials=False, max_age_seconds=600, methods='POST, OPTIONS', request_headers=None)
 
 Headers answering a CORS preflight, or `{}` when the origin is not allowed.
@@ -2930,7 +2912,7 @@ Headers answering a CORS preflight, or `{}` when the origin is not allowed.
 The bucket key for `ip`: IPv4 as-is, IPv6 grouped by its /`ipv6_prefix`.
 
 One IPv6 host typically owns a whole /64, so per-address buckets are trivially
-dodged by rotating addresses.
+dodged by rotating addresses (`enlace.ratelimit.bucket_key()`).
 
 ```pycon
 >>> rate_limit_key("2001:db8::1") == rate_limit_key("2001:db8::ffff")
@@ -4112,7 +4094,7 @@ overrides them.
 
 # About this build
 
-This documentation was built on **2026-10-20 14:59 UTC** from commit <a href="https://github.com/i2mint/heed/commit/8a026e580f7e66a48a6b44ad90bf74f995ffea1f"><code>8a026e5</code></a> on branch <code>main</code>, for **heed 0.0.1** (from <code>pyproject.toml</code>).
+This documentation was built on **2026-10-20 15:43 UTC** from commit <a href="https://github.com/i2mint/heed/commit/07fa2ee7e027b9c13d3ab0e2c4cffa53a3d785c6"><code>07fa2ee</code></a> on branch <code>main</code>, for **heed 0.0.1** (from <code>pyproject.toml</code>).
 
 #### WARNING
 The documentation and the package may be misaligned:
@@ -4123,7 +4105,7 @@ The documentation and the package may be misaligned:
 
 |                     |                                                                                                                                                    |
 |---------------------|----------------------------------------------------------------------------------------------------------------------------------------------------|
-| Commit              | <a href="https://github.com/i2mint/heed/commit/8a026e580f7e66a48a6b44ad90bf74f995ffea1f"><code>8a026e580f7e66a48a6b44ad90bf74f995ffea1f</code></a> |
+| Commit              | <a href="https://github.com/i2mint/heed/commit/07fa2ee7e027b9c13d3ab0e2c4cffa53a3d785c6"><code>07fa2ee7e027b9c13d3ab0e2c4cffa53a3d785c6</code></a> |
 | Branch              | <code>main</code>                                                                                                                                  |
 | Tags at this commit | none                                                                                                                                               |
 | Working tree        | clean                                                                                                                                              |
@@ -4134,9 +4116,9 @@ The documentation and the package may be misaligned:
 |              |                                                                                            |
 |--------------|--------------------------------------------------------------------------------------------|
 | Repository   | <code>i2mint/heed</code>                                                                   |
-| Run          | <a href="https://github.com/i2mint/heed/actions/runs/39444070926">39444070926</a>          |
+| Run          | <a href="https://github.com/i2mint/heed/actions/runs/39450837118">39450837118</a>          |
 | Ref          | <code>refs/heads/main</code>                                                               |
-| Event commit | <code>8a026e580f7e66a48a6b44ad90bf74f995ffea1f</code> (in the history of the built commit) |
+| Event commit | <code>07fa2ee7e027b9c13d3ab0e2c4cffa53a3d785c6</code> (in the history of the built commit) |
 
 ## Tools
 
@@ -4167,7 +4149,7 @@ Latest release: <a href="https://pypi.org/project/heed/0.1.0/">0.1.0</a>, newer 
 
 ```bash
 git clone https://github.com/i2mint/heed && cd heed
-git checkout 8a026e580f7e66a48a6b44ad90bf74f995ffea1f
+git checkout 07fa2ee7e027b9c13d3ab0e2c4cffa53a3d785c6
 pip install "epythet==0.2.21"
 epythet quickstart . --ignore tests/ scrap/ examples/
 ```

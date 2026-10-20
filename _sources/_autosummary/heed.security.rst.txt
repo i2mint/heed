@@ -8,8 +8,6 @@ heed.security
 
    .. autosummary::
    
-      DEFAULT_MAX_KEYS
-      DEFAULT_REDIS_SOCKET_TIMEOUT
       ATTACHMENT_RESPONSE_HEADERS
    
    .. rubric:: Functions
@@ -23,7 +21,6 @@ heed.security
       make_rate_limiter
       normalize_origin
       origin_allowed
-      parse_networks
       preflight_headers
       rate_limit_key
       sniff_image_type

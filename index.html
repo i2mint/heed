@@ -341,8 +341,9 @@
 that lets <em>any visitor</em> of your deployed web app report a bug or request a feature,
 with useful context gathered automatically, routed to a pluggable backend (GitHub
 Issues first). Works standalone; integrates cleanly with
-<a class="reference external" href="https://github.com/i2mint/enlace"><code class="docutils literal notranslate"><span class="pre">enlace</span></code></a> as an optional add-on, but does <strong>not</strong>
-depend on it.</p>
+<a class="reference external" href="https://github.com/i2mint/enlace"><code class="docutils literal notranslate"><span class="pre">enlace</span></code></a> as an optional add-on, and never needs an
+enlace platform to run. It only reuses enlace’s stdlib-only rate-limit helpers, though
+installing heed installs the <code class="docutils literal notranslate"><span class="pre">enlace</span></code> package with its own dependencies (uvicorn, cw).</p>
 <blockquote>
 <div><p><strong>Status: design phase.</strong> The competitive landscape, the design rationale, and the
 roadmap live in <a class="reference internal" href="#misc/docs/"><span class="xref myst"><code class="docutils literal notranslate"><span class="pre">misc/docs/</span></code></span></a>. Work is tracked in GitHub
@@ -375,8 +376,11 @@ feedback queue and act on reports.</p></li>
 <section id="design-principles">
 <h2>Design principles<a class="headerlink" href="#design-principles" title="Link to this heading">#</a></h2>
 <ul class="simple">
-<li><p><strong>Standalone first.</strong> No hard <code class="docutils literal notranslate"><span class="pre">enlace</span></code> dependency; enlace integration is an optional
-<code class="docutils literal notranslate"><span class="pre">[enlace]</span></code> extra with lazy imports.</p></li>
+<li><p><strong>Standalone first.</strong> heed never needs an enlace platform: the router mounts in any
+FastAPI app. The one thing it takes from the <code class="docutils literal notranslate"><span class="pre">enlace</span></code> package is <code class="docutils literal notranslate"><span class="pre">enlace.ratelimit</span></code>
+(trusted-proxy client address + limiters, standard library only), so that security
+mechanism has one implementation and one test suite; mounting into enlace stays an
+optional <code class="docutils literal notranslate"><span class="pre">[enlace]</span></code> extra.</p></li>
 <li><p><strong>Privacy by default.</strong> Heavy capture (console, network, session replay) is opt-in;
 PII masking is designed in, not bolted on.</p></li>
 <li><p><strong>Public endpoint = hostile input.</strong> Rate limiting, origin checks, payload caps, and
@@ -454,7 +458,7 @@ sink interface, and the spectrum of approaches with pros/cons.</p></li>
 </section>
 </section>
 
-<p class="epythet-provenance" style="font-size:.8em;opacity:.65;margin-top:2.5em;text-align:right">built 2026-10-20 14:59 UTC from <a href="https://github.com/i2mint/heed/commit/8a026e580f7e66a48a6b44ad90bf74f995ffea1f">8a026e5</a> (main) · heed 0.0.1 · <a href="about-this-build.html">about this build</a></p>
+<p class="epythet-provenance" style="font-size:.8em;opacity:.65;margin-top:2.5em;text-align:right">built 2026-10-20 15:43 UTC from <a href="https://github.com/i2mint/heed/commit/07fa2ee7e027b9c13d3ab0e2c4cffa53a3d785c6">07fa2ee</a> (main) · heed 0.0.1 · <a href="about-this-build.html">about this build</a></p>
 
                 </article>
               

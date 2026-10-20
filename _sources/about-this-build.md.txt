@@ -5,7 +5,7 @@ orphan: true
 
 # About this build
 
-This documentation was built on **2026-10-20 14:59 UTC** from commit <a href="https://github.com/i2mint/heed/commit/8a026e580f7e66a48a6b44ad90bf74f995ffea1f"><code>8a026e5</code></a> on branch <code>main</code>, for **heed 0.0.1** (from <code>pyproject.toml</code>).
+This documentation was built on **2026-10-20 15:43 UTC** from commit <a href="https://github.com/i2mint/heed/commit/07fa2ee7e027b9c13d3ab0e2c4cffa53a3d785c6"><code>07fa2ee</code></a> on branch <code>main</code>, for **heed 0.0.1** (from <code>pyproject.toml</code>).
 
 :::{warning}
 The documentation and the package may be misaligned:
@@ -17,7 +17,7 @@ The documentation and the package may be misaligned:
 
 | | |
 |---|---|
-| Commit | <a href="https://github.com/i2mint/heed/commit/8a026e580f7e66a48a6b44ad90bf74f995ffea1f"><code>8a026e580f7e66a48a6b44ad90bf74f995ffea1f</code></a> |
+| Commit | <a href="https://github.com/i2mint/heed/commit/07fa2ee7e027b9c13d3ab0e2c4cffa53a3d785c6"><code>07fa2ee7e027b9c13d3ab0e2c4cffa53a3d785c6</code></a> |
 | Branch | <code>main</code> |
 | Tags at this commit | none |
 | Working tree | clean |
@@ -28,9 +28,9 @@ The documentation and the package may be misaligned:
 | | |
 |---|---|
 | Repository | <code>i2mint/heed</code> |
-| Run | <a href="https://github.com/i2mint/heed/actions/runs/39444070926">39444070926</a> |
+| Run | <a href="https://github.com/i2mint/heed/actions/runs/39450837118">39450837118</a> |
 | Ref | <code>refs/heads/main</code> |
-| Event commit | <code>8a026e580f7e66a48a6b44ad90bf74f995ffea1f</code> (in the history of the built commit) |
+| Event commit | <code>07fa2ee7e027b9c13d3ab0e2c4cffa53a3d785c6</code> (in the history of the built commit) |
 
 ## Tools
 
@@ -61,7 +61,7 @@ Latest release: <a href="https://pypi.org/project/heed/0.1.0/">0.1.0</a>, newer 
 
 ```bash
 git clone https://github.com/i2mint/heed && cd heed
-git checkout 8a026e580f7e66a48a6b44ad90bf74f995ffea1f
+git checkout 07fa2ee7e027b9c13d3ab0e2c4cffa53a3d785c6
 pip install "epythet==0.2.21"
 epythet quickstart . --ignore tests/ scrap/ examples/
 ```

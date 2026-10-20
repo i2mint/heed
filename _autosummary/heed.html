@@ -410,8 +410,9 @@
 <p>heed — embeddable, no-install, framework-agnostic end-user feedback.</p>
 <p><code class="docutils literal notranslate"><span class="pre">heed</span></code> lets any visitor of a deployed web app report a bug or request a feature, with
 useful context gathered automatically, routed to a pluggable backend (GitHub Issues
-first). It works standalone and integrates with <code class="docutils literal notranslate"><span class="pre">enlace</span></code> as an optional add-on,
-without depending on it.</p>
+first). It works standalone and integrates with <code class="docutils literal notranslate"><span class="pre">enlace</span></code> as an optional add-on; the
+only part of enlace it uses is the stdlib-only <code class="docutils literal notranslate"><span class="pre">enlace.ratelimit</span></code> (trusted-proxy
+client address and limiters), shared so the mechanism is implemented once.</p>
 <p>Phase 1 ships the backend core and the embeddable widget (<code class="docutils literal notranslate"><span class="pre">widget/</span></code>, served by
 <a class="reference internal" href="#heed.make_widget_router" title="heed.make_widget_router"><code class="xref py py-func docutils literal notranslate"><span class="pre">make_widget_router()</span></code></a>). The competitive
 landscape and design rationale live in <code class="docutils literal notranslate"><span class="pre">misc/docs/</span></code>.</p>
@@ -1165,7 +1166,7 @@ stored here — it is used transiently for rate limiting only.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="heed.InMemoryRateLimiter">
 <span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">heed.</span></span><span class="sig-name descname"><span class="pre">InMemoryRateLimiter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_per_window</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">30</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">window_seconds</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">60.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_keys</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">clock</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;built-in</span> <span class="pre">function</span> <span class="pre">monotonic&gt;</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/security.html#InMemoryRateLimiter"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.InMemoryRateLimiter" title="Link to this definition">#</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/builtins/functions.html#object" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">_WindowKnobs</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">SlidingWindowLimiter</span></code></p>
 <p>Sliding-window, in-memory limiter. Per process — NOT shared across workers.</p>
 <p>Fine for a single-worker deployment; with several workers each one counts alone,
 so the effective limit is multiplied. Use <a class="reference internal" href="#heed.RedisRateLimiter" title="heed.RedisRateLimiter"><code class="xref py py-class docutils literal notranslate"><span class="pre">RedisRateLimiter</span></code></a> there. The
@@ -1230,25 +1231,25 @@ flood of distinct keys cannot exhaust memory.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="heed.RedisRateLimiter">
 <span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">heed.</span></span><span class="sig-name descname"><span class="pre">RedisRateLimiter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">client</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_per_window</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">30</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">window_seconds</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">60.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">namespace</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'heed:rl'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fallback</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_keys</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">clock</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;built-in</span> <span class="pre">function</span> <span class="pre">time&gt;</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/security.html#RedisRateLimiter"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.RedisRateLimiter" title="Link to this definition">#</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/builtins/functions.html#object" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">_WindowKnobs</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">RedisLimiter</span></code></p>
 <p>Fixed-window limiter in Redis — one count shared by every worker and host.</p>
 <p><code class="docutils literal notranslate"><span class="pre">client</span></code> is any redis-py compatible client (injected; tests use a fake). When
 Redis errors, the request is decided by <code class="docutils literal notranslate"><span class="pre">fallback</span></code> (a per-process in-memory
 limiter by default), so an outage degrades protection instead of either dropping
-all feedback or removing the limit.</p>
+all feedback or removing the limit. <code class="xref py py-meth docutils literal notranslate"><span class="pre">from_url()</span></code> builds the client from a
+<code class="docutils literal notranslate"><span class="pre">redis://</span></code> URL (needs the <code class="docutils literal notranslate"><span class="pre">[redis]</span></code> extra).</p>
+<p>After a Redis error the fallback alone decides for <code class="docutils literal notranslate"><span class="pre">retry_seconds</span></code> (5 s by
+default) before Redis is tried again, so a hung Redis costs one socket timeout
+per interval, not one per request; one warning per outage is logged, on the
+<code class="docutils literal notranslate"><span class="pre">enlace.ratelimit</span></code> logger. An <code class="docutils literal notranslate"><span class="pre">allow</span></code>-only <code class="docutils literal notranslate"><span class="pre">fallback</span></code> is wrapped to answer
+<code class="docutils literal notranslate"><span class="pre">acquire</span></code> too, so <code class="docutils literal notranslate"><span class="pre">.fallback</span></code> is then that wrapper (its <code class="docutils literal notranslate"><span class="pre">.limiter</span></code> is
+yours). Counters are named <code class="docutils literal notranslate"><span class="pre">{namespace}:{window}:{key}:{window</span> <span class="pre">number}</span></code>.</p>
 <dl class="field-list simple">
 </dl>
-<dl class="py method">
-<dt class="sig sig-object py" id="heed.RedisRateLimiter.from_url">
-<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">from_url</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">url</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">socket_timeout</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.5</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/security.html#RedisRateLimiter.from_url"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.RedisRateLimiter.from_url" title="Link to this definition">#</a></dt>
-<dd><p>Build from a <code class="docutils literal notranslate"><span class="pre">redis://</span></code> URL (needs the <code class="docutils literal notranslate"><span class="pre">[redis]</span></code> extra).</p>
-<p><code class="docutils literal notranslate"><span class="pre">socket_timeout</span></code> bounds both connect and reads, so a hung Redis costs at most
-that long before the fallback limiter decides.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference internal" href="heed.security.html#heed.security.RedisRateLimiter" title="heed.security.RedisRateLimiter"><code class="xref py py-class docutils literal notranslate"><span class="pre">RedisRateLimiter</span></code></a></span></p>
-</dd>
-</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="heed.RedisRateLimiter.install_hint">
+<span class="sig-name descname"><span class="pre">install_hint</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">&quot;pip</span> <span class="pre">install</span> <span class="pre">'heed[redis]'&quot;</span></span><a class="headerlink" href="#heed.RedisRateLimiter.install_hint" title="Link to this definition">#</a></dt>
+<dd><p>Shown when the optional <code class="docutils literal notranslate"><span class="pre">redis</span></code> client is not installed.</p>
 </dd></dl>
 
 </dd></dl>
@@ -2311,7 +2312,7 @@ overrides them.</p>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.RateLimiter"><code class="docutils literal notranslate"><span class="pre">RateLimiter</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.RedisRateLimiter"><code class="docutils literal notranslate"><span class="pre">RedisRateLimiter</span></code></a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.RedisRateLimiter.from_url"><code class="docutils literal notranslate"><span class="pre">RedisRateLimiter.from_url()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.RedisRateLimiter.install_hint"><code class="docutils literal notranslate"><span class="pre">RedisRateLimiter.install_hint</span></code></a></li>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.Report"><code class="docutils literal notranslate"><span class="pre">Report</span></code></a><ul class="nav section-nav flex-column">

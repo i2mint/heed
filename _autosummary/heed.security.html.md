@@ -20,22 +20,19 @@ composes them and deployments swap implementations without touching it:
 
 ### Module Attributes
 
-| [`DEFAULT_MAX_KEYS`](#heed.security.DEFAULT_MAX_KEYS)             | Keys an in-memory limiter tracks before evicting the least recently seen.                                                                                                                 |
-|-------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| [`DEFAULT_REDIS_SOCKET_TIMEOUT`](#heed.security.DEFAULT_REDIS_SOCKET_TIMEOUT) | a hung Redis costs at most this long.                                                                                                                                                     |
-| [`ATTACHMENT_RESPONSE_HEADERS`](#heed.security.ATTACHMENT_RESPONSE_HEADERS)  | Response headers for serving a stored attachment, whatever its bytes contain: never sniffed as another type, never allowed to run script or load anything, never cached by shared caches. |
+| [`ATTACHMENT_RESPONSE_HEADERS`](#heed.security.ATTACHMENT_RESPONSE_HEADERS)   | Response headers for serving a stored attachment, whatever its bytes contain: never sniffed as another type, never allowed to run script or load anything, never cached by shared caches.   |
+|--------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 
 ### Functions
 
 | [`attachment_headers`](#heed.security.attachment_headers)(media_type, \*[, ...])         | Headers for serving a stored screenshot (issue #15).                            |
 |----------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------|
-| [`client_ip`](#heed.security.client_ip)(peer, forwarded_for, \*[, ...])         | The client address to rate-limit on.                                            |
+| [`client_ip`](#heed.security.client_ip)(peer, forwarded_for, \*[, ...])         | The client address to rate-limit on (`enlace.ratelimit.client_address()`).      |
 | [`cors_headers`](#heed.security.cors_headers)(origin, allowed, \*[, ...])          | CORS response headers for `origin`, or `{}` when it is not allowed.             |
 | [`make_bot_verifier`](#heed.security.make_bot_verifier)(provider, secret, \*\*kwargs)   | Return a verifier, or `None` (gate off) when no secret is configured.           |
 | [`make_rate_limiter`](#heed.security.make_rate_limiter)([backend, window_seconds, ...]) | Build a limiter from the `rate_limiter_backends` registry by name.              |
 | [`normalize_origin`](#heed.security.normalize_origin)(origin)                          | Canonical form of an origin for comparison (lower-case, no trailing slash).     |
 | [`origin_allowed`](#heed.security.origin_allowed)(origin, allowed)                   | True if origin is permitted; `allowed=None` allows any (the dev default).       |
-| [`parse_networks`](#heed.security.parse_networks)(proxies)                           | Parse IPs/CIDRs (strings or network objects) into networks; raises ValueError.  |
 | [`preflight_headers`](#heed.security.preflight_headers)(origin, allowed, \*[, ...])     | Headers answering a CORS preflight, or `{}` when the origin is not allowed.     |
 | [`rate_limit_key`](#heed.security.rate_limit_key)(ip, \*[, ipv6_prefix])             | The bucket key for `ip`: IPv4 as-is, IPv6 grouped by its /`ipv6_prefix`.        |
 | [`sniff_image_type`](#heed.security.sniff_image_type)(data)                            | The media type of `data` from its magic bytes, or None if not an allowed image. |
@@ -61,20 +58,9 @@ Bases: [`Protocol`](https://docs.python.org/3/library/typing.html#typing.Protoco
 
 Verify a human-challenge token server-side; True means “looks human”.
 
-### heed.security.DEFAULT_MAX_KEYS *= 100000*
-
-Keys an in-memory limiter tracks before evicting the least recently seen.
-
-### heed.security.DEFAULT_REDIS_SOCKET_TIMEOUT *= 0.5*
-
-a hung Redis costs at most this long.
-
-* **Type:**
-  Connect/read timeout of the Redis limiter
-
 ### *class* heed.security.InMemoryRateLimiter(\*, max_per_window=30, window_seconds=60.0, max_keys=100000, clock=<built-in function monotonic>)
 
-Bases: [`object`](https://docs.python.org/3/builtins/functions.html#object)
+Bases: `_WindowKnobs`, `SlidingWindowLimiter`
 
 Sliding-window, in-memory limiter. Per process — NOT shared across workers.
 
@@ -91,24 +77,26 @@ Decide whether a request keyed by `key` (e.g. client IP) is allowed now.
 
 ### *class* heed.security.RedisRateLimiter(client, \*, max_per_window=30, window_seconds=60.0, namespace='heed:rl', fallback=None, max_keys=100000, clock=<built-in function time>)
 
-Bases: [`object`](https://docs.python.org/3/builtins/functions.html#object)
+Bases: `_WindowKnobs`, `RedisLimiter`
 
 Fixed-window limiter in Redis — one count shared by every worker and host.
 
 `client` is any redis-py compatible client (injected; tests use a fake). When
 Redis errors, the request is decided by `fallback` (a per-process in-memory
 limiter by default), so an outage degrades protection instead of either dropping
-all feedback or removing the limit.
+all feedback or removing the limit. `from_url()` builds the client from a
+`redis://` URL (needs the `[redis]` extra).
 
-#### *classmethod* from_url(url, , socket_timeout=0.5, \*\*kwargs)
+After a Redis error the fallback alone decides for `retry_seconds` (5 s by
+default) before Redis is tried again, so a hung Redis costs one socket timeout
+per interval, not one per request; one warning per outage is logged, on the
+`enlace.ratelimit` logger. An `allow`-only `fallback` is wrapped to answer
+`acquire` too, so `.fallback` is then that wrapper (its `.limiter` is
+yours). Counters are named `{namespace}:{window}:{key}:{window number}`.
 
-Build from a `redis://` URL (needs the `[redis]` extra).
+#### install_hint *= "pip install 'heed[redis]'"*
 
-`socket_timeout` bounds both connect and reads, so a hung Redis costs at most
-that long before the fallback limiter decides.
-
-* **Return type:**
-  [`RedisRateLimiter`](#heed.security.RedisRateLimiter)
+Shown when the optional `redis` client is not installed.
 
 ### *class* heed.security.SiteverifyBotVerifier(secret, \*, verify_url='https://challenges.cloudflare.com/turnstile/v0/siteverify', expected_hostnames=None, timeout=5.0, max_token_chars=4096, http_post=<function \_urllib_post_form>)
 
@@ -143,11 +131,12 @@ screenshot embedded elsewhere (e.g. in a GitHub issue) needs.
 
 ### heed.security.client_ip(peer, forwarded_for, , trusted_proxies=())
 
-The client address to rate-limit on.
+The client address to rate-limit on (`enlace.ratelimit.client_address()`).
 
 `X-Forwarded-For` is attacker-controlled unless the direct peer is a trusted
 proxy, so it is only consulted then — and read right-to-left, skipping trusted
-hops, so a client cannot prepend a fake address.
+hops, so a client cannot prepend a fake address. A hop that is not an address
+stops the walk (the peer is used).
 
 ```pycon
 >>> client_ip("10.0.0.1", "6.6.6.6, 1.2.3.4", trusted_proxies=["10.0.0.0/8"])
@@ -212,20 +201,6 @@ False
 * **Return type:**
   [`bool`](https://docs.python.org/3/builtins/functions.html#bool)
 
-### heed.security.parse_networks(proxies)
-
-Parse IPs/CIDRs (strings or network objects) into networks; raises ValueError.
-
-Call it once at startup so a typo fails loudly there, not on every request.
-
-```pycon
->>> parse_networks(["127.0.0.1", "10.0.0.0/8"])
-[IPv4Network('127.0.0.1/32'), IPv4Network('10.0.0.0/8')]
-```
-
-* **Return type:**
-  [`list`](https://docs.python.org/3/builtins/stdtypes.html#list)[[`IPv4Network`](https://docs.python.org/3/library/ipaddress.html#ipaddress.IPv4Network) | [`IPv6Network`](https://docs.python.org/3/library/ipaddress.html#ipaddress.IPv6Network)]
-
 ### heed.security.preflight_headers(origin, allowed, , allow_credentials=False, max_age_seconds=600, methods='POST, OPTIONS', request_headers=None)
 
 Headers answering a CORS preflight, or `{}` when the origin is not allowed.
@@ -238,7 +213,7 @@ Headers answering a CORS preflight, or `{}` when the origin is not allowed.
 The bucket key for `ip`: IPv4 as-is, IPv6 grouped by its /`ipv6_prefix`.
 
 One IPv6 host typically owns a whole /64, so per-address buckets are trivially
-dodged by rotating addresses.
+dodged by rotating addresses (`enlace.ratelimit.bucket_key()`).
 
 ```pycon
 >>> rate_limit_key("2001:db8::1") == rate_limit_key("2001:db8::ffff")
