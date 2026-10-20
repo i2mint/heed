@@ -45,6 +45,9 @@ Public API (Phase 1):
   <br/>
   Review    ReviewPage, publish_review, review_url, make_review_app (media + a
   : thread under it, behind a capability link; CLI `heed review`)
+  <br/>
+  Triage    triage, Triage, Severity (a proposal per report: injected LLM,
+  : fenced and whitelisted, or keyword rules without one)
 
 ### Example
 
@@ -101,6 +104,7 @@ True
 | [`publish_review`](#heed.publish_review)(media, \*[, title, note, ...])      | Publish `media` as a new review page (or add it to page `to`).                                                                      |
 | [`review_url`](#heed.review_url)(page_id[, base_url])                    | The shareable link of a page: the base URL with the id as its fragment.                                                             |
 | [`make_review_app`](#heed.make_review_app)([rootdir, is_moderator, ...])      | The review API (and, with `serve_shell`, the page at `/`).                                                                          |
+| [`triage`](#heed.triage)(report, \*[, llm, labels])                  | Propose a triage for `report`: by `llm` when given, else by keywords.                                                               |
 
 ### Classes
 
@@ -133,6 +137,8 @@ True
 | [`Comment`](#heed.Comment)(\*, author, body[, at_ms, media, ...])    | A stored comment: the submission plus a server-assigned id, time and role.     |
 | [`CommentSubmission`](#heed.CommentSubmission)(\*, author, body[, at_ms, ...]) | What a visitor may send: a name, a comment, and optionally a media position.   |
 | [`ReviewPage`](#heed.ReviewPage)(\*, id, title[, note, media, ...])     | A published review page (its comments live beside it, in the thread store).    |
+| [`Triage`](#heed.Triage)(\*, category[, labels, severity, ...])     | A triage proposal for one report (a suggestion, never applied silently).       |
+| [`Severity`](#heed.Severity)(\*values)                                | How bad a report is, as triage sees it.                                        |
 
 ### *class* heed.Attachment(, kind='screenshot', media_type='image/png', ref, size=None)
 
@@ -497,6 +503,12 @@ A published review page (its comments live beside it, in the thread store).
 
 Configuration for the model, should be a dictionary conforming to [`ConfigDict`][pydantic.config.ConfigDict].
 
+### *class* heed.Severity(\*values)
+
+Bases: [`str`](https://docs.python.org/3/builtins/stdtypes.html#str), [`Enum`](https://docs.python.org/3/library/enum.html#enum.Enum)
+
+How bad a report is, as triage sees it.
+
 ### *class* heed.Sink(\*args, \*\*kwargs)
 
 Bases: [`Protocol`](https://docs.python.org/3/library/typing.html#typing.Protocol)
@@ -545,6 +557,16 @@ Cheap title-equality duplicate scan over stored reports.
 
 * **Return type:**
   [`list`](https://docs.python.org/3/builtins/stdtypes.html#list)[[`DupCandidate`](heed.sinks.base.html.md#heed.sinks.base.DupCandidate)]
+
+### *class* heed.Triage(\*, category, labels=<factory>, severity=Severity.medium, summary='', fallback=False)
+
+Bases: `BaseModel`
+
+A triage proposal for one report (a suggestion, never applied silently).
+
+#### model_config *: [ClassVar](https://docs.python.org/3/library/typing.html#typing.ClassVar)[ConfigDict]* *= {}*
+
+Configuration for the model, should be a dictionary conforming to [`ConfigDict`][pydantic.config.ConfigDict].
 
 ### *class* heed.Verdict(\*values)
 
@@ -1114,6 +1136,16 @@ False
 
 * **Return type:**
   [`Callable`](https://docs.python.org/3/library/collections.abc.html#collections.abc.Callable)[[`Request`], [`bool`](https://docs.python.org/3/builtins/functions.html#bool)]
+
+### heed.triage(report, , llm=None, labels=('ui', 'performance', 'crash', 'data-loss', 'security', 'accessibility', 'docs', 'auth', 'mobile'))
+
+Propose a triage for `report`: by `llm` when given, else by keywords.
+
+A model that raises or answers badly never fails the call: the safe default
+(`fallback=True`) comes back instead.
+
+* **Return type:**
+  [`Triage`](#heed.Triage)
 
 ### heed.widget_contract(config=None)
 

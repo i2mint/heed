@@ -445,6 +445,8 @@ make_thread_router (a public, persistent comment thread per key)</p>
 </dd>
 <dt>Review    ReviewPage, publish_review, review_url, make_review_app (media + a</dt><dd><p>thread under it, behind a capability link; CLI <code class="docutils literal notranslate"><span class="pre">heed</span> <span class="pre">review</span></code>)</p>
 </dd>
+<dt>Triage    triage, Triage, Severity (a proposal per report: injected LLM,</dt><dd><p>fenced and whitelisted, or keyword rules without one)</p>
+</dd>
 </dl>
 </dd>
 </dl>
@@ -581,6 +583,9 @@ make_thread_router (a public, persistent comment thread per key)</p>
 <tr class="row-even"><td><p><a class="reference internal" href="#heed.make_review_app" title="heed.make_review_app"><code class="xref py py-obj docutils literal notranslate"><span class="pre">make_review_app</span></code></a>([rootdir, is_moderator, ...])</p></td>
 <td><p>The review API (and, with <code class="docutils literal notranslate"><span class="pre">serve_shell</span></code>, the page at <code class="docutils literal notranslate"><span class="pre">/</span></code>).</p></td>
 </tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#heed.triage" title="heed.triage"><code class="xref py py-obj docutils literal notranslate"><span class="pre">triage</span></code></a>(report, *[, llm, labels])</p></td>
+<td><p>Propose a triage for <code class="docutils literal notranslate"><span class="pre">report</span></code>: by <code class="docutils literal notranslate"><span class="pre">llm</span></code> when given, else by keywords.</p></td>
+</tr>
 </tbody>
 </table>
 </div>
@@ -670,6 +675,12 @@ make_thread_router (a public, persistent comment thread per key)</p>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="#heed.ReviewPage" title="heed.ReviewPage"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ReviewPage</span></code></a>(*, id, title[, note, media, ...])</p></td>
 <td><p>A published review page (its comments live beside it, in the thread store).</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#heed.Triage" title="heed.Triage"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Triage</span></code></a>(*, category[, labels, severity, ...])</p></td>
+<td><p>A triage proposal for one report (a suggestion, never applied silently).</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#heed.Severity" title="heed.Severity"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Severity</span></code></a>(*values)</p></td>
+<td><p>How bad a report is, as triage sees it.</p></td>
 </tr>
 </tbody>
 </table>
@@ -1179,6 +1190,13 @@ that long before the fallback limiter decides.</p>
 </dd></dl>
 
 <dl class="py class">
+<dt class="sig sig-object py" id="heed.Severity">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">heed.</span></span><span class="sig-name descname"><span class="pre">Severity</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">values</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/triage.html#Severity"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.Severity" title="Link to this definition">#</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/enum.html#enum.Enum" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Enum</span></code></a></p>
+<p>How bad a report is, as triage sees it.</p>
+</dd></dl>
+
+<dl class="py class">
 <dt class="sig sig-object py" id="heed.Sink">
 <span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">heed.</span></span><span class="sig-name descname"><span class="pre">Sink</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/sinks/base.html#Sink"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.Sink" title="Link to this definition">#</a></dt>
 <dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Protocol" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Protocol</span></code></a></p>
@@ -1238,6 +1256,21 @@ S3, …) — dependency-injected so the sink stays testable.</p>
 <dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a>[<a class="reference internal" href="heed.sinks.base.html#heed.sinks.base.DupCandidate" title="heed.sinks.base.DupCandidate"><code class="xref py py-class docutils literal notranslate"><span class="pre">DupCandidate</span></code></a>]</span></p>
 </dd>
 </dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="heed.Triage">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">heed.</span></span><span class="sig-name descname"><span class="pre">Triage</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">category</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">labels</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">severity</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">Severity.medium</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">summary</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fallback</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/triage.html#Triage"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.Triage" title="Link to this definition">#</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">BaseModel</span></code></p>
+<p>A triage proposal for one report (a suggestion, never applied silently).</p>
+<dl class="field-list simple">
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="heed.Triage.model_config">
+<span class="sig-name descname"><span class="pre">model_config</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.ClassVar" title="(in Python v3.15)"><span class="pre">ClassVar</span></a><span class="p"><span class="pre">[</span></span><span class="pre">ConfigDict</span><span class="p"><span class="pre">]</span></span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{}</span></span><a class="headerlink" href="#heed.Triage.model_config" title="Link to this definition">#</a></dt>
+<dd><p>Configuration for the model, should be a dictionary conforming to [<code class="code docutils literal notranslate"><span class="pre">ConfigDict</span></code>][pydantic.config.ConfigDict].</p>
 </dd></dl>
 
 </dd></dl>
@@ -1927,6 +1960,19 @@ dedicated origin for the review app is the real fix.</p>
 </dd></dl>
 
 <dl class="py function">
+<dt class="sig sig-object py" id="heed.triage">
+<span class="sig-prename descclassname"><span class="pre">heed.</span></span><span class="sig-name descname"><span class="pre">triage</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">report</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">llm</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">labels</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">('ui',</span> <span class="pre">'performance',</span> <span class="pre">'crash',</span> <span class="pre">'data-loss',</span> <span class="pre">'security',</span> <span class="pre">'accessibility',</span> <span class="pre">'docs',</span> <span class="pre">'auth',</span> <span class="pre">'mobile')</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/triage.html#triage"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.triage" title="Link to this definition">#</a></dt>
+<dd><p>Propose a triage for <code class="docutils literal notranslate"><span class="pre">report</span></code>: by <code class="docutils literal notranslate"><span class="pre">llm</span></code> when given, else by keywords.</p>
+<p>A model that raises or answers badly never fails the call: the safe default
+(<code class="docutils literal notranslate"><span class="pre">fallback=True</span></code>) comes back instead.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference internal" href="#heed.Triage" title="heed.triage.Triage"><code class="xref py py-class docutils literal notranslate"><span class="pre">Triage</span></code></a></span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
 <dt class="sig sig-object py" id="heed.widget_contract">
 <span class="sig-prename descclassname"><span class="pre">heed.</span></span><span class="sig-name descname"><span class="pre">widget_contract</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/widget.html#widget_contract"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.widget_contract" title="Link to this definition">#</a></dt>
 <dd><p>What the widget sends and the limits it must respect (from heed’s SSOT).</p>
@@ -2127,6 +2173,7 @@ overrides them.</p>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.ReviewPage.model_config"><code class="docutils literal notranslate"><span class="pre">ReviewPage.model_config</span></code></a></li>
 </ul>
 </li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.Severity"><code class="docutils literal notranslate"><span class="pre">Severity</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.Sink"><code class="docutils literal notranslate"><span class="pre">Sink</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.SinkResult"><code class="docutils literal notranslate"><span class="pre">SinkResult</span></code></a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.SinkResult.model_config"><code class="docutils literal notranslate"><span class="pre">SinkResult.model_config</span></code></a></li>
@@ -2136,6 +2183,10 @@ overrides them.</p>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.Status"><code class="docutils literal notranslate"><span class="pre">Status</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.StoreSink"><code class="docutils literal notranslate"><span class="pre">StoreSink</span></code></a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.StoreSink.find_duplicates"><code class="docutils literal notranslate"><span class="pre">StoreSink.find_duplicates()</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.Triage"><code class="docutils literal notranslate"><span class="pre">Triage</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.Triage.model_config"><code class="docutils literal notranslate"><span class="pre">Triage.model_config</span></code></a></li>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.Verdict"><code class="docutils literal notranslate"><span class="pre">Verdict</span></code></a></li>
@@ -2178,6 +2229,7 @@ overrides them.</p>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.sinks_by_origin"><code class="docutils literal notranslate"><span class="pre">sinks_by_origin()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.strip_image"><code class="docutils literal notranslate"><span class="pre">strip_image()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.token_moderator"><code class="docutils literal notranslate"><span class="pre">token_moderator()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.triage"><code class="docutils literal notranslate"><span class="pre">triage()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.widget_contract"><code class="docutils literal notranslate"><span class="pre">widget_contract()</span></code></a></li>
 </ul>
   </nav></div>

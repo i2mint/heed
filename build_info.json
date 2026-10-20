@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "built_at": "2026-10-20T14:05:44Z",
+  "built_at": "2026-10-20T14:49:28Z",
   "package": {
     "name": "heed",
     "version": "0.0.1",
@@ -9,28 +9,28 @@
   },
   "git": {
     "available": true,
-    "commit": "9700c9d9af6be0b308f84e42c580d6cf87da1b28",
-    "short_commit": "9700c9d",
+    "commit": "793f9568fac5fb4b8a5920804700e0bde61c0fc9",
+    "short_commit": "793f956",
     "branch": "main",
     "tags": [],
     "dirty": false,
     "remote_url": "https://github.com/i2mint/heed",
-    "commit_url": "https://github.com/i2mint/heed/commit/9700c9d9af6be0b308f84e42c580d6cf87da1b28",
+    "commit_url": "https://github.com/i2mint/heed/commit/793f9568fac5fb4b8a5920804700e0bde61c0fc9",
     "error": null
   },
   "ci": {
     "provider": "github",
     "repository": "i2mint/heed",
-    "sha": "9700c9d9af6be0b308f84e42c580d6cf87da1b28",
+    "sha": "793f9568fac5fb4b8a5920804700e0bde61c0fc9",
     "sha_in_history": true,
     "ref": "refs/heads/main",
     "ref_name": "main",
-    "run_id": "39435904558",
-    "run_url": "https://github.com/i2mint/heed/actions/runs/39435904558",
+    "run_id": "39442510202",
+    "run_url": "https://github.com/i2mint/heed/actions/runs/39442510202",
     "server_url": "https://github.com"
   },
   "tools": {
-    "epythet": "0.2.20",
+    "epythet": "0.2.21",
     "sphinx": "9.1.1",
     "docutils": "0.22.4",
     "python": "3.12.15"
@@ -56,7 +56,7 @@
   },
   "site": {
     "modules_documented": 19,
-    "objects_documented": 293
+    "objects_documented": 299
   },
   "pypi": {
     "checked": true,
@@ -64,7 +64,7 @@
     "relation": "behind",
     "error": null
   },
-  "reproduce": "git clone https://github.com/i2mint/heed && cd heed\ngit checkout 9700c9d9af6be0b308f84e42c580d6cf87da1b28\npip install \"epythet==0.2.20\"\nepythet quickstart . --ignore tests/ scrap/ examples/",
+  "reproduce": "git clone https://github.com/i2mint/heed && cd heed\ngit checkout 793f9568fac5fb4b8a5920804700e0bde61c0fc9\npip install \"epythet==0.2.21\"\nepythet quickstart . --ignore tests/ scrap/ examples/",
   "warnings": [],
   "alignment": {
     "aligned": false,

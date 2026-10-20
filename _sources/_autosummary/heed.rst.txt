@@ -48,6 +48,7 @@
       publish_review
       review_url
       make_review_app
+      triage
    
    .. rubric:: Classes
 
@@ -81,6 +82,8 @@
       Comment
       CommentSubmission
       ReviewPage
+      Triage
+      Severity
    
 .. rubric:: Modules
 
