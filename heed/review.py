@@ -3,7 +3,9 @@
 Publish one or more media files under a title and get a link; whoever has the link
 watches the media and reads and adds comments (a name per comment, optionally pinned
 to a moment in the video), on every visit, without an account. The owner deletes
-comments, over HTTP when an auth layer says so (``is_moderator``) or from the CLI.
+comments, over HTTP when ``is_moderator`` says so or from the CLI. On an origin shared
+with other apps, use ``token_moderator`` (a typed-in secret) rather than a login alone:
+a login is ambient, so any script on that origin acts as the owner (#74).
 
 The link is a **capability**: the page id is 128 random bits and travels in the URL
 *fragment* (``https://host/review/#<id>``), so the link itself is never sent in a
@@ -472,6 +474,12 @@ def main(argv: list[str] | None = None) -> int:
     srv = sub.add_parser("serve", help="run the review app (needs uvicorn)")
     srv.add_argument("--host", default="127.0.0.1")
     srv.add_argument("--port", type=int, default=8077)
+    srv.add_argument(
+        "--moderator-token-env",
+        metavar="VAR",
+        help="name of an environment variable holding the moderator token "
+        "(deleting comments over HTTP then needs it; see heed.token_moderator)",
+    )
 
     a = p.parse_args(argv)
     if a.cmd == "page-shell":
@@ -501,6 +509,16 @@ def main(argv: list[str] | None = None) -> int:
     if a.cmd == "serve":
         import uvicorn
 
-        uvicorn.run(make_review_app(a.dir), host=a.host, port=a.port)
+        is_moderator = no_moderator
+        if a.moderator_token_env:
+            from heed.threads import token_moderator
+
+            try:
+                token = os.environ.get(a.moderator_token_env, "")
+                is_moderator = token_moderator(token)
+            except ValueError as e:
+                p.error(f"${a.moderator_token_env}: {e}")
+        app = make_review_app(a.dir, is_moderator=is_moderator)
+        uvicorn.run(app, host=a.host, port=a.port)
         return 0
     return 2

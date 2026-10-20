@@ -35,6 +35,7 @@ True
 
 from __future__ import annotations
 
+import hmac
 import ipaddress
 import json
 import logging
@@ -67,6 +68,8 @@ ID_PATTERN = r"^[A-Za-z0-9_-]{1,64}$"
 _ID_RE = re.compile(ID_PATTERN)
 #: The header a moderator's DELETE must carry: a cross-site form cannot set it.
 MODERATE_HEADER = "X-Heed-Moderate"
+#: Shortest accepted moderator token: it guards deletion and the owner badge.
+MIN_TOKEN_LENGTH = 16
 #: Headers on every thread response: never cached, never indexed.
 THREAD_RESPONSE_HEADERS = {
     "Cache-Control": "no-store",
@@ -229,6 +232,55 @@ def email_moderator(emails) -> Callable[[Request], bool]:
     def is_moderator(request: Request) -> bool:
         email = getattr(request.state, "user_email", None) or ""
         return email.strip().lower() in allowed
+
+    return is_moderator
+
+
+#: The header a moderator's browser sends with the secret (see :func:`token_moderator`).
+MODERATOR_TOKEN_HEADER = "X-Heed-Moderator-Token"
+
+
+def token_moderator(
+    token: str, *, also: Callable[[Request], bool] | None = None
+) -> Callable[[Request], bool]:
+    """A moderator check that needs a secret the owner types in, not a login.
+
+    On an origin shared with other apps, a session cookie is ambient authority: any
+    script running there while the owner is logged in can call the API *as* the owner.
+    A secret in a request header is not ambient (the review page keeps it in memory,
+    never in storage), so such a script can neither delete comments nor post badged as
+    the owner. ``also`` (e.g. :func:`email_moderator`) is required too, when given.
+
+    Use a random token (``secrets.token_urlsafe(24)``). This raises the bar, it is not a
+    wall: a hostile script on the same origin can still open the review page in a frame
+    and hook it before the owner types the token, or phish with its own prompt. A
+    dedicated origin for the review app is the real fix.
+
+    >>> from types import SimpleNamespace as NS
+    >>> check = token_moderator("s3cret-token-value")
+    >>> check(NS(headers={"X-Heed-Moderator-Token": "s3cret-token-value"}))
+    True
+    >>> check(NS(headers={}))
+    False
+    """
+    if (
+        not isinstance(token, str)
+        or len(token) < MIN_TOKEN_LENGTH
+        or not token.isascii()
+        or not token.isprintable()
+        or token != token.strip()
+    ):
+        raise ValueError(
+            f"the moderator token must be printable ASCII without surrounding spaces, "
+            f"at least {MIN_TOKEN_LENGTH} characters (e.g. secrets.token_urlsafe(24))"
+        )
+    expected = token.encode()
+
+    def is_moderator(request: Request) -> bool:
+        given = (request.headers.get(MODERATOR_TOKEN_HEADER) or "").encode()
+        if not hmac.compare_digest(given, expected):
+            return False
+        return bool(also(request)) if also is not None else True
 
     return is_moderator
 
