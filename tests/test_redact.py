@@ -102,3 +102,19 @@ def test_redact_text_masks_urls_and_nested_values():
     assert out == "cb https://app.example/cb?code=[redacted]&sig=[redacted] then"
     nested = redact_text('{"auth": {"token": "SECRETVALUE123"}, "sig": "x"}')
     assert "SECRETVALUE123" not in nested and '"sig": "[redacted]"' in nested
+
+
+@pytest.mark.parametrize(
+    "url, expected",
+    [
+        ("/s/AbCdEfGhIjKlMnOpQrSt", "/s/[id]"),
+        ("/s/token%2EwithDots%2E9x8y7z", "/s/[id]"),
+        ("/r/AbCdEfGhIjKlMn%2FOpQrSt", "/r/[id]"),
+        ("/auth/eyJhbGci.eyJzdWIi.sigpart", "/auth/[id]"),
+        ("/help/terms-and-conditions-page", "/help/terms-and-conditions-page"),
+        ("mailto:ana@example.com?subject=hi", "mailto:[redacted]"),
+        ("data:text/plain;base64,QUJD", "data:[redacted]"),
+    ],
+)
+def test_redact_url_catches_hidden_tokens(url, expected):
+    assert redact_url(url) == expected

@@ -18,9 +18,11 @@ The widget's ``mask.ts`` mirrors these rules; keep the two in step.
 
 from __future__ import annotations
 
+import math
 import re
+from collections import Counter
 from collections.abc import Callable, Iterable
-from urllib.parse import parse_qsl, urlsplit, urlunsplit
+from urllib.parse import parse_qsl, unquote, urlsplit, urlunsplit
 
 from heed.base import LogEntry, NetEntry
 
@@ -178,12 +180,39 @@ def redact_text(text: str) -> str:
     return _CARD_CANDIDATE.sub(_mask_card, text)
 
 
-_ID_SEGMENT = re.compile(r"\d+|(?=[A-Za-z_-]*\d)[A-Za-z0-9_-]{12,}")
+_ID_SEGMENT = re.compile(r"\d+|(?=[A-Za-z_.~+=-]*\d)[A-Za-z0-9_.~+=-]{12,}")
+_TOKEN_CHARS = re.compile(r"[A-Za-z0-9_.~+=-]+")
+_OPAQUE_SCHEMES = frozenset({"mailto", "tel", "sms", "data", "javascript", "blob"})
+_MIN_LETTER_TOKEN_LEN = 16  # all-letter tokens shorter than this read as words
+_MIN_TOKEN_ENTROPY = 3.5  # bits per character; slugs and words fall below
+
+
+def _entropy(text: str) -> float:
+    counts = Counter(text)
+    return -sum(c / len(text) * math.log2(c / len(text)) for c in counts.values())
+
+
+def _looks_like_token(segment: str) -> bool:
+    """Whether ``segment`` (percent-decoded) is an id or an opaque token.
+
+    >>> [_looks_like_token(s) for s in ("42", "AbCdEfGhIjKlMnOpQrSt", "eyJh.eyJz.sig9",
+    ...                                 "settings", "terms-and-conditions-page")]
+    [True, True, True, False, False]
+    """
+    if _ID_SEGMENT.fullmatch(segment):
+        return True
+    return (
+        len(segment) >= _MIN_LETTER_TOKEN_LEN
+        and _TOKEN_CHARS.fullmatch(segment) is not None
+        and segment != segment.lower()
+        and _entropy(segment) >= _MIN_TOKEN_ENTROPY
+    )
 
 
 def _redact_segment(segment: str, redactor: Redactor) -> str:
     segment = segment.split(";", 1)[0]  # path parameters (;jsessionid=...)
-    if _ID_SEGMENT.fullmatch(segment):
+    decoded = unquote(segment)
+    if _looks_like_token(decoded) or _looks_like_token(decoded.replace("/", "")):
         return "[id]"
     if segment.startswith("@"):
         return "[user]"
@@ -201,11 +230,17 @@ def redact_url(url: str, *, redactor: Redactor = redact_text) -> str:
     '/api/users/[email]?q=[redacted]'
     >>> redact_url("https://app.example/reset/9f8e7d6c5b4a3f2e;jsessionid=X/42")
     'https://app.example/reset/[id]/[id]'
+    >>> redact_url("https://app.example/r/AbCdEfGhIjKlMnOpQr%2Fx/eyJhbGci.eyJzdWIi.sigpart")
+    'https://app.example/r/[id]/[id]'
+    >>> redact_url("mailto:ana@example.com")
+    'mailto:[redacted]'
     """
     try:
         parts = urlsplit(url)
     except ValueError:
         return redactor(url)
+    if parts.scheme.lower() in _OPAQUE_SCHEMES:  # payload is not a path
+        return f"{parts.scheme.lower()}:{REDACTED}"
     host = parts.hostname or ""
     if ":" in host:  # IPv6 literal
         host = f"[{host}]"
