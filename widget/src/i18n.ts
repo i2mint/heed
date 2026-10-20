@@ -6,7 +6,7 @@
  *     strings, in any language; the strongest layer.
  *   - `lang` option / attribute: a language tag; empty picks the nearest `lang`
  *     attribute above the element, then `navigator.language`, then English.
- *   - The built-in translations (`locales.ts`: es, fr, de, pt) are not part of the
+ *   - The built-in translations (`locales.ts`: es, fr, de, pt, pt-PT) are not part of the
  *     widget bundle. They are fetched on first use, only for a visitor whose language
  *     is not English, through `setLocaleLoader` (capture.ts-style file next to the
  *     bundle when served; a dynamic `import()` in the npm package).
@@ -63,7 +63,7 @@ export type Messages = { [K in keyof typeof MESSAGES]: (typeof MESSAGES)[K] exte
 export type MessageOverrides = Partial<Messages>;
 
 /** Languages that have built-in translations (English is the table above). */
-export const LANGUAGES = ["en", "es", "fr", "de", "pt"] as const;
+export const LANGUAGES = ["en", "es", "fr", "de", "pt", "pt-PT"] as const;
 
 /**
  * The language to use: that of the first non-empty tag in `candidates` (like "fr-CA"),
@@ -72,8 +72,10 @@ export const LANGUAGES = ["en", "es", "fr", "de", "pt"] as const;
  */
 export function pickLanguage(...candidates: (string | null | undefined)[]): string {
   const tag = candidates.find((t) => t?.trim());
-  const base = (tag ?? "").trim().toLowerCase().split(/[-_]/)[0];
-  return (LANGUAGES as readonly string[]).includes(base) ? base : "en";
+  const t = `${tag}`.trim().toLowerCase();
+  // Portugal keeps its own table; every other region follows its base language. (No tag: "undefined", so English.)
+  const lang = /^pt.pt/.test(t) ? "pt-PT" : t.split(/[-_]/)[0];
+  return (LANGUAGES as readonly string[]).includes(lang) ? lang : "en";
 }
 
 /** Fetches the translations of one language; null when there are none. */
