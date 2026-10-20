@@ -532,7 +532,7 @@ export class HeedFeedbackElement extends Base {
     ui.shotRow.hidden = !o.screenshot || light;
     const kinds = { console: o.captureConsole, network: o.captureNetwork };
     ui.logsRow.hidden = light || !(kinds.console || kinds.network);
-    if (kinds.console || kinds.network) ensureRecording(this.ownerDocument.defaultView ?? window, kinds, o.endpoint);
+    ensureRecording(this.ownerDocument.defaultView ?? window, kinds, o.endpoint); // also drops a recorder the loader started that no option asks for
     // A light category only hides the row (and `#screenshotToSend` sends nothing): the capture and
     // the visitor's tick survive a round trip, and quick switching starts no second capture.
     if (!light && o.screenshot && ui.dialog.open && ui.done.hidden && !this.#shot) this.#startScreenshot();

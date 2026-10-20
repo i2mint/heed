@@ -10,13 +10,18 @@
  *   2. records its own `data-*` attributes and URL, so the bundle can auto-mount the
  *      widget with those options and default the endpoint to the backend that served
  *      this file;
- *   3. loads the widget bundle once the page has finished loading (when the browser is
+ *   3. when `data-capture-console` / `data-capture-network` is on the tag, fetches the
+ *      recorder at once (heed#62), so it also sees what the page logs while loading. It
+ *      masks every entry as it records it: nothing is buffered unmasked meanwhile;
+ *   4. loads the widget bundle once the page has finished loading (when the browser is
  *      idle), or at once if the page asks to open the widget. The bundle's
  *      content-hashed name and SRI hash are baked in at build time, so pinning this
  *      loader with SRI pins the whole chain.
  */
 declare const __HEED_BUNDLE__: string;
 declare const __HEED_INTEGRITY__: string;
+declare const __HEED_RECORDER__: string;
+declare const __HEED_RECORDER_INTEGRITY__: string;
 
 type Entry = ArrayLike<unknown> & { off?: unknown };
 type Policy = { createScriptURL(u: string): unknown };
@@ -81,21 +86,32 @@ type TT = { createPolicy(n: string, p: object): Policy };
   }
   w.__heedTT = policy;
   let requested = false;
-  function load() {
-    if (requested) return;
-    requested = true;
+  function inject(file: string, integrity: string) {
+    const href = new URL(file, self!.src).href;
     const s = d.createElement("script");
     try {
-      s.src = (policy ? policy.createScriptURL(url) : url) as string;
+      s.src = (policy ? policy.createScriptURL(href) : href) as string;
     } catch {
       return warn("blocked by Trusted Types; allow the policy `heed` in the CSP trusted-types list");
     }
-    s.integrity = __HEED_INTEGRITY__;
+    s.integrity = integrity;
     s.crossOrigin = "anonymous";
     s.async = true;
     if (self!.nonce) s.nonce = self!.nonce;
-    s.onerror = () => warn(`could not load ${url}`);
+    s.onerror = () => warn(`could not load ${href}`);
     (d.head || d.documentElement).append(s);
+  }
+  function load() {
+    if (requested) return;
+    requested = true;
+    inject(__HEED_BUNDLE__, __HEED_INTEGRITY__);
+  }
+  // The values the widget's own boolean option reads as true (options.ts `parseBool`).
+  const on = (k: string) => /^(|true|1|yes)$/i.test(data[k] ?? "no");
+  const early = { console: on("capture-console"), network: on("capture-network") };
+  if (early.console || early.network) {
+    (w as unknown as { __heedEarly?: object }).__heedEarly = early;
+    inject(__HEED_RECORDER__, __HEED_RECORDER_INTEGRITY__);
   }
   if (queue.some((args) => args[0] === "open")) load();
   const idle = () =>
