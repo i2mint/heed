@@ -18,17 +18,19 @@ route-handler annotations against module globals, so the request/response types 
 imported at module level.
 """
 
+import functools
 import json
 import logging
 from collections.abc import Callable, MutableMapping
 from typing import Any, Optional
 from urllib.parse import urlsplit
 
+import anyio
+import anyio.to_thread
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request, Response
 from fastapi.responses import JSONResponse
 from pydantic import ValidationError
 from python_multipart.exceptions import MultipartParseError
-from starlette.concurrency import run_in_threadpool
 from starlette.datastructures import UploadFile
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.formparsers import MultiPartException
@@ -357,6 +359,66 @@ _OPENAPI_REQUEST_BODY = {
 }
 
 
+#: Kinds of blocking call the router runs off the event loop, each in its own pool
+#: sized by ``HeedConfig.<kind>_threads``.
+THREAD_POOL_KINDS = ("limiter", "bot_verify", "reencode", "delivery")
+
+
+def _thread_pools(cfg: HeedConfig) -> dict[str, anyio.CapacityLimiter]:
+    return {
+        kind: anyio.CapacityLimiter(getattr(cfg, f"{kind}_threads"))
+        for kind in THREAD_POOL_KINDS
+    }
+
+
+def _receipt(
+    report_id: str,
+    *,
+    status: Status = Status.received,
+    ok: bool = True,
+    ref: Optional[str] = None,
+    url: Optional[str] = None,
+) -> dict[str, Any]:
+    """The body of a 200 answer, the same for a delivered, held or dropped report."""
+    return {"id": report_id, "ok": ok, "ref": ref, "url": url, "status": status.value}
+
+
+class _Unprocessable(ValueError):
+    """A submission's text fields do not make a valid report (answered with 422)."""
+
+    def __init__(self, detail: Any):
+        super().__init__(detail)
+        self.detail = detail
+
+
+def _submission_from_fields(
+    fields: dict[str, Any], cfg: HeedConfig
+) -> ReportSubmission:
+    """Validate the text fields of a parsed form into a :class:`ReportSubmission`."""
+    if not isinstance(fields.get("title"), str):
+        raise _Unprocessable("title is required")
+    text = {k: fields.get(k) for k in _TEXT_FIELDS}
+    if any(v is not None and not isinstance(v, str) for v in text.values()):
+        raise _Unprocessable("unexpected file in a text field")
+    try:
+        return _build_submission(
+            title=text["title"],
+            body=text["body"] or "",
+            category=text["category"] or "bug",
+            page_url=text["page_url"] or "",
+            env=text["env"] or "{}",
+            anon_id=text["anon_id"],
+            console=text["console"] if cfg.accept_console else None,
+            network=text["network"] if cfg.accept_network else None,
+        )
+    except ValidationError as e:
+        raise _Unprocessable(_safe_errors(e)) from e
+    except _BadJsonField as e:
+        raise _Unprocessable(str(e)) from e
+    except RecursionError as e:  # nesting too deep for the validator
+        raise _Unprocessable("invalid form data: nested too deeply") from e
+
+
 def make_router(
     sink: Optional[Sink],
     *,
@@ -450,7 +512,13 @@ def make_router(
             "Set HeedConfig(allowed_origins=[...]) in production."
         )
     retry_after = str(int(cfg.rate_limit_window_seconds))
+    pools = _thread_pools(cfg)
     router = APIRouter()
+
+    async def _off_loop(kind: str, fn: Callable, *args, **kwargs):
+        """Run a blocking ``fn`` in the ``kind`` pool (limiters may hit Redis, etc.)."""
+        call = functools.partial(fn, *args, **kwargs)
+        return await anyio.to_thread.run_sync(call, limiter=pools[kind])
 
     async def _no_user() -> Optional[str]:
         return None
@@ -548,7 +616,7 @@ def make_router(
         )
         # Limiters may do network I/O (Redis): keep it off the event loop.
         bucket = rate_limit_key(ip, ipv6_prefix=cfg.ipv6_rate_limit_prefix)
-        if not await run_in_threadpool(ip_limiter.allow, bucket):
+        if not await _off_loop("limiter", ip_limiter.allow, bucket):
             raise _fail(
                 429, "rate limit exceeded", origin, **{"Retry-After": retry_after}
             )
@@ -562,6 +630,34 @@ def make_router(
         request.state.heed_origin = origin
         request.state.heed_ip = ip
         request.state.heed_sink = site_sink
+
+    async def _clean_screenshot(
+        shot: Optional[bytes], category: str, origin: str
+    ) -> tuple[Optional[bytes], str]:
+        """The screenshot to store (sniffed, sanitized, size-checked) and its type."""
+        if shot is None or category in cfg.light_categories:
+            return None, "image/png"  # a light report never keeps one: no 415, no work
+        if len(shot) > cfg.max_screenshot_bytes:
+            raise _fail(413, "screenshot too large", origin)
+        shot_type = sniff_image_type(shot)
+        if shot_type is None:
+            raise _fail(415, "screenshot must be a PNG, JPEG or WebP image", origin)
+        try:
+            shot = await _off_loop("reencode", sanitize_image, shot, shot_type)
+        except SanitizerBusy as e:
+            raise _fail(
+                503,
+                "busy, retry shortly",
+                origin,
+                **{"Retry-After": str(cfg.reencode_retry_after_seconds)},
+            ) from e
+        except ValueError as e:
+            raise _fail(
+                415, "screenshot is not a well-formed PNG, JPEG or WebP image", origin
+            ) from e
+        if len(shot) > cfg.max_screenshot_bytes:  # a re-encode can grow the file
+            raise _fail(413, "screenshot too large", origin)
+        return shot, shot_type
 
     @router.post(
         "/report",
@@ -577,22 +673,12 @@ def make_router(
 
         if cfg.honeypot_field and fields.get(cfg.honeypot_field):
             # Look like success so the bot learns nothing; route nowhere.
-            return JSONResponse(
-                {
-                    "id": new_report_id(),
-                    "ok": True,
-                    "ref": None,
-                    "url": None,
-                    "status": Status.received.value,
-                },
-                headers=_cors(origin),
-            )
+            return JSONResponse(_receipt(new_report_id()), headers=_cors(origin))
 
         if verifier is not None:
             token = fields.get(cfg.bot_token_field)
             token = token if isinstance(token, str) else None
-            human = await run_in_threadpool(verifier.verify, token, remote_ip=ip)
-            if not human:
+            if not await _off_loop("bot_verify", verifier.verify, token, remote_ip=ip):
                 raise _fail(403, "bot verification failed", origin)
 
         # Per-origin limit only counts submissions that passed the honeypot and the
@@ -600,66 +686,22 @@ def make_router(
         # cheaply. (Origin is a client-set header; see embedding-security.md.)
         if origin_rate_limiter is not None:
             origin_key = normalize_origin(origin) if origin else "-"
-            if not await run_in_threadpool(origin_rate_limiter.allow, origin_key):
+            if not await _off_loop("limiter", origin_rate_limiter.allow, origin_key):
                 raise _fail(
                     429, "rate limit exceeded", origin, **{"Retry-After": retry_after}
                 )
 
-        if not isinstance(fields.get("title"), str):
-            raise _fail(422, "title is required", origin)
-        text = {k: fields.get(k) for k in _TEXT_FIELDS}
-        if any(v is not None and not isinstance(v, str) for v in text.values()):
-            raise _fail(422, "unexpected file in a text field", origin)
         try:
-            submission = _build_submission(
-                title=text["title"],
-                body=text["body"] or "",
-                category=text["category"] or "bug",
-                page_url=text["page_url"] or "",
-                env=text["env"] or "{}",
-                anon_id=text["anon_id"],
-                console=text["console"] if cfg.accept_console else None,
-                network=text["network"] if cfg.accept_network else None,
-            )
-        except ValidationError as e:
-            detail = _safe_errors(e)
-            raise _fail(422, detail, origin) from e
-        except _BadJsonField as e:
-            raise _fail(422, str(e), origin) from e
-        except RecursionError as e:  # nesting too deep for the validator
-            raise _fail(422, "invalid form data: nested too deeply", origin) from e
-
-        shot = fields.get("screenshot") or None
-        shot_type = "image/png"
-        if shot is not None and submission.category.value in cfg.light_categories:
-            # a light report never keeps one: drop it before a 415 or a re-encode
-            shot = None
-        if shot is not None:
-            if len(shot) > cfg.max_screenshot_bytes:
-                raise _fail(413, "screenshot too large", origin)
-            shot_type = sniff_image_type(shot)
-            if shot_type is None:
-                raise _fail(415, "screenshot must be a PNG, JPEG or WebP image", origin)
-            try:
-                shot = await run_in_threadpool(sanitize_image, shot, shot_type)
-            except SanitizerBusy as e:
-                raise _fail(
-                    503,
-                    "busy, retry shortly",
-                    origin,
-                    **{"Retry-After": str(cfg.reencode_retry_after_seconds)},
-                ) from e
-            except ValueError as e:
-                raise _fail(
-                    415,
-                    "screenshot is not a well-formed PNG, JPEG or WebP image",
-                    origin,
-                ) from e
-            if len(shot) > cfg.max_screenshot_bytes:  # a re-encode can grow the file
-                raise _fail(413, "screenshot too large", origin)
+            submission = _submission_from_fields(fields, cfg)
+        except _Unprocessable as e:
+            raise _fail(422, e.detail, origin) from e
+        shot, shot_type = await _clean_screenshot(
+            fields.get("screenshot") or None, submission.category.value, origin
+        )
 
         try:
-            report, result = await run_in_threadpool(
+            report, result = await _off_loop(
+                "delivery",
                 process_submission,
                 submission,
                 request.state.heed_sink,
@@ -678,17 +720,13 @@ def make_router(
             raise _fail(502, "the report could not be delivered", origin) from e
         # A rejected report looks received, like a honeypot hit; a held one says so,
         # so the widget can tell a real visitor their report awaits review.
-        held = report.status is Status.held
-        return JSONResponse(
-            {
-                "id": report.id,
-                "ok": result.ok,
-                "ref": None if held else result.external_ref,
-                "url": None if held else result.url,
-                "status": Status.held.value if held else Status.received.value,
-            },
-            headers=_cors(origin),
-        )
+        if report.status is Status.held:
+            body = _receipt(report.id, status=Status.held, ok=result.ok)
+        else:
+            body = _receipt(
+                report.id, ok=result.ok, ref=result.external_ref, url=result.url
+            )
+        return JSONResponse(body, headers=_cors(origin))
 
     return router
 

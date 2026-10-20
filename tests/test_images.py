@@ -412,3 +412,31 @@ def test_router_rechecks_size_after_sanitizing():
     )
     assert _post_shot(TestClient(app), _tiny_png()).status_code == 413
     assert attachments == {}
+
+
+def test_blocking_calls_run_in_their_own_pools(monkeypatch):
+    """#26: a burst of slow bot verifications cannot starve the other kinds of work."""
+    import anyio.to_thread
+
+    from heed import ingest
+
+    seen = []
+    real = anyio.to_thread.run_sync
+
+    async def recording(fn, *args, limiter=None, **kwargs):
+        seen.append(limiter.total_tokens if limiter is not None else None)
+        return await real(fn, *args, limiter=limiter, **kwargs)
+
+    monkeypatch.setattr(ingest.anyio.to_thread, "run_sync", recording)
+    cfg = HeedConfig(
+        allowed_origins=[ORIGIN],
+        limiter_threads=3,
+        reencode_threads=5,
+        delivery_threads=7,
+        screenshot_sanitizer="strip",
+    )
+    app = FastAPI()
+    app.include_router(make_router(StoreSink({}), config=cfg, attachment_store={}))
+    assert _post_shot(TestClient(app), _tiny_png()).status_code == 200
+    # ip limiter, origin limiter, re-encode, delivery: none in the default pool
+    assert seen == [3, 3, 5, 7]

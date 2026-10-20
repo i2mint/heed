@@ -25,6 +25,8 @@ dependencies = [
     # Request.form(max_part_size=...) (starlette 0.44) for the payload caps.
     "starlette>=0.44",
     "python-multipart>=0.0.18",
+    # CapacityLimiter built outside an event loop: one thread pool per blocking kind.
+    "anyio>=4.5",
     "dol>=0.3.37",
 ]
 
