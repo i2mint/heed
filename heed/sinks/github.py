@@ -102,7 +102,7 @@ class GitHubIssuesSink(BaseSink):
         allowed_report_labels: Iterable[str] = (),
     ):
         self._create_issue = create_issue
-        self._allowed_report_labels = frozenset(allowed_report_labels)
+        self._allowed_report_labels = frozenset(_fold(x) for x in allowed_report_labels)
         self._screenshot_url = screenshot_url
         # ``label_map`` is the labels-only spelling and, as before, replaces the whole
         # label table (a category it omits gets no label).
@@ -125,7 +125,7 @@ class GitHubIssuesSink(BaseSink):
             DEFAULT_STATUS_LABELS if status_labels is None else status_labels
         )
         # Never let a reporter apply the board's gate or a maintainer status label.
-        self._reserved_labels = {self._public_label, *self._status_labels}
+        self._reserved_labels = {_fold(x) for x in (self._public_label, *self._status_labels)}
 
     def treatment(self, category: Category) -> CategoryTreatment:
         """The treatment applied to reports of ``category``."""
@@ -136,7 +136,8 @@ class GitHubIssuesSink(BaseSink):
         labels = list(treatment.labels) + [
             label
             for label in report.labels
-            if label in self._allowed_report_labels and label not in self._reserved_labels
+            if _fold(label) in self._allowed_report_labels
+            and _fold(label) not in self._reserved_labels
         ]
         light = treatment.detail == "light"
         # A screenshot the server kept is always linked, even in a light issue: kept
@@ -241,6 +242,11 @@ def _resolve(
     )
 
 
+def _fold(label: str) -> str:
+    """GitHub label names are case-insensitive; compare them folded."""
+    return str(label).strip().casefold()
+
+
 def _label_name(label: Any) -> str:
     return str(label.get("name", "")) if isinstance(label, Mapping) else str(label)
 
@@ -254,7 +260,7 @@ def _votes(issue: Mapping[str, Any]) -> int:
 _REF_CHARS = re.compile(r"(?<![\w`])([@#])(?=\w)")
 # Bare issue/PR URLs and commit SHAs (7-40 hex chars) are auto-linked by GitHub too.
 _GH_URL = re.compile(r"(?i)(github)\.com/(?=[\w.-]+/[\w.-]+/(?:issues|pull)/\d)")
-_SHA = re.compile(r"\b[0-9a-f]{7,40}\b", re.I)
+_SHA = re.compile(r"\b(?=[0-9a-f]*\d)(?=[0-9a-f]*[a-f])[0-9a-f]{7,40}\b", re.I)
 
 
 def neutralise_refs(text: str) -> str:
