@@ -19,6 +19,7 @@ composes them and deployments swap implementations without touching it:
 
 from __future__ import annotations
 
+import dataclasses
 import json
 import logging
 import time
@@ -173,9 +174,17 @@ class _WindowKnobs:
     def max_per_window(self) -> int:
         return self.rate.limit
 
+    @max_per_window.setter
+    def max_per_window(self, value: int) -> None:
+        self.rate = dataclasses.replace(self.rate, limit=value)
+
     @property
     def window_seconds(self) -> float:
         return self.rate.window
+
+    @window_seconds.setter
+    def window_seconds(self, value: float) -> None:
+        self.rate = dataclasses.replace(self.rate, window=value)
 
 
 class InMemoryRateLimiter(_WindowKnobs, SlidingWindowLimiter):
@@ -218,6 +227,13 @@ class RedisRateLimiter(_WindowKnobs, RedisLimiter):
     limiter by default), so an outage degrades protection instead of either dropping
     all feedback or removing the limit. :meth:`from_url` builds the client from a
     ``redis://`` URL (needs the ``[redis]`` extra).
+
+    After a Redis error the fallback alone decides for ``retry_seconds`` (5 s by
+    default) before Redis is tried again, so a hung Redis costs one socket timeout
+    per interval, not one per request; one warning per outage is logged, on the
+    ``enlace.ratelimit`` logger. An ``allow``-only ``fallback`` is wrapped to answer
+    ``acquire`` too, so ``.fallback`` is then that wrapper (its ``.limiter`` is
+    yours). Counters are named ``{namespace}:{window}:{key}:{window number}``.
     """
 
     install_hint = "pip install 'heed[redis]'"

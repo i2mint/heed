@@ -266,8 +266,25 @@ def test_redis_limiter_accepts_an_allow_only_fallback():
 def test_heed_limiters_keep_their_knobs():
     lim = InMemoryRateLimiter(max_per_window=4, window_seconds=7)
     assert (lim.max_per_window, lim.window_seconds, lim.max_keys) == (4, 7, 100_000)
+    lim.max_per_window, lim.window_seconds = 1, 30  # still assignable
+    assert lim.allow("k") and not lim.allow("k") and lim.acquire("k") <= 30
     red = RedisRateLimiter(object(), max_per_window=2, window_seconds=3)
     assert (red.max_per_window, red.window_seconds, red.namespace) == (2, 3, "heed:rl")
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [
+        {"rate_limit_per_minute": 0},
+        {"origin_rate_limit_per_minute": 0},
+        {"rate_limit_window_seconds": 0},
+    ],
+)
+def test_unenforceable_rate_limits_fail_at_config(bad):
+    from heed.config import HeedConfig
+
+    with pytest.raises(ValueError, match=next(iter(bad))):
+        HeedConfig(**bad)
 
 
 def test_make_rate_limiter_registry():

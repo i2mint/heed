@@ -137,6 +137,16 @@ class HeedConfig:
             if getattr(self, name) < low:
                 value = getattr(self, name)
                 raise ValueError(f"{name} must be at least {low}, got {value}")
+        # A limit that could never be enforced fails here, naming the field.
+        for name in ("rate_limit_per_minute", "origin_rate_limit_per_minute"):
+            value = getattr(self, name)
+            if value is not None and (isinstance(value, bool) or value < 1):
+                raise ValueError(f"{name} must be at least 1, got {value}")
+        if not self.rate_limit_window_seconds > 0:
+            raise ValueError(
+                "rate_limit_window_seconds must be positive, "
+                f"got {self.rate_limit_window_seconds}"
+            )
         if self.redis_socket_timeout_seconds <= 0:
             raise ValueError(
                 "redis_socket_timeout_seconds must be positive, "

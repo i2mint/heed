@@ -26,7 +26,8 @@ contract between the two halves.
   FastAPI router that mounts anywhere, and enlace integration lives in the optional
   `[enlace]` extra, imported lazily. The single exception is the stdlib-only
   `enlace.ratelimit` (client address behind trusted proxies, bucket key, limiters),
-  a hard dependency since i2mint/enlace#97 so that security mechanism exists once;
+  a hard dependency since i2mint/enlace#97 so that security mechanism exists once
+  (installing heed therefore installs enlace and its deps: uvicorn, cw);
   `heed.security` keeps heed's names as thin adapters over it. Fix or extend it in
   enlace, not here.
 - **Pluggable sinks = strategy pattern.** A `Sink` protocol with registered adapters

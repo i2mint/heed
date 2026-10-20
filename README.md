@@ -5,7 +5,8 @@ that lets *any visitor* of your deployed web app report a bug or request a featu
 with useful context gathered automatically, routed to a pluggable backend (GitHub
 Issues first). Works standalone; integrates cleanly with
 [`enlace`](https://github.com/i2mint/enlace) as an optional add-on, and never needs an
-enlace platform to run (it only reuses enlace's stdlib-only rate-limit helpers).
+enlace platform to run. It only reuses enlace's stdlib-only rate-limit helpers, though
+installing heed installs the `enlace` package with its own dependencies (uvicorn, cw).
 
 > **Status: design phase.** The competitive landscape, the design rationale, and the
 > roadmap live in [`misc/docs/`](misc/docs/). Work is tracked in GitHub
