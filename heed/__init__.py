@@ -33,6 +33,8 @@ Public API (Phase 1):
               make_thread_router (a public, persistent comment thread per key)
     Review    ReviewPage, publish_review, review_url, make_review_app (media + a
               thread under it, behind a capability link; CLI ``heed review``)
+    Triage    triage, Triage, Severity (a proposal per report: injected LLM,
+              fenced and whitelisted, or keyword rules without one)
 
 Example:
     >>> from heed import StoreSink, ReportSubmission, process_submission
@@ -111,6 +113,7 @@ from heed.threads import (
     make_thread_router,
     token_moderator,
 )
+from heed.triage import Severity, Triage, triage
 from heed.widget import make_widget_router, widget_contract
 
 __version__ = "0.0.1"
@@ -195,4 +198,8 @@ __all__ = [
     "publish_review",
     "review_url",
     "make_review_app",
+    # triage (#8)
+    "triage",
+    "Triage",
+    "Severity",
 ]
