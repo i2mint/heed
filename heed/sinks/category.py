@@ -26,8 +26,8 @@ from heed.sinks.base import BaseSink, DupCandidate, PublicItem, Sink, SinkResult
 class CategorySink(BaseSink):
     """Route by ``report.category``; unlisted categories go to ``default``."""
 
-    #: Marks a sink that holds other sinks, so code walking a sink tree (the held-report
-    #: release guard) does not mistake any sink that happens to have a ``sinks`` method.
+    #: Marks a sink that holds other sinks, so code walking a sink tree (the
+    #: held-report release guard) does not mistake any sink with a ``sinks`` method.
     is_composite_sink: ClassVar[bool] = True
 
     def __init__(self, sinks: Mapping[Category | str, Sink], *, default: Sink):
@@ -70,18 +70,20 @@ class CategorySink(BaseSink):
             lister = getattr(sink, "public_items", None)
             if callable(lister):
                 for item in _items_of(lister, category):
-                    # (no link: the same item is told apart by what it says, not by its sink)
-                    key = item.url or f"{item.category}|{item.ref}|{item.title}|{item.created_at}"
+                    # (no link: told apart by what it says, not by its sink)
+                    key = item.url or "|".join(
+                        map(str, (item.category, item.ref, item.title, item.created_at))
+                    )
                     items.setdefault(key, item)
         return list(items.values())
 
 
 def _items_of(lister: Callable[..., list[PublicItem]], category: Category | None):
-    """``lister``'s items of ``category``, whether or not it takes a ``category`` keyword.
+    """``lister``'s items of ``category``, with or without a ``category`` keyword.
 
-    A third-party sink's ``public_items`` may not (the :class:`~heed.board.BoardSource`
-    protocol names the keyword, but a duck-typed sink can differ): it is then called bare
-    and filtered here, never failed on.
+    A third-party sink's ``public_items`` may not (the
+    :class:`~heed.board.BoardSource` protocol names the keyword, but a duck-typed sink
+    can differ): it is then called bare and filtered here, never failed on.
     """
     if category is None:
         return lister()
