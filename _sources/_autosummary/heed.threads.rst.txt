@@ -11,7 +11,9 @@ heed.threads
       MEDIA_NAME_PATTERN
       ID_PATTERN
       MODERATE_HEADER
+      MIN_TOKEN_LENGTH
       THREAD_RESPONSE_HEADERS
+      MODERATOR_TOKEN_HEADER
    
    .. rubric:: Functions
 
@@ -27,6 +29,7 @@ heed.threads
       memory_threads
       new_comment_id
       no_moderator
+      token_moderator
       valid_id
    
    .. rubric:: Classes

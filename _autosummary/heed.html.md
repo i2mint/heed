@@ -40,8 +40,8 @@ Public API (Phase 1):
   : widget_contract (what the widget sends; SSOT for widget/)
   <br/>
   Threads   Comment, CommentSubmission, add_comment, list_comments,
-  : delete_comment, email_moderator, make_thread_router (a public,
-    persistent comment thread per key)
+  : delete_comment, email_moderator, token_moderator,
+    make_thread_router (a public, persistent comment thread per key)
   <br/>
   Review    ReviewPage, publish_review, review_url, make_review_app (media + a
   : thread under it, behind a capability link; CLI `heed review`)
@@ -96,6 +96,7 @@ True
 | [`list_comments`](#heed.list_comments)(store)                               | A thread's comments, oldest first.                                                                                                  |
 | [`delete_comment`](#heed.delete_comment)(store, comment_id)                  | Delete one comment; `False` if there was none (or the id is invalid).                                                               |
 | [`email_moderator`](#heed.email_moderator)(emails)                            | A moderator check passing requests whose authenticated email is in `emails`.                                                        |
+| [`token_moderator`](#heed.token_moderator)(token, \*[, also])                 | A moderator check that needs a secret the owner types in, not a login.                                                              |
 | [`make_thread_router`](#heed.make_thread_router)([threads, thread_exists, ...])  | The HTTP surface of comment threads (`threads`: thread id -> its store).                                                            |
 | [`publish_review`](#heed.publish_review)(media, \*[, title, note, ...])      | Publish `media` as a new review page (or add it to page `to`).                                                                      |
 | [`review_url`](#heed.review_url)(page_id[, base_url])                    | The shareable link of a page: the base URL with the id as its fragment.                                                             |
@@ -1086,6 +1087,33 @@ one too costly to decode (over `MAX_JPEG_SCANS` scans, `_MAX_PARTS` parts).
 
 * **Return type:**
   [`bytes`](https://docs.python.org/3/builtins/stdtypes.html#bytes)
+
+### heed.token_moderator(token, , also=None)
+
+A moderator check that needs a secret the owner types in, not a login.
+
+On an origin shared with other apps, a session cookie is ambient authority: any
+script running there while the owner is logged in can call the API *as* the owner.
+A secret in a request header is not ambient (the review page keeps it in memory,
+never in storage), so such a script can neither delete comments nor post badged as
+the owner. `also` (e.g. [`email_moderator()`](#heed.email_moderator)) is required too, when given.
+
+Use a random token (`secrets.token_urlsafe(24)`). This raises the bar, it is not a
+wall: a hostile script on the same origin can still open the review page in a frame
+and hook it before the owner types the token, or phish with its own prompt. A
+dedicated origin for the review app is the real fix.
+
+```pycon
+>>> from types import SimpleNamespace as NS
+>>> check = token_moderator("s3cret-token-value")
+>>> check(NS(headers={"X-Heed-Moderator-Token": "s3cret-token-value"}))
+True
+>>> check(NS(headers={}))
+False
+```
+
+* **Return type:**
+  [`Callable`](https://docs.python.org/3/library/collections.abc.html#collections.abc.Callable)[[`Request`], [`bool`](https://docs.python.org/3/builtins/functions.html#bool)]
 
 ### heed.widget_contract(config=None)
 

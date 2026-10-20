@@ -103,7 +103,7 @@ heed review publish cut2.mp4 --to <page-id>                          # a new cut
 heed review comments <page-id> --json                                # read the feedback back
 ```
 
-The link is a capability (128 random bits in the URL fragment); the thread endpoint is rate-limited, capped and honeypotted. Serve it with `make_review_app(rootdir, is_moderator=email_moderator([...]))`, or `heed review serve`. The reusable part is `heed.threads` (a hardened comment thread per key, `make_thread_router`); `heed.review` is one consumer of it. Agents: the shipped skill `heed/data/skills/heed-review`. Rationale: [`misc/docs/adr/0001-review-pages-and-comment-threads-live-in-heed.md`]().
+The link is a capability (128 random bits in the URL fragment); the thread endpoint is rate-limited, capped and honeypotted. Serve it with `make_review_app(rootdir, is_moderator=email_moderator([...]))`, or `heed review serve`. On an origin shared with other apps, a login is ambient authority (any script there acts as the owner), so require a typed-in secret instead: `is_moderator=token_moderator(secret, also=email_moderator([...]))` (`heed review serve --moderator-token-env VAR`); the review page’s *Moderate* button asks for it and keeps it in memory only. A dedicated origin (e.g. `review.<domain>`) is the stronger fix and is a deployment decision. The reusable part is `heed.threads` (a hardened comment thread per key, `make_thread_router`); `heed.review` is one consumer of it. Agents: the shipped skill `heed/data/skills/heed-review`. Rationale: [`misc/docs/adr/0001-review-pages-and-comment-threads-live-in-heed.md`]().
 
 ## Documents
 

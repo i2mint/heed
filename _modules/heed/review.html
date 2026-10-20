@@ -717,7 +717,9 @@ window.runMermaid = runMermaid;</script>
 <span class="sd">Publish one or more media files under a title and get a link; whoever has the link</span>
 <span class="sd">watches the media and reads and adds comments (a name per comment, optionally pinned</span>
 <span class="sd">to a moment in the video), on every visit, without an account. The owner deletes</span>
-<span class="sd">comments, over HTTP when an auth layer says so (``is_moderator``) or from the CLI.</span>
+<span class="sd">comments, over HTTP when ``is_moderator`` says so or from the CLI. On an origin shared</span>
+<span class="sd">with other apps, use ``token_moderator`` (a typed-in secret) rather than a login alone:</span>
+<span class="sd">a login is ambient, so any script on that origin acts as the owner (#74).</span>
 
 <span class="sd">The link is a **capability**: the page id is 128 random bits and travels in the URL</span>
 <span class="sd">*fragment* (``https://host/review/#&lt;id&gt;``), so the link itself is never sent in a</span>
@@ -1236,6 +1238,12 @@ window.runMermaid = runMermaid;</script>
     <span class="n">srv</span> <span class="o">=</span> <span class="n">sub</span><span class="o">.</span><span class="n">add_parser</span><span class="p">(</span><span class="s2">"serve"</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">"run the review app (needs uvicorn)"</span><span class="p">)</span>
     <span class="n">srv</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">"--host"</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="s2">"127.0.0.1"</span><span class="p">)</span>
     <span class="n">srv</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">"--port"</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="mi">8077</span><span class="p">)</span>
+    <span class="n">srv</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">"--moderator-token-env"</span><span class="p">,</span>
+        <span class="n">metavar</span><span class="o">=</span><span class="s2">"VAR"</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">"name of an environment variable holding the moderator token "</span>
+        <span class="s2">"(deleting comments over HTTP then needs it; see heed.token_moderator)"</span><span class="p">,</span>
+    <span class="p">)</span>
 
     <span class="n">a</span> <span class="o">=</span> <span class="n">p</span><span class="o">.</span><span class="n">parse_args</span><span class="p">(</span><span class="n">argv</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">a</span><span class="o">.</span><span class="n">cmd</span> <span class="o">==</span> <span class="s2">"page-shell"</span><span class="p">:</span>
@@ -1265,7 +1273,17 @@ window.runMermaid = runMermaid;</script>
     <span class="k">if</span> <span class="n">a</span><span class="o">.</span><span class="n">cmd</span> <span class="o">==</span> <span class="s2">"serve"</span><span class="p">:</span>
         <span class="kn">import</span><span class="w"> </span><span class="nn">uvicorn</span>
 
-        <span class="n">uvicorn</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">make_review_app</span><span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">dir</span><span class="p">),</span> <span class="n">host</span><span class="o">=</span><span class="n">a</span><span class="o">.</span><span class="n">host</span><span class="p">,</span> <span class="n">port</span><span class="o">=</span><span class="n">a</span><span class="o">.</span><span class="n">port</span><span class="p">)</span>
+        <span class="n">is_moderator</span> <span class="o">=</span> <span class="n">no_moderator</span>
+        <span class="k">if</span> <span class="n">a</span><span class="o">.</span><span class="n">moderator_token_env</span><span class="p">:</span>
+            <span class="kn">from</span><span class="w"> </span><span class="nn">heed.threads</span><span class="w"> </span><span class="kn">import</span> <span class="n">token_moderator</span>
+
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">token</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">moderator_token_env</span><span class="p">,</span> <span class="s2">""</span><span class="p">)</span>
+                <span class="n">is_moderator</span> <span class="o">=</span> <span class="n">token_moderator</span><span class="p">(</span><span class="n">token</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="n">p</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">"$</span><span class="si">{</span><span class="n">a</span><span class="o">.</span><span class="n">moderator_token_env</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+        <span class="n">app</span> <span class="o">=</span> <span class="n">make_review_app</span><span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">dir</span><span class="p">,</span> <span class="n">is_moderator</span><span class="o">=</span><span class="n">is_moderator</span><span class="p">)</span>
+        <span class="n">uvicorn</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">app</span><span class="p">,</span> <span class="n">host</span><span class="o">=</span><span class="n">a</span><span class="o">.</span><span class="n">host</span><span class="p">,</span> <span class="n">port</span><span class="o">=</span><span class="n">a</span><span class="o">.</span><span class="n">port</span><span class="p">)</span>
         <span class="k">return</span> <span class="mi">0</span>
     <span class="k">return</span> <span class="mi">2</span></div>
 

@@ -43,6 +43,7 @@
       list_comments
       delete_comment
       email_moderator
+      token_moderator
       make_thread_router
       publish_review
       review_url

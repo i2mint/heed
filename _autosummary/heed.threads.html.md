@@ -38,11 +38,13 @@ True
 
 ### Module Attributes
 
-| [`MEDIA_NAME_PATTERN`](#heed.threads.MEDIA_NAME_PATTERN)      | a plain file name, no path.      |
-|--------------------------------------------------------------------------|----------------------------------|
-| [`ID_PATTERN`](#heed.threads.ID_PATTERN)              | no separators, no dots.          |
-| [`MODERATE_HEADER`](#heed.threads.MODERATE_HEADER)         | a cross-site form cannot set it. |
-| [`THREAD_RESPONSE_HEADERS`](#heed.threads.THREAD_RESPONSE_HEADERS) | never cached, never indexed.     |
+| [`MEDIA_NAME_PATTERN`](#heed.threads.MEDIA_NAME_PATTERN)      | a plain file name, no path.                                                                                                      |
+|--------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------|
+| [`ID_PATTERN`](#heed.threads.ID_PATTERN)              | no separators, no dots.                                                                                                          |
+| [`MODERATE_HEADER`](#heed.threads.MODERATE_HEADER)         | a cross-site form cannot set it.                                                                                                 |
+| [`MIN_TOKEN_LENGTH`](#heed.threads.MIN_TOKEN_LENGTH)        | it guards deletion and the owner badge.                                                                                          |
+| [`THREAD_RESPONSE_HEADERS`](#heed.threads.THREAD_RESPONSE_HEADERS) | never cached, never indexed.                                                                                                     |
+| [`MODERATOR_TOKEN_HEADER`](#heed.threads.MODERATOR_TOKEN_HEADER)  | The header a moderator's browser sends with the secret (see [`token_moderator()`](#heed.threads.token_moderator)). |
 
 ### Functions
 
@@ -57,6 +59,7 @@ True
 | [`memory_threads`](#heed.threads.memory_threads)()                                    | Threads held in dicts, one per thread (tests, single-process demos).         |
 | [`new_comment_id`](#heed.threads.new_comment_id)(\*[, clock])                         | A comment id that sorts by creation time (ms, zero-padded) then at random.   |
 | [`no_moderator`](#heed.threads.no_moderator)(request)                               | The default moderator check: nobody may delete over HTTP (use the CLI).      |
+| [`token_moderator`](#heed.threads.token_moderator)(token, \*[, also])                  | A moderator check that needs a secret the owner types in, not a login.       |
 | [`valid_id`](#heed.threads.valid_id)(value)                                     | Whether `value` is a safe thread or comment id.                              |
 
 ### Classes
@@ -107,12 +110,23 @@ a plain file name, no path.
 * **Type:**
   Which media item a timed comment refers to
 
+### heed.threads.MIN_TOKEN_LENGTH *= 16*
+
+it guards deletion and the owner badge.
+
+* **Type:**
+  Shortest accepted moderator token
+
 ### heed.threads.MODERATE_HEADER *= 'X-Heed-Moderate'*
 
 a cross-site form cannot set it.
 
 * **Type:**
   The header a moderator’s DELETE must carry
+
+### heed.threads.MODERATOR_TOKEN_HEADER *= 'X-Heed-Moderator-Token'*
+
+The header a moderator’s browser sends with the secret (see [`token_moderator()`](#heed.threads.token_moderator)).
 
 ### heed.threads.THREAD_RESPONSE_HEADERS *= {'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex, nofollow'}*
 
@@ -222,6 +236,33 @@ The default moderator check: nobody may delete over HTTP (use the CLI).
 
 * **Return type:**
   [`bool`](https://docs.python.org/3/builtins/functions.html#bool)
+
+### heed.threads.token_moderator(token, , also=None)
+
+A moderator check that needs a secret the owner types in, not a login.
+
+On an origin shared with other apps, a session cookie is ambient authority: any
+script running there while the owner is logged in can call the API *as* the owner.
+A secret in a request header is not ambient (the review page keeps it in memory,
+never in storage), so such a script can neither delete comments nor post badged as
+the owner. `also` (e.g. [`email_moderator()`](#heed.threads.email_moderator)) is required too, when given.
+
+Use a random token (`secrets.token_urlsafe(24)`). This raises the bar, it is not a
+wall: a hostile script on the same origin can still open the review page in a frame
+and hook it before the owner types the token, or phish with its own prompt. A
+dedicated origin for the review app is the real fix.
+
+```pycon
+>>> from types import SimpleNamespace as NS
+>>> check = token_moderator("s3cret-token-value")
+>>> check(NS(headers={"X-Heed-Moderator-Token": "s3cret-token-value"}))
+True
+>>> check(NS(headers={}))
+False
+```
+
+* **Return type:**
+  [`Callable`](https://docs.python.org/3/library/collections.abc.html#collections.abc.Callable)[[`Request`], [`bool`](https://docs.python.org/3/builtins/functions.html#bool)]
 
 ### heed.threads.valid_id(value)
 

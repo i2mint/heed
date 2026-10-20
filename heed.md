@@ -1,4 +1,4 @@
-> built 2026-10-20 10:54 UTC from 3286250 (main) · heed 0.0.1. Details: build_info.json
+> built 2026-10-20 12:10 UTC from 5115597 (main) · heed 0.0.1. Details: build_info.json
 
 # index.html.md
 
@@ -107,7 +107,7 @@ heed review publish cut2.mp4 --to <page-id>                          # a new cut
 heed review comments <page-id> --json                                # read the feedback back
 ```
 
-The link is a capability (128 random bits in the URL fragment); the thread endpoint is rate-limited, capped and honeypotted. Serve it with `make_review_app(rootdir, is_moderator=email_moderator([...]))`, or `heed review serve`. The reusable part is `heed.threads` (a hardened comment thread per key, `make_thread_router`); `heed.review` is one consumer of it. Agents: the shipped skill `heed/data/skills/heed-review`. Rationale: [`misc/docs/adr/0001-review-pages-and-comment-threads-live-in-heed.md`]().
+The link is a capability (128 random bits in the URL fragment); the thread endpoint is rate-limited, capped and honeypotted. Serve it with `make_review_app(rootdir, is_moderator=email_moderator([...]))`, or `heed review serve`. On an origin shared with other apps, a login is ambient authority (any script there acts as the owner), so require a typed-in secret instead: `is_moderator=token_moderator(secret, also=email_moderator([...]))` (`heed review serve --moderator-token-env VAR`); the review page’s *Moderate* button asks for it and keeps it in memory only. A dedicated origin (e.g. `review.<domain>`) is the stronger fix and is a deployment decision. The reusable part is `heed.threads` (a hardened comment thread per key, `make_thread_router`); `heed.review` is one consumer of it. Agents: the shipped skill `heed/data/skills/heed-review`. Rationale: [`misc/docs/adr/0001-review-pages-and-comment-threads-live-in-heed.md`]().
 
 ## Documents
 
@@ -470,8 +470,8 @@ Public API (Phase 1):
   : widget_contract (what the widget sends; SSOT for widget/)
   <br/>
   Threads   Comment, CommentSubmission, add_comment, list_comments,
-  : delete_comment, email_moderator, make_thread_router (a public,
-    persistent comment thread per key)
+  : delete_comment, email_moderator, token_moderator,
+    make_thread_router (a public, persistent comment thread per key)
   <br/>
   Review    ReviewPage, publish_review, review_url, make_review_app (media + a
   : thread under it, behind a capability link; CLI `heed review`)
@@ -526,6 +526,7 @@ True
 | [`list_comments`](_autosummary/heed.html.md#heed.list_comments)(store)                               | A thread's comments, oldest first.                                                                                                  |
 | [`delete_comment`](_autosummary/heed.html.md#heed.delete_comment)(store, comment_id)                  | Delete one comment; `False` if there was none (or the id is invalid).                                                               |
 | [`email_moderator`](_autosummary/heed.html.md#heed.email_moderator)(emails)                            | A moderator check passing requests whose authenticated email is in `emails`.                                                        |
+| [`token_moderator`](_autosummary/heed.html.md#heed.token_moderator)(token, \*[, also])                 | A moderator check that needs a secret the owner types in, not a login.                                                              |
 | [`make_thread_router`](_autosummary/heed.html.md#heed.make_thread_router)([threads, thread_exists, ...])  | The HTTP surface of comment threads (`threads`: thread id -> its store).                                                            |
 | [`publish_review`](_autosummary/heed.html.md#heed.publish_review)(media, \*[, title, note, ...])      | Publish `media` as a new review page (or add it to page `to`).                                                                      |
 | [`review_url`](_autosummary/heed.html.md#heed.review_url)(page_id[, base_url])                    | The shareable link of a page: the base URL with the id as its fragment.                                                             |
@@ -1517,6 +1518,33 @@ one too costly to decode (over `MAX_JPEG_SCANS` scans, `_MAX_PARTS` parts).
 * **Return type:**
   [`bytes`](https://docs.python.org/3/builtins/stdtypes.html#bytes)
 
+### heed.token_moderator(token, , also=None)
+
+A moderator check that needs a secret the owner types in, not a login.
+
+On an origin shared with other apps, a session cookie is ambient authority: any
+script running there while the owner is logged in can call the API *as* the owner.
+A secret in a request header is not ambient (the review page keeps it in memory,
+never in storage), so such a script can neither delete comments nor post badged as
+the owner. `also` (e.g. [`email_moderator()`](_autosummary/heed.html.md#heed.email_moderator)) is required too, when given.
+
+Use a random token (`secrets.token_urlsafe(24)`). This raises the bar, it is not a
+wall: a hostile script on the same origin can still open the review page in a frame
+and hook it before the owner types the token, or phish with its own prompt. A
+dedicated origin for the review app is the real fix.
+
+```pycon
+>>> from types import SimpleNamespace as NS
+>>> check = token_moderator("s3cret-token-value")
+>>> check(NS(headers={"X-Heed-Moderator-Token": "s3cret-token-value"}))
+True
+>>> check(NS(headers={}))
+False
+```
+
+* **Return type:**
+  [`Callable`](https://docs.python.org/3/library/collections.abc.html#collections.abc.Callable)[[`Request`], [`bool`](https://docs.python.org/3/builtins/functions.html#bool)]
+
 ### heed.widget_contract(config=None)
 
 What the widget sends and the limits it must respect (from heed’s SSOT).
@@ -1854,7 +1882,9 @@ Review pages: media (a video, audio, images) with a comment thread under it.
 Publish one or more media files under a title and get a link; whoever has the link
 watches the media and reads and adds comments (a name per comment, optionally pinned
 to a moment in the video), on every visit, without an account. The owner deletes
-comments, over HTTP when an auth layer says so (`is_moderator`) or from the CLI.
+comments, over HTTP when `is_moderator` says so or from the CLI. On an origin shared
+with other apps, use `token_moderator` (a typed-in secret) rather than a login alone:
+a login is ambient, so any script on that origin acts as the owner (#74).
 
 The link is a **capability**: the page id is 128 random bits and travels in the URL
 *fragment* (`https://host/review/#<id>`), so the link itself is never sent in a
@@ -3361,11 +3391,13 @@ True
 
 ### Module Attributes
 
-| [`MEDIA_NAME_PATTERN`](_autosummary/heed.threads.html.md#heed.threads.MEDIA_NAME_PATTERN)      | a plain file name, no path.      |
-|--------------------------------------------------------------------------|----------------------------------|
-| [`ID_PATTERN`](_autosummary/heed.threads.html.md#heed.threads.ID_PATTERN)              | no separators, no dots.          |
-| [`MODERATE_HEADER`](_autosummary/heed.threads.html.md#heed.threads.MODERATE_HEADER)         | a cross-site form cannot set it. |
-| [`THREAD_RESPONSE_HEADERS`](_autosummary/heed.threads.html.md#heed.threads.THREAD_RESPONSE_HEADERS) | never cached, never indexed.     |
+| [`MEDIA_NAME_PATTERN`](_autosummary/heed.threads.html.md#heed.threads.MEDIA_NAME_PATTERN)      | a plain file name, no path.                                                                                                      |
+|--------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------|
+| [`ID_PATTERN`](_autosummary/heed.threads.html.md#heed.threads.ID_PATTERN)              | no separators, no dots.                                                                                                          |
+| [`MODERATE_HEADER`](_autosummary/heed.threads.html.md#heed.threads.MODERATE_HEADER)         | a cross-site form cannot set it.                                                                                                 |
+| [`MIN_TOKEN_LENGTH`](_autosummary/heed.threads.html.md#heed.threads.MIN_TOKEN_LENGTH)        | it guards deletion and the owner badge.                                                                                          |
+| [`THREAD_RESPONSE_HEADERS`](_autosummary/heed.threads.html.md#heed.threads.THREAD_RESPONSE_HEADERS) | never cached, never indexed.                                                                                                     |
+| [`MODERATOR_TOKEN_HEADER`](_autosummary/heed.threads.html.md#heed.threads.MODERATOR_TOKEN_HEADER)  | The header a moderator's browser sends with the secret (see [`token_moderator()`](_autosummary/heed.threads.html.md#heed.threads.token_moderator)). |
 
 ### Functions
 
@@ -3380,6 +3412,7 @@ True
 | [`memory_threads`](_autosummary/heed.threads.html.md#heed.threads.memory_threads)()                                    | Threads held in dicts, one per thread (tests, single-process demos).         |
 | [`new_comment_id`](_autosummary/heed.threads.html.md#heed.threads.new_comment_id)(\*[, clock])                         | A comment id that sorts by creation time (ms, zero-padded) then at random.   |
 | [`no_moderator`](_autosummary/heed.threads.html.md#heed.threads.no_moderator)(request)                               | The default moderator check: nobody may delete over HTTP (use the CLI).      |
+| [`token_moderator`](_autosummary/heed.threads.html.md#heed.threads.token_moderator)(token, \*[, also])                  | A moderator check that needs a secret the owner types in, not a login.       |
 | [`valid_id`](_autosummary/heed.threads.html.md#heed.threads.valid_id)(value)                                     | Whether `value` is a safe thread or comment id.                              |
 
 ### Classes
@@ -3430,12 +3463,23 @@ a plain file name, no path.
 * **Type:**
   Which media item a timed comment refers to
 
+### heed.threads.MIN_TOKEN_LENGTH *= 16*
+
+it guards deletion and the owner badge.
+
+* **Type:**
+  Shortest accepted moderator token
+
 ### heed.threads.MODERATE_HEADER *= 'X-Heed-Moderate'*
 
 a cross-site form cannot set it.
 
 * **Type:**
   The header a moderator’s DELETE must carry
+
+### heed.threads.MODERATOR_TOKEN_HEADER *= 'X-Heed-Moderator-Token'*
+
+The header a moderator’s browser sends with the secret (see [`token_moderator()`](_autosummary/heed.threads.html.md#heed.threads.token_moderator)).
 
 ### heed.threads.THREAD_RESPONSE_HEADERS *= {'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex, nofollow'}*
 
@@ -3545,6 +3589,33 @@ The default moderator check: nobody may delete over HTTP (use the CLI).
 
 * **Return type:**
   [`bool`](https://docs.python.org/3/builtins/functions.html#bool)
+
+### heed.threads.token_moderator(token, , also=None)
+
+A moderator check that needs a secret the owner types in, not a login.
+
+On an origin shared with other apps, a session cookie is ambient authority: any
+script running there while the owner is logged in can call the API *as* the owner.
+A secret in a request header is not ambient (the review page keeps it in memory,
+never in storage), so such a script can neither delete comments nor post badged as
+the owner. `also` (e.g. [`email_moderator()`](_autosummary/heed.threads.html.md#heed.threads.email_moderator)) is required too, when given.
+
+Use a random token (`secrets.token_urlsafe(24)`). This raises the bar, it is not a
+wall: a hostile script on the same origin can still open the review page in a frame
+and hook it before the owner types the token, or phish with its own prompt. A
+dedicated origin for the review app is the real fix.
+
+```pycon
+>>> from types import SimpleNamespace as NS
+>>> check = token_moderator("s3cret-token-value")
+>>> check(NS(headers={"X-Heed-Moderator-Token": "s3cret-token-value"}))
+True
+>>> check(NS(headers={}))
+False
+```
+
+* **Return type:**
+  [`Callable`](https://docs.python.org/3/library/collections.abc.html#collections.abc.Callable)[[`Request`], [`bool`](https://docs.python.org/3/builtins/functions.html#bool)]
 
 ### heed.threads.valid_id(value)
 
@@ -3660,7 +3731,7 @@ overrides them.
 
 # About this build
 
-This documentation was built on **2026-10-20 10:54 UTC** from commit <a href="https://github.com/i2mint/heed/commit/3286250b57dae4218ae2485887acaa63970e8e86"><code>3286250</code></a> on branch <code>main</code>, for **heed 0.0.1** (from <code>pyproject.toml</code>).
+This documentation was built on **2026-10-20 12:10 UTC** from commit <a href="https://github.com/i2mint/heed/commit/5115597e8b93a99e853db2006c12ff7715ce23f9"><code>5115597</code></a> on branch <code>main</code>, for **heed 0.0.1** (from <code>pyproject.toml</code>).
 
 #### WARNING
 The documentation and the package may be misaligned:
@@ -3671,7 +3742,7 @@ The documentation and the package may be misaligned:
 
 |                     |                                                                                                                                                    |
 |---------------------|----------------------------------------------------------------------------------------------------------------------------------------------------|
-| Commit              | <a href="https://github.com/i2mint/heed/commit/3286250b57dae4218ae2485887acaa63970e8e86"><code>3286250b57dae4218ae2485887acaa63970e8e86</code></a> |
+| Commit              | <a href="https://github.com/i2mint/heed/commit/5115597e8b93a99e853db2006c12ff7715ce23f9"><code>5115597e8b93a99e853db2006c12ff7715ce23f9</code></a> |
 | Branch              | <code>main</code>                                                                                                                                  |
 | Tags at this commit | none                                                                                                                                               |
 | Working tree        | clean                                                                                                                                              |
@@ -3682,15 +3753,15 @@ The documentation and the package may be misaligned:
 |              |                                                                                            |
 |--------------|--------------------------------------------------------------------------------------------|
 | Repository   | <code>i2mint/heed</code>                                                                   |
-| Run          | <a href="https://github.com/i2mint/heed/actions/runs/39411070458">39411070458</a>          |
+| Run          | <a href="https://github.com/i2mint/heed/actions/runs/39420056310">39420056310</a>          |
 | Ref          | <code>refs/heads/main</code>                                                               |
-| Event commit | <code>3286250b57dae4218ae2485887acaa63970e8e86</code> (in the history of the built commit) |
+| Event commit | <code>5115597e8b93a99e853db2006c12ff7715ce23f9</code> (in the history of the built commit) |
 
 ## Tools
 
 |          |         |
 |----------|---------|
-| epythet  | 0.2.19  |
+| epythet  | 0.2.20  |
 | Sphinx   | 9.1.1   |
 | docutils | 0.22.4  |
 | Python   | 3.12.15 |
@@ -3715,8 +3786,8 @@ Latest release: <a href="https://pypi.org/project/heed/0.1.0/">0.1.0</a>, newer 
 
 ```bash
 git clone https://github.com/i2mint/heed && cd heed
-git checkout 3286250b57dae4218ae2485887acaa63970e8e86
-pip install "epythet==0.2.19"
+git checkout 5115597e8b93a99e853db2006c12ff7715ce23f9
+pip install "epythet==0.2.20"
 epythet quickstart . --ignore tests/ scrap/ examples/
 ```
 

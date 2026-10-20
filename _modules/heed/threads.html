@@ -749,6 +749,7 @@ window.runMermaid = runMermaid;</script>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
+<span class="kn">import</span><span class="w"> </span><span class="nn">hmac</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">ipaddress</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
@@ -781,6 +782,8 @@ window.runMermaid = runMermaid;</script>
 <span class="n">_ID_RE</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="n">ID_PATTERN</span><span class="p">)</span>
 <span class="c1">#: The header a moderator's DELETE must carry: a cross-site form cannot set it.</span>
 <span class="n">MODERATE_HEADER</span> <span class="o">=</span> <span class="s2">"X-Heed-Moderate"</span>
+<span class="c1">#: Shortest accepted moderator token: it guards deletion and the owner badge.</span>
+<span class="n">MIN_TOKEN_LENGTH</span> <span class="o">=</span> <span class="mi">16</span>
 <span class="c1">#: Headers on every thread response: never cached, never indexed.</span>
 <span class="n">THREAD_RESPONSE_HEADERS</span> <span class="o">=</span> <span class="p">{</span>
     <span class="s2">"Cache-Control"</span><span class="p">:</span> <span class="s2">"no-store"</span><span class="p">,</span>
@@ -978,6 +981,58 @@ window.runMermaid = runMermaid;</script>
     <span class="k">def</span><span class="w"> </span><span class="nf">is_moderator</span><span class="p">(</span><span class="n">request</span><span class="p">:</span> <span class="n">Request</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
         <span class="n">email</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">request</span><span class="o">.</span><span class="n">state</span><span class="p">,</span> <span class="s2">"user_email"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">or</span> <span class="s2">""</span>
         <span class="k">return</span> <span class="n">email</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="ow">in</span> <span class="n">allowed</span>
+
+    <span class="k">return</span> <span class="n">is_moderator</span></div>
+
+
+
+<span class="c1">#: The header a moderator's browser sends with the secret (see :func:`token_moderator`).</span>
+<span class="n">MODERATOR_TOKEN_HEADER</span> <span class="o">=</span> <span class="s2">"X-Heed-Moderator-Token"</span>
+
+
+<div class="viewcode-block" id="token_moderator">
+<a class="viewcode-back" href="../../_autosummary/heed.threads.html#heed.token_moderator">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">token_moderator</span><span class="p">(</span>
+    <span class="n">token</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">also</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">Request</span><span class="p">],</span> <span class="nb">bool</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">Request</span><span class="p">],</span> <span class="nb">bool</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">"""A moderator check that needs a secret the owner types in, not a login.</span>
+
+<span class="sd">    On an origin shared with other apps, a session cookie is ambient authority: any</span>
+<span class="sd">    script running there while the owner is logged in can call the API *as* the owner.</span>
+<span class="sd">    A secret in a request header is not ambient (the review page keeps it in memory,</span>
+<span class="sd">    never in storage), so such a script can neither delete comments nor post badged as</span>
+<span class="sd">    the owner. ``also`` (e.g. :func:`email_moderator`) is required too, when given.</span>
+
+<span class="sd">    Use a random token (``secrets.token_urlsafe(24)``). This raises the bar, it is not a</span>
+<span class="sd">    wall: a hostile script on the same origin can still open the review page in a frame</span>
+<span class="sd">    and hook it before the owner types the token, or phish with its own prompt. A</span>
+<span class="sd">    dedicated origin for the review app is the real fix.</span>
+
+<span class="sd">    &gt;&gt;&gt; from types import SimpleNamespace as NS</span>
+<span class="sd">    &gt;&gt;&gt; check = token_moderator("s3cret-token-value")</span>
+<span class="sd">    &gt;&gt;&gt; check(NS(headers={"X-Heed-Moderator-Token": "s3cret-token-value"}))</span>
+<span class="sd">    True</span>
+<span class="sd">    &gt;&gt;&gt; check(NS(headers={}))</span>
+<span class="sd">    False</span>
+<span class="sd">    """</span>
+    <span class="k">if</span> <span class="p">(</span>
+        <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">token</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span>
+        <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">token</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">MIN_TOKEN_LENGTH</span>
+        <span class="ow">or</span> <span class="ow">not</span> <span class="n">token</span><span class="o">.</span><span class="n">isascii</span><span class="p">()</span>
+        <span class="ow">or</span> <span class="ow">not</span> <span class="n">token</span><span class="o">.</span><span class="n">isprintable</span><span class="p">()</span>
+        <span class="ow">or</span> <span class="n">token</span> <span class="o">!=</span> <span class="n">token</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+    <span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"the moderator token must be printable ASCII without surrounding spaces, "</span>
+            <span class="sa">f</span><span class="s2">"at least </span><span class="si">{</span><span class="n">MIN_TOKEN_LENGTH</span><span class="si">}</span><span class="s2"> characters (e.g. secrets.token_urlsafe(24))"</span>
+        <span class="p">)</span>
+    <span class="n">expected</span> <span class="o">=</span> <span class="n">token</span><span class="o">.</span><span class="n">encode</span><span class="p">()</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">is_moderator</span><span class="p">(</span><span class="n">request</span><span class="p">:</span> <span class="n">Request</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="n">given</span> <span class="o">=</span> <span class="p">(</span><span class="n">request</span><span class="o">.</span><span class="n">headers</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">MODERATOR_TOKEN_HEADER</span><span class="p">)</span> <span class="ow">or</span> <span class="s2">""</span><span class="p">)</span><span class="o">.</span><span class="n">encode</span><span class="p">()</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">hmac</span><span class="o">.</span><span class="n">compare_digest</span><span class="p">(</span><span class="n">given</span><span class="p">,</span> <span class="n">expected</span><span class="p">):</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">return</span> <span class="nb">bool</span><span class="p">(</span><span class="n">also</span><span class="p">(</span><span class="n">request</span><span class="p">))</span> <span class="k">if</span> <span class="n">also</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">True</span>
 
     <span class="k">return</span> <span class="n">is_moderator</span></div>
 

@@ -411,7 +411,9 @@
 <p>Publish one or more media files under a title and get a link; whoever has the link
 watches the media and reads and adds comments (a name per comment, optionally pinned
 to a moment in the video), on every visit, without an account. The owner deletes
-comments, over HTTP when an auth layer says so (<code class="docutils literal notranslate"><span class="pre">is_moderator</span></code>) or from the CLI.</p>
+comments, over HTTP when <code class="docutils literal notranslate"><span class="pre">is_moderator</span></code> says so or from the CLI. On an origin shared
+with other apps, use <code class="docutils literal notranslate"><span class="pre">token_moderator</span></code> (a typed-in secret) rather than a login alone:
+a login is ambient, so any script on that origin acts as the owner (#74).</p>
 <p>The link is a <strong>capability</strong>: the page id is 128 random bits and travels in the URL
 <em>fragment</em> (<code class="docutils literal notranslate"><span class="pre">https://host/review/#&lt;id&gt;</span></code>), so the link itself is never sent in a
 request or a <code class="docutils literal notranslate"><span class="pre">Referer</span></code> (the API calls the page makes do carry the id in their

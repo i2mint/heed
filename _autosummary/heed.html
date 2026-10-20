@@ -440,8 +440,8 @@ Serving   make_attachment_router, make_attachment_app, AttachmentSigner,</p>
 <dl class="simple">
 <dt>Widget    make_widget_router (serves the built embeddable widget),</dt><dd><p>widget_contract (what the widget sends; SSOT for widget/)</p>
 </dd>
-<dt>Threads   Comment, CommentSubmission, add_comment, list_comments,</dt><dd><p>delete_comment, email_moderator, make_thread_router (a public,
-persistent comment thread per key)</p>
+<dt>Threads   Comment, CommentSubmission, add_comment, list_comments,</dt><dd><p>delete_comment, email_moderator, token_moderator,
+make_thread_router (a public, persistent comment thread per key)</p>
 </dd>
 <dt>Review    ReviewPage, publish_review, review_url, make_review_app (media + a</dt><dd><p>thread under it, behind a capability link; CLI <code class="docutils literal notranslate"><span class="pre">heed</span> <span class="pre">review</span></code>)</p>
 </dd>
@@ -566,16 +566,19 @@ persistent comment thread per key)</p>
 <tr class="row-odd"><td><p><a class="reference internal" href="#heed.email_moderator" title="heed.email_moderator"><code class="xref py py-obj docutils literal notranslate"><span class="pre">email_moderator</span></code></a>(emails)</p></td>
 <td><p>A moderator check passing requests whose authenticated email is in <code class="docutils literal notranslate"><span class="pre">emails</span></code>.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#heed.make_thread_router" title="heed.make_thread_router"><code class="xref py py-obj docutils literal notranslate"><span class="pre">make_thread_router</span></code></a>([threads, thread_exists, ...])</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#heed.token_moderator" title="heed.token_moderator"><code class="xref py py-obj docutils literal notranslate"><span class="pre">token_moderator</span></code></a>(token, *[, also])</p></td>
+<td><p>A moderator check that needs a secret the owner types in, not a login.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#heed.make_thread_router" title="heed.make_thread_router"><code class="xref py py-obj docutils literal notranslate"><span class="pre">make_thread_router</span></code></a>([threads, thread_exists, ...])</p></td>
 <td><p>The HTTP surface of comment threads (<code class="docutils literal notranslate"><span class="pre">threads</span></code>: thread id -&gt; its store).</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#heed.publish_review" title="heed.publish_review"><code class="xref py py-obj docutils literal notranslate"><span class="pre">publish_review</span></code></a>(media, *[, title, note, ...])</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#heed.publish_review" title="heed.publish_review"><code class="xref py py-obj docutils literal notranslate"><span class="pre">publish_review</span></code></a>(media, *[, title, note, ...])</p></td>
 <td><p>Publish <code class="docutils literal notranslate"><span class="pre">media</span></code> as a new review page (or add it to page <code class="docutils literal notranslate"><span class="pre">to</span></code>).</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#heed.review_url" title="heed.review_url"><code class="xref py py-obj docutils literal notranslate"><span class="pre">review_url</span></code></a>(page_id[, base_url])</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#heed.review_url" title="heed.review_url"><code class="xref py py-obj docutils literal notranslate"><span class="pre">review_url</span></code></a>(page_id[, base_url])</p></td>
 <td><p>The shareable link of a page: the base URL with the id as its fragment.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#heed.make_review_app" title="heed.make_review_app"><code class="xref py py-obj docutils literal notranslate"><span class="pre">make_review_app</span></code></a>([rootdir, is_moderator, ...])</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#heed.make_review_app" title="heed.make_review_app"><code class="xref py py-obj docutils literal notranslate"><span class="pre">make_review_app</span></code></a>([rootdir, is_moderator, ...])</p></td>
 <td><p>The review API (and, with <code class="docutils literal notranslate"><span class="pre">serve_shell</span></code>, the page at <code class="docutils literal notranslate"><span class="pre">/</span></code>).</p></td>
 </tr>
 </tbody>
@@ -1896,6 +1899,34 @@ one too costly to decode (over <code class="docutils literal notranslate"><span 
 </dd></dl>
 
 <dl class="py function">
+<dt class="sig sig-object py" id="heed.token_moderator">
+<span class="sig-prename descclassname"><span class="pre">heed.</span></span><span class="sig-name descname"><span class="pre">token_moderator</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">token</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">also</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/threads.html#token_moderator"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.token_moderator" title="Link to this definition">#</a></dt>
+<dd><p>A moderator check that needs a secret the owner types in, not a login.</p>
+<p>On an origin shared with other apps, a session cookie is ambient authority: any
+script running there while the owner is logged in can call the API <em>as</em> the owner.
+A secret in a request header is not ambient (the review page keeps it in memory,
+never in storage), so such a script can neither delete comments nor post badged as
+the owner. <code class="docutils literal notranslate"><span class="pre">also</span></code> (e.g. <a class="reference internal" href="#heed.email_moderator" title="heed.email_moderator"><code class="xref py py-func docutils literal notranslate"><span class="pre">email_moderator()</span></code></a>) is required too, when given.</p>
+<p>Use a random token (<code class="docutils literal notranslate"><span class="pre">secrets.token_urlsafe(24)</span></code>). This raises the bar, it is not a
+wall: a hostile script on the same origin can still open the review page in a frame
+and hook it before the owner types the token, or phish with its own prompt. A
+dedicated origin for the review app is the real fix.</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">types</span><span class="w"> </span><span class="kn">import</span> <span class="n">SimpleNamespace</span> <span class="k">as</span> <span class="n">NS</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">check</span> <span class="o">=</span> <span class="n">token_moderator</span><span class="p">(</span><span class="s2">"s3cret-token-value"</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">check</span><span class="p">(</span><span class="n">NS</span><span class="p">(</span><span class="n">headers</span><span class="o">=</span><span class="p">{</span><span class="s2">"X-Heed-Moderator-Token"</span><span class="p">:</span> <span class="s2">"s3cret-token-value"</span><span class="p">}))</span>
+<span class="go">True</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">check</span><span class="p">(</span><span class="n">NS</span><span class="p">(</span><span class="n">headers</span><span class="o">=</span><span class="p">{}))</span>
+<span class="go">False</span>
+</pre></div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Callable" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Callable</span></code></a>[[<code class="xref py py-class docutils literal notranslate"><span class="pre">Request</span></code>], <a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>]</span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
 <dt class="sig sig-object py" id="heed.widget_contract">
 <span class="sig-prename descclassname"><span class="pre">heed.</span></span><span class="sig-name descname"><span class="pre">widget_contract</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/heed/widget.html#widget_contract"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#heed.widget_contract" title="Link to this definition">#</a></dt>
 <dd><p>What the widget sends and the limits it must respect (from heed’s SSOT).</p>
@@ -2146,6 +2177,7 @@ overrides them.</p>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.screenshot_url_resolver"><code class="docutils literal notranslate"><span class="pre">screenshot_url_resolver()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.sinks_by_origin"><code class="docutils literal notranslate"><span class="pre">sinks_by_origin()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.strip_image"><code class="docutils literal notranslate"><span class="pre">strip_image()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.token_moderator"><code class="docutils literal notranslate"><span class="pre">token_moderator()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heed.widget_contract"><code class="docutils literal notranslate"><span class="pre">widget_contract()</span></code></a></li>
 </ul>
   </nav></div>

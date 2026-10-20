@@ -5,7 +5,9 @@ Review pages: media (a video, audio, images) with a comment thread under it.
 Publish one or more media files under a title and get a link; whoever has the link
 watches the media and reads and adds comments (a name per comment, optionally pinned
 to a moment in the video), on every visit, without an account. The owner deletes
-comments, over HTTP when an auth layer says so (`is_moderator`) or from the CLI.
+comments, over HTTP when `is_moderator` says so or from the CLI. On an origin shared
+with other apps, use `token_moderator` (a typed-in secret) rather than a login alone:
+a login is ambient, so any script on that origin acts as the owner (#74).
 
 The link is a **capability**: the page id is 128 random bits and travels in the URL
 *fragment* (`https://host/review/#<id>`), so the link itself is never sent in a
