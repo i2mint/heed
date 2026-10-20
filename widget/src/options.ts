@@ -61,6 +61,10 @@ export interface HeedOptions {
   maskInputs: boolean;
   /** Elements to black out in the screenshot. */
   maskSelector: string;
+  /** Record recent console messages and page errors (masked) so a visitor can choose to attach them; off by default (heed#7). The backend must accept them too (`HeedConfig.accept_console`). */
+  captureConsole: boolean;
+  /** Record recent requests (method, masked URL, status, timing; never bodies or headers) so a visitor can choose to attach them; off by default. The backend must accept them too (`HeedConfig.accept_network`). */
+  captureNetwork: boolean;
   /** Give up on the screenshot after this many milliseconds (the report is then sent without it). */
   screenshotTimeoutMs: number;
   /** No screenshot of pages with more elements than this (cloning them would freeze the page). */
@@ -141,6 +145,8 @@ export const OPTION_SPECS: Specs = {
   screenshot: { default: true, attr: "screenshot", parse: parseBool },
   maskInputs: { default: true, attr: "mask-inputs", parse: parseBool },
   maskSelector: { default: "[data-heed-mask]", attr: "mask-selector", parse: text },
+  captureConsole: { default: false, attr: "capture-console", parse: parseBool },
+  captureNetwork: { default: false, attr: "capture-network", parse: parseBool },
   screenshotTimeoutMs: { default: 10_000, attr: "screenshot-timeout-ms", parse: positiveInt },
   screenshotMaxNodes: { default: 5_000, attr: "screenshot-max-nodes", parse: positiveInt },
   botGate: { default: "", attr: "bot-gate", parse: (s) => s.toLowerCase() },

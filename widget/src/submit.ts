@@ -6,6 +6,7 @@
  */
 import { CONTRACT } from "./contract.gen.js";
 import type { EnvironmentPayload } from "./env.js";
+import type { Recorded } from "./recorder.js";
 import type { Category, HeedOptions } from "./options.js";
 
 const F = CONTRACT.fields;
@@ -24,6 +25,8 @@ export interface SubmitInput {
   /** What the hidden honeypot field holds (empty for a human). */
   honeypot: string;
   screenshot?: Blob | null;
+  /** Console/network entries the visitor chose to attach (already masked). */
+  recorded?: Recorded | null;
 }
 
 export type ErrorKind =
@@ -50,8 +53,26 @@ export function buildFormData(input: SubmitInput, options: HeedOptions, botToken
   if (options.anonId) form.set(F.anon_id, options.anonId.slice(0, L.anon_id_chars));
   if (options.honeypotField) form.set(options.honeypotField, input.honeypot);
   if (botToken) form.set(options.botTokenField, botToken);
+  for (const kind of ["console", "network"] as const) {
+    const entries = input.recorded?.[kind];
+    if (entries?.length) form.set(F[kind], fitJson(entries, L.field_bytes));
+  }
   if (input.screenshot) form.set(F.screenshot, input.screenshot, screenshotName(input.screenshot.type));
   return form;
+}
+
+/**
+ * `entries` as a JSON array within `maxBytes` (the server's per-field cap) and the
+ * server's entry limit, dropping the oldest first: the moments before the report matter most.
+ */
+export function fitJson(entries: readonly unknown[], maxBytes: number): string {
+  const enc = new TextEncoder();
+  const parts = entries.slice(-L.log_entries).map((e) => JSON.stringify(e));
+  const sizes = parts.map((p) => enc.encode(p).length + 1); // plus its comma
+  let total = 1 + sizes.reduce((a, b) => a + b, 0); // the brackets, less one comma
+  let start = 0;
+  while (start < parts.length && total > maxBytes) total -= sizes[start++];
+  return `[${parts.slice(start).join(",")}]`;
 }
 
 function screenshotName(type: string): string {

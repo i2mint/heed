@@ -79,7 +79,7 @@ textarea { min-height: 110px; resize: vertical; }
 .actions button.primary { background: var(--_accent); color: var(--_accent-fg); border-color: transparent; }
 .actions button:disabled { opacity: 0.6; cursor: progress; }
 .done a { color: var(--_accent); }
-.shot { display: grid; gap: 6px; }
+.shot, .logs { display: grid; gap: 6px; }
 label.check { display: flex; align-items: center; gap: 8px; font-weight: 400; }
 label.check input { width: auto; margin: 0; }
 .preview { max-width: 100%; max-height: 240px; object-fit: contain; justify-self: start; border: 1px solid var(--_border); border-radius: 6px; }

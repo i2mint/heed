@@ -21,8 +21,8 @@ import { licence } from "./licence.mjs";
 const here = dirname(fileURLToPath(import.meta.url));
 const OUT_DIR = join(here, "..", "heed", "static", "widget");
 const pkg = JSON.parse(readFileSync(join(here, "package.json"), "utf8"));
-// Gzipped-size budgets in bytes, per entry (widget: 10_000 plus the opt-in bot-gate adapter, heed#37, the i18n machinery, heed#39, the hCaptcha entry and gate cancel/visibility, heed#43, and the language re-rendering, heed#45, and the screenshot cancel signal, heed#38, and the opt-in capture fields, heed#7; translations are a separate lazy file).
-const BUDGETS = { raster: 14_000, locales: 5_000, widget: 12_700, loader: 1_300 };
+// Gzipped-size budgets in bytes, per entry (widget: 10_000 plus the opt-in bot-gate adapter, heed#37, the i18n machinery, heed#39, the hCaptcha entry and gate cancel/visibility, heed#43, and the language re-rendering, heed#45, and the screenshot cancel signal, heed#38, and opt-in capture: its fields, consent box and recorder hookup, heed#7 (the recorder itself is a separate lazy file); translations are a separate lazy file).
+const BUDGETS = { raster: 14_000, locales: 5_000, recorder: 3_500, widget: 13_400, loader: 1_300 };
 const RETAIN_VERSIONS = 5;
 // Built in order: the bundle embeds the rasterizer's and the translations' hashed names
 // and SRI hashes, the loader the bundle's.
@@ -32,6 +32,8 @@ const ENTRIES = {
   raster: { src: "src/raster-entry.ts", stem: "heed-raster", stable: false, define: () => ({}), banner: licence("modern-screenshot") },
   // The built-in translations, fetched only for visitors whose language is not English.
   locales: { src: "src/locales-entry.ts", stem: "heed-locales", stable: false, define: () => ({}) },
+  // The opt-in console/network recorder, fetched only by pages that enable capture (heed#7).
+  recorder: { src: "src/recorder-entry.ts", stem: "heed-recorder", stable: false, define: () => ({}) },
   widget: {
     src: "src/index.ts",
     stem: "heed-widget",
@@ -41,6 +43,8 @@ const ENTRIES = {
       __HEED_RASTER_INTEGRITY__: JSON.stringify(m.files[m.entries.raster].integrity),
       __HEED_LOCALES__: JSON.stringify(m.entries.locales),
       __HEED_LOCALES_INTEGRITY__: JSON.stringify(m.files[m.entries.locales].integrity),
+      __HEED_RECORDER__: JSON.stringify(m.entries.recorder),
+      __HEED_RECORDER_INTEGRITY__: JSON.stringify(m.files[m.entries.recorder].integrity),
     }),
   },
   loader: {

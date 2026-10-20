@@ -56,6 +56,7 @@ export const MESSAGES = {
   shotNoPreview: "The screenshot cannot be shown on this page, so it will not be sent.",
   shotDropped: "The screenshot was too large and was left out.",
   shotFailed: "No screenshot could be taken; the report will be sent without one.",
+  logsLabel: "Include technical information (recent console messages and network requests, with personal data masked)",
 };
 
 export type Messages = { [K in keyof typeof MESSAGES]: (typeof MESSAGES)[K] extends (...a: infer A) => string ? (...a: A) => string : string };

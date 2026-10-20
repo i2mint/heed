@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import "../src/index";
 import { HeedFeedbackElement, TAG, defineHeedElement } from "../src/element";
+import { recorded, setRecorderLoader, stopRecording } from "../src/record";
 
 // Screenshots are covered in screenshot.test.ts; off here so sends start at once.
 const mount = (attrs: Record<string, string> = { endpoint: "https://h.example/heed/report" }) => {
@@ -173,5 +174,67 @@ describe("<heed-feedback>", () => {
     el.open();
     el.remove();
     expect($<HTMLDialogElement>(el, "dialog").open).toBe(false);
+  });
+});
+
+describe("<heed-feedback> opt-in capture (heed#7)", () => {
+  const ok = () => vi.fn(async () => new Response(JSON.stringify({ id: "abc", ok: true, ref: null, url: null, status: "received" }), { status: 200 }));
+  const sent = (fetch: ReturnType<typeof ok>) => (fetch.mock.calls.at(-1) as unknown as [string, RequestInit])[1].body as FormData;
+
+  afterEach(() => stopRecording(window));
+
+  it("offers no consent box and sends no capture by default", async () => {
+    const fetch = ok();
+    vi.stubGlobal("fetch", fetch);
+    const el = mount();
+    el.open();
+    expect(($(el, ".logs") as HTMLElement).hidden).toBe(true);
+    fill(el, "t");
+    await submit(el);
+    expect(sent(fetch).has("console")).toBe(false);
+    expect(sent(fetch).has("network")).toBe(false);
+  });
+
+  it("attaches masked capture only when the visitor ticks the unticked box", async () => {
+    setRecorderLoader(async () => import("../src/recorder"));
+    const fetch = ok();
+    vi.stubGlobal("fetch", fetch);
+    const el = mount({ endpoint: "https://h.example/heed/report", "capture-console": "", "capture-network": "" });
+    await vi.waitFor(() => {
+      console.error("failed for ana@example.com");
+      expect(recorded(window, { console: true, network: false }).console?.length).toBeGreaterThan(0);
+    });
+    el.open();
+    const box = $<HTMLInputElement>(el, ".logs input");
+    expect(($(el, ".logs") as HTMLElement).hidden).toBe(false);
+    expect(box.checked).toBe(false);
+    fill(el, "first");
+    await submit(el);
+    expect(sent(fetch).has("console")).toBe(false);
+
+    el.open();
+    fill(el, "second");
+    box.checked = true;
+    await submit(el);
+    const logs = JSON.parse(sent(fetch).get("console") as string);
+    expect(logs.at(-1)).toMatchObject({ level: "error", message: "failed for [email]" });
+    expect(sent(fetch).get("network")).toBeNull(); // heed's own POST is never recorded
+    expect(box.checked).toBe(false); // consent is per report
+  });
+
+  it("hides the box for light categories and sends nothing then", async () => {
+    setRecorderLoader(async () => import("../src/recorder"));
+    const fetch = ok();
+    vi.stubGlobal("fetch", fetch);
+    const el = mount({ endpoint: "/r", "capture-console": "" });
+    el.open();
+    const select = $<HTMLSelectElement>(el, "select");
+    select.value = "feature";
+    select.dispatchEvent(new Event("change"));
+    expect(($(el, ".logs") as HTMLElement).hidden).toBe(true);
+    $<HTMLInputElement>(el, ".logs input").checked = true;
+    fill(el, "idea");
+    await submit(el);
+    expect(sent(fetch).has("console")).toBe(false);
   });
 });

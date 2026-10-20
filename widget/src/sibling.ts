@@ -9,7 +9,7 @@ type TT = { createPolicy(n: string, p: object): Policy };
 type HeedGlobals = Window & { __heedTT?: Policy | null; trustedTypes?: TT };
 
 /** The names heed's own files may have: the loader's policy and ours pass only these. */
-export const OWN_FILE = /^heed-(widget|raster|locales)-[0-9a-f]{10}\.js$/;
+export const OWN_FILE = /^heed-(widget|raster|locales|recorder)-[0-9a-f]{10}\.js$/;
 
 /** This bundle's own `<script>`; null when an app bundled heed into its own code. */
 export const ownScript = (() => {
