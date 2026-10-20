@@ -144,3 +144,17 @@ def test_process_submission_uses_injected_redactor():
         redactor=lambda text: "*" * len(text),
     )
     assert report.console[0].message == "*****"
+
+
+def test_failing_redactor_drops_capture():
+    """A redactor that raises fails closed: the report keeps no capture."""
+    from heed import LogEntry
+
+    def broken(text):
+        raise RuntimeError("boom")
+
+    sub = ReportSubmission(title="x", console=[LogEntry(level="log", message="hi")])
+    report, result = process_submission(
+        sub, StoreSink({}), config=HeedConfig(accept_console=True), redactor=broken
+    )
+    assert result.ok and report.console is None

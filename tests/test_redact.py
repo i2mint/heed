@@ -41,3 +41,57 @@ def test_redact_url_strips_credentials_fragment_and_query_values():
 def test_redact_url_keeps_relative_and_ipv6():
     assert redact_url("/a?b=1") == "/a?b=[redacted]"
     assert redact_url("http://[::1]:8000/x") == "http://[::1]:8000/x"
+
+
+@pytest.mark.parametrize(
+    "text, leaked",
+    [
+        ("client_secret=abc", "abc"),
+        ("AWS_SECRET_ACCESS_KEY: xyz", "xyz"),
+        ('password="two words"', "words"),
+        ("Authorization: Bearer abc", "abc"),
+        ("token abc", "abc"),
+        ("key sk-proj-abcdefghijklmnop", "abcdefghijklmnop"),
+        ("aws wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY", "wJalrXUtnFEMI"),
+        ("call 415-555-1234", "555-1234"),
+        ("from 2001:db8::1", "2001:db8::1"),
+        ("ssn 123-45-6789", "45-6789"),
+        ("at C:\\Users\\ana\\app.js", "ana"),
+        ("at /home/ana/app.js", "ana"),
+    ],
+)
+def test_redact_text_removes_more(text, leaked):
+    assert leaked not in redact_text(text)
+
+
+@pytest.mark.parametrize(
+    "text", ["12:30:45", "std::vector", "/api/users/me", "2024-10-20"]
+)
+def test_redact_text_keeps_lookalikes(text):
+    assert redact_text(text) == text
+
+
+def test_redact_url_masks_id_like_path_segments():
+    assert redact_url("/u/12345/@ana/abcdef0123456789;jsessionid=Z/x") == (
+        "/u/[id]/[user]/[id]/x"
+    )
+
+
+@pytest.mark.parametrize(
+    "hostile",
+    [
+        "1-" * 1000,
+        "a" * 2000,
+        "a@" * 1000,
+        "1:" * 1000,
+        "secret" * 333,
+        "secret" * 333 + "=x",
+    ],
+)
+def test_redact_text_is_linear_on_hostile_input(hostile):
+    import time
+
+    start = time.perf_counter()
+    for _ in range(50):
+        redact_text(hostile)
+    assert time.perf_counter() - start < 1.0

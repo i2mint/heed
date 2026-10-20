@@ -170,6 +170,12 @@ def _new_report(
     """The Report for ``submission``. The server owns id, time, identity and origin."""
     console = submission.console if config.accept_console else None
     network = submission.network if config.accept_network else None
+    try:
+        console = redact_console(console, redactor=redactor) if console else None
+        network = redact_network(network, redactor=redactor) if network else None
+    except Exception:  # noqa: BLE001 - fail closed: no capture rather than unmasked
+        logger.exception("heed: the redactor failed; dropping console/network capture")
+        console = network = None
     return Report(
         id=report_id,
         created_at=clock(),
@@ -179,8 +185,8 @@ def _new_report(
         page_url=submission.page_url,
         env=submission.env,
         attachments=attachments,
-        console=redact_console(console, redactor=redactor) if console else None,
-        network=redact_network(network, redactor=redactor) if network else None,
+        console=console,
+        network=network,
         identity=Identity(anon_id=submission.anon_id or report_id, user=user),
         origin=origin,
         status=Status.received,

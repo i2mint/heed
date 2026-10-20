@@ -28,51 +28,114 @@ Redactor = Callable[[str], str]
 
 REDACTED = "[redacted]"
 
-_SECRET_KEYS = (
-    r"password|passwd|pwd|pass|secret|token|api[_-]?key|apikey|access[_-]?token"
-    r"|refresh[_-]?token|id[_-]?token|auth|authorization|session|sessionid|sid"
-    r"|cookie|set-cookie|csrf|xsrf|otp|pin|ssn|credit[_-]?card|card[_-]?number|cvv|cvc"
+# Sensitive keys in "key=value" / "key: value" / "key": "value". The long words match
+# inside a longer key (client_secret, x_auth_token, AWS_SECRET_ACCESS_KEY); the short
+# ones only on their own (so "spinner" is not a pin).
+_LONG_KEYS = (
+    r"secret|token|passw|pwd|api[_-]?key|apikey|auth|session|cookie|csrf|xsrf"
+    r"|credential|private[_-]?key|card[_-]?number|credit[_-]?card"
 )
+_SHORT_KEYS = r"pass|pin|sid|otp|ssn|cvv|cvc"
+_W = "A-Za-z0-9_-"  # an identifier-ish run
+_HEX = "0-9A-Fa-f"
 
-# (pattern, replacement), applied in order. Earlier rules see the raw text, so the
-# specific shapes (a JWT, a provider key) are caught before the generic ones.
-_RULES: tuple[tuple[re.Pattern[str], str], ...] = (
+# Every rule starts at the beginning of a run (a lookbehind on the run's own
+# characters, or a literal prefix), so no rule rescans a run from each of its
+# positions: matching stays linear in the length of hostile input.
+
+
+_SENSITIVE_KEY = re.compile(rf"(?i)[{_W}]*(?:{_LONG_KEYS})[{_W}]*|{_SHORT_KEYS}")
+
+
+def _secret_value(replacement: str) -> Callable[[re.Match[str]], str]:
+    """When group 1 is a sensitive key, replace the value (group 3), keeping its quotes.
+
+    The key is checked here rather than in the pattern: a pattern with the key words
+    inside a run backtracks quadratically on a long run of them.
+    """
+
+    def sub(m: re.Match[str]) -> str:
+        key, sep, value = m.group(1), m.group(2), m.group(3)
+        if not _SENSITIVE_KEY.fullmatch(key):
+            return m.group()
+        quote = value[0] if value[:1] in ("'", '"') else ""
+        return f"{key}{sep}{quote}{replacement}{quote}"
+
+    return sub
+
+
+def _if_mixed(replacement: str) -> Callable[[re.Match[str]], str]:
+    """Replace only a run holding both a letter and a digit (a key, not a word)."""
+
+    def sub(m: re.Match[str]) -> str:
+        run = m.group()
+        mixed = any(c.isdigit() for c in run) and any(c.isalpha() for c in run)
+        return replacement if mixed else run
+
+    return sub
+
+
+_Replacement = str | Callable[[re.Match[str]], str]
+
+# (pattern, replacement), applied in order: the specific shapes (an Authorization
+# header, a JWT, a provider key) before the generic ones.
+_RULES: tuple[tuple[re.Pattern[str], _Replacement], ...] = (
+    # The whole value of an Authorization header: scheme and credential
+    (
+        re.compile(r"(?i)(\b(?:proxy-)?authorization[\"']?\s*[:=]\s*)([\"']?)[^\r\n\"']*"),
+        rf"\1\2{REDACTED}",
+    ),
     # JSON Web Tokens
-    (re.compile(r"\beyJ[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]*"), "[jwt]"),
+    (re.compile(rf"\beyJ[{_W}]{{5,}}\.[{_W}]{{5,}}\.[{_W}]*"), "[jwt]"),
+    # Well-known provider key shapes
+    (
+        re.compile(
+            r"\b(?:(?:sk|pk|rk)_(?:live|test)_[A-Za-z0-9]{8,}|gh[pousr]_[A-Za-z0-9]{8,}"
+            r"|github_pat_[A-Za-z0-9_]{20,}|xox[abprs]-[A-Za-z0-9-]{10,}|AKIA[0-9A-Z]{16}"
+            rf"|AIza[{_W}]{{30,}}|sk-[{_W}]{{16,}})"
+        ),
+        "[key]",
+    ),
     # Authorization schemes followed by a credential
     (
-        re.compile(r"(?i)\b(bearer|basic|digest|token)(\s+)[A-Za-z0-9._~+/=-]{6,}"),
+        re.compile(r"(?i)\b(bearer|basic|digest|token)(\s+)(?!\[)[A-Za-z0-9._~+/=-]{3,}"),
         rf"\1\2{REDACTED}",
     ),
     # key=value / key: value / "key": "value" with a sensitive key
     (
         re.compile(
-            rf"(?i)([\"']?\b(?:{_SECRET_KEYS})\b[\"']?\s*[:=]\s*[\"']?)([^\s\"'&,;}}]+)"
+            rf"(?<![{_W}])([{_W}]+)([\"']?\s*[:=]\s*)"
+            r"(\"[^\"\n]*\"|'[^'\n]*'|[^\s\"'&,;}]+)"
         ),
-        rf"\1{REDACTED}",
-    ),
-    # Well-known provider key shapes
-    (
-        re.compile(
-            r"\b(?:(?:sk|pk|rk)_(?:live|test)_[A-Za-z0-9]{8,}|gh[pousr]_[A-Za-z0-9]{20,}"
-            r"|github_pat_[A-Za-z0-9_]{20,}|xox[abprs]-[A-Za-z0-9-]{10,}|AKIA[0-9A-Z]{16}"
-            r"|AIza[0-9A-Za-z_-]{30,})"
-        ),
-        "[key]",
+        _secret_value(REDACTED),
     ),
     # E-mail addresses
-    (re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}"), "[email]"),
-    # Long runs of letters and digits (ids, hashes, keys): at least one of each
+    (
+        re.compile(r"(?<![A-Za-z0-9._%+-])[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}"),
+        "[email]",
+    ),
+    # 40-character base64 secrets (AWS secret access keys and the like)
+    (
+        re.compile(r"(?<![A-Za-z0-9/+=])[A-Za-z0-9/+]{40}(?![A-Za-z0-9/+=])"),
+        _if_mixed("[key]"),
+    ),
+    # Long runs of letters and digits (ids, hashes, keys)
+    (re.compile(rf"(?<![{_W}])[{_W}]{{32,}}"), _if_mixed("[id]")),
+    # IPv6 (full, or compressed with "::" between groups) and IPv4 addresses
     (
         re.compile(
-            r"\b(?=[A-Za-z0-9_-]*[0-9])(?=[A-Za-z0-9_-]*[A-Za-z])[A-Za-z0-9_-]{32,}\b"
+            rf"(?<![{_HEX}:])(?:(?:[{_HEX}]{{1,4}}:){{7}}[{_HEX}]{{1,4}}"
+            rf"|(?:[{_HEX}]{{1,4}}:){{1,6}}(?::[{_HEX}]{{1,4}}){{1,6}})(?![{_HEX}:])"
         ),
-        "[id]",
+        "[ip]",
     ),
-    # IPv4 addresses
-    (re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b"), "[ip]"),
-    # International phone numbers
+    (re.compile(r"(?<![\d.])(?:\d{1,3}\.){3}\d{1,3}(?![\d.])"), "[ip]"),
+    # US social security numbers, then phone numbers (North American and international)
+    (re.compile(r"(?<![\w-])\d{3}-\d{2}-\d{4}(?![\w-])"), "[ssn]"),
+    (re.compile(r"(?<![\w(])\(?\d{3}\)?[ .-]\d{3}[ .-]\d{4}(?!\w)"), "[phone]"),
     (re.compile(r"\+\d[\d ().-]{6,}\d"), "[phone]"),
+    # The user name in home-directory paths
+    (re.compile(r"(/home/|/Users/|\b[A-Za-z]:\\Users\\)[^/\\\s\"']+"), r"\1[user]"),
 )
 
 _CARD_CANDIDATE = re.compile(r"\b\d(?:[ -]?\d){12,18}\b")
@@ -97,7 +160,7 @@ def redact_text(text: str) -> str:
     """Replace personal data and secrets in ``text`` by placeholders.
 
     >>> redact_text("Authorization: Bearer abc.def.ghi")
-    'Authorization: [redacted] [redacted]'
+    'Authorization: [redacted]'
     >>> redact_text("paid with 4111 1111 1111 1111, order 1234567890123")
     'paid with [card], order 1234567890123'
     >>> redact_text('{"password": "hunter2", "user": "ana"}')
@@ -108,13 +171,29 @@ def redact_text(text: str) -> str:
     return _CARD_CANDIDATE.sub(_mask_card, text)
 
 
+_ID_SEGMENT = re.compile(r"\d+|(?=[A-Za-z_-]*\d)[A-Za-z0-9_-]{12,}")
+
+
+def _redact_segment(segment: str, redactor: Redactor) -> str:
+    segment = segment.split(";", 1)[0]  # path parameters (;jsessionid=...)
+    if _ID_SEGMENT.fullmatch(segment):
+        return "[id]"
+    if segment.startswith("@"):
+        return "[user]"
+    return redactor(segment)
+
+
 def redact_url(url: str, *, redactor: Redactor = redact_text) -> str:
     """``url`` without credentials, fragment or query values (keys are kept).
 
-    A string that is not an absolute URL is redacted as text.
+    Path segments that look like ids (all digits, or 12+ characters with a digit) or
+    handles (``@name``) are replaced, path parameters dropped, and the rest of each
+    segment redacted as text.
 
     >>> redact_url("/api/users/ana@example.com?q=1")
     '/api/users/[email]?q=[redacted]'
+    >>> redact_url("https://app.example/reset/9f8e7d6c5b4a3f2e;jsessionid=X/42")
+    'https://app.example/reset/[id]/[id]'
     """
     try:
         parts = urlsplit(url)
@@ -132,16 +211,18 @@ def redact_url(url: str, *, redactor: Redactor = redact_text) -> str:
         f"{redactor(key)}={REDACTED}"
         for key, _ in parse_qsl(parts.query, keep_blank_values=True)
     )
-    return urlunsplit((parts.scheme, netloc, redactor(parts.path), query, ""))
+    path = "/".join(_redact_segment(seg, redactor) for seg in parts.path.split("/"))
+    return urlunsplit((parts.scheme, netloc, path, query, ""))
 
 
 def redact_console(
     entries: Iterable[LogEntry], *, redactor: Redactor = redact_text
 ) -> list[LogEntry]:
-    """Console entries with their message and source redacted."""
+    """Console entries with their level, message and source redacted."""
     return [
         e.model_copy(
             update={
+                "level": redactor(e.level),
                 "message": redactor(e.message),
                 "source": redactor(e.source) if e.source else e.source,
             }
@@ -153,8 +234,14 @@ def redact_console(
 def redact_network(
     entries: Iterable[NetEntry], *, redactor: Redactor = redact_text
 ) -> list[NetEntry]:
-    """Network entries with their URL stripped of credentials and query values."""
+    """Network entries with their method redacted and their URL stripped of
+    credentials, query values and id-like path segments."""
     return [
-        e.model_copy(update={"url": redact_url(e.url, redactor=redactor)})
+        e.model_copy(
+            update={
+                "method": redactor(e.method),
+                "url": redact_url(e.url, redactor=redactor),
+            }
+        )
         for e in entries
     ]
