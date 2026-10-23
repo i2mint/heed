@@ -173,7 +173,8 @@ Write `page`.
 
 The review API (and, with `serve_shell`, the page at `/`).
 
-Routes: `GET /pages/{id}`, `GET /pages/{id}/media/{name}` (byte ranges),
+Routes: `GET /pages/{id}`, `GET /pages/{id}/media/{name}` (byte ranges;
+`?download=1` serves it as an attachment, so a phone saves the file),
 `GET|POST /threads/{id}`, `DELETE /threads/{id}/{comment}` (moderators),
 `GET /ui/review.{js,css}`. There is deliberately no HTTP listing of pages:
 it would hand every capability to any script running as the owner (the CLI’s

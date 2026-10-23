@@ -1090,7 +1090,8 @@ window.runMermaid = runMermaid;</script>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">FastAPI</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""The review API (and, with ``serve_shell``, the page at ``/``).</span>
 
-<span class="sd">    Routes: ``GET /pages/{id}``, ``GET /pages/{id}/media/{name}`` (byte ranges),</span>
+<span class="sd">    Routes: ``GET /pages/{id}``, ``GET /pages/{id}/media/{name}`` (byte ranges;</span>
+<span class="sd">    ``?download=1`` serves it as an attachment, so a phone saves the file),</span>
 <span class="sd">    ``GET|POST /threads/{id}``, ``DELETE /threads/{id}/{comment}`` (moderators),</span>
 <span class="sd">    ``GET /ui/review.{js,css}``. There is deliberately no HTTP listing of pages:</span>
 <span class="sd">    it would hand every capability to any script running as the owner (the CLI's</span>
@@ -1118,7 +1119,8 @@ window.runMermaid = runMermaid;</script>
         <span class="k">return</span> <span class="n">_page_or_404</span><span class="p">(</span><span class="n">page_id</span><span class="p">)</span><span class="o">.</span><span class="n">model_dump</span><span class="p">(</span><span class="n">mode</span><span class="o">=</span><span class="s2">"json"</span><span class="p">)</span>
 
     <span class="nd">@app</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"/pages/</span><span class="si">{page_id}</span><span class="s2">/media/</span><span class="si">{name}</span><span class="s2">"</span><span class="p">)</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">get_media</span><span class="p">(</span><span class="n">page_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_media</span><span class="p">(</span><span class="n">page_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">download</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span>
+        <span class="c1"># The link already lets its holder fetch the file: a download adds nothing.</span>
         <span class="n">path</span> <span class="o">=</span> <span class="n">stores</span><span class="o">.</span><span class="n">media_path</span><span class="p">(</span><span class="n">page_id</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">path</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">HTTPException</span><span class="p">(</span><span class="mi">404</span><span class="p">,</span> <span class="s2">"No such media"</span><span class="p">)</span>
@@ -1126,7 +1128,8 @@ window.runMermaid = runMermaid;</script>
         <span class="k">return</span> <span class="n">FileResponse</span><span class="p">(</span>
             <span class="n">path</span><span class="p">,</span>
             <span class="n">media_type</span><span class="o">=</span><span class="n">content_type</span><span class="p">,</span>
-            <span class="n">content_disposition_type</span><span class="o">=</span><span class="s2">"inline"</span><span class="p">,</span>
+            <span class="n">filename</span><span class="o">=</span><span class="n">name</span><span class="p">,</span>
+            <span class="n">content_disposition_type</span><span class="o">=</span><span class="s2">"attachment"</span> <span class="k">if</span> <span class="n">download</span> <span class="k">else</span> <span class="s2">"inline"</span><span class="p">,</span>
             <span class="n">headers</span><span class="o">=</span><span class="p">{</span><span class="s2">"Cache-Control"</span><span class="p">:</span> <span class="s2">"private, max-age=3600"</span><span class="p">},</span>
         <span class="p">)</span>
 

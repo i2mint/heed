@@ -1,4 +1,4 @@
-> built 2026-10-20 16:48 UTC from b862f66 (main) · heed 0.0.1. Details: build_info.json
+> built 2026-10-23 15:34 UTC from 9be0d24 (main) · heed 0.0.1. Details: build_info.json
 
 # index.html.md
 
@@ -1436,7 +1436,8 @@ report – and reports can carry personal data. Pass `delete_func` to opt back i
 
 The review API (and, with `serve_shell`, the page at `/`).
 
-Routes: `GET /pages/{id}`, `GET /pages/{id}/media/{name}` (byte ranges),
+Routes: `GET /pages/{id}`, `GET /pages/{id}/media/{name}` (byte ranges;
+`?download=1` serves it as an attachment, so a phone saves the file),
 `GET|POST /threads/{id}`, `DELETE /threads/{id}/{comment}` (moderators),
 `GET /ui/review.{js,css}`. There is deliberately no HTTP listing of pages:
 it would hand every capability to any script running as the owner (the CLI’s
@@ -2425,7 +2426,8 @@ Write `page`.
 
 The review API (and, with `serve_shell`, the page at `/`).
 
-Routes: `GET /pages/{id}`, `GET /pages/{id}/media/{name}` (byte ranges),
+Routes: `GET /pages/{id}`, `GET /pages/{id}/media/{name}` (byte ranges;
+`?download=1` serves it as an attachment, so a phone saves the file),
 `GET|POST /threads/{id}`, `DELETE /threads/{id}/{comment}` (moderators),
 `GET /ui/review.{js,css}`. There is deliberately no HTTP listing of pages:
 it would hand every capability to any script running as the owner (the CLI’s
@@ -4094,7 +4096,7 @@ overrides them.
 
 # About this build
 
-This documentation was built on **2026-10-20 16:48 UTC** from commit <a href="https://github.com/i2mint/heed/commit/b862f66c2c8d61bee6bd32ed5ed21d868e32c9ff"><code>b862f66</code></a> on branch <code>main</code>, for **heed 0.0.1** (from <code>pyproject.toml</code>).
+This documentation was built on **2026-10-23 15:34 UTC** from commit <a href="https://github.com/i2mint/heed/commit/9be0d246092c3b02781170618332724a9fb20c29"><code>9be0d24</code></a> on branch <code>main</code>, for **heed 0.0.1** (from <code>pyproject.toml</code>).
 
 #### WARNING
 The documentation and the package may be misaligned:
@@ -4105,7 +4107,7 @@ The documentation and the package may be misaligned:
 
 |                     |                                                                                                                                                    |
 |---------------------|----------------------------------------------------------------------------------------------------------------------------------------------------|
-| Commit              | <a href="https://github.com/i2mint/heed/commit/b862f66c2c8d61bee6bd32ed5ed21d868e32c9ff"><code>b862f66c2c8d61bee6bd32ed5ed21d868e32c9ff</code></a> |
+| Commit              | <a href="https://github.com/i2mint/heed/commit/9be0d246092c3b02781170618332724a9fb20c29"><code>9be0d246092c3b02781170618332724a9fb20c29</code></a> |
 | Branch              | <code>main</code>                                                                                                                                  |
 | Tags at this commit | none                                                                                                                                               |
 | Working tree        | clean                                                                                                                                              |
@@ -4116,9 +4118,9 @@ The documentation and the package may be misaligned:
 |              |                                                                                            |
 |--------------|--------------------------------------------------------------------------------------------|
 | Repository   | <code>i2mint/heed</code>                                                                   |
-| Run          | <a href="https://github.com/i2mint/heed/actions/runs/39460399705">39460399705</a>          |
+| Run          | <a href="https://github.com/i2mint/heed/actions/runs/39979156728">39979156728</a>          |
 | Ref          | <code>refs/heads/main</code>                                                               |
-| Event commit | <code>b862f66c2c8d61bee6bd32ed5ed21d868e32c9ff</code> (in the history of the built commit) |
+| Event commit | <code>9be0d246092c3b02781170618332724a9fb20c29</code> (in the history of the built commit) |
 
 ## Tools
 
@@ -4149,7 +4151,7 @@ Latest release: <a href="https://pypi.org/project/heed/0.1.0/">0.1.0</a>, newer 
 
 ```bash
 git clone https://github.com/i2mint/heed && cd heed
-git checkout b862f66c2c8d61bee6bd32ed5ed21d868e32c9ff
+git checkout 9be0d246092c3b02781170618332724a9fb20c29
 pip install "epythet==0.2.22"
 epythet quickstart . --ignore tests/ scrap/ examples/
 ```
