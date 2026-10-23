@@ -359,7 +359,7 @@ def make_review_app(
 
     @app.get("/pages/{page_id}/media/{name}")
     def get_media(page_id: str, name: str, download: bool = False):
-        # The link already lets its holder fetch the file, so a download grants nothing new.
+        # The link already lets its holder fetch the file; a download grants nothing new.
         path = stores.media_path(page_id, name)
         if path is None:
             raise HTTPException(404, "No such media")
