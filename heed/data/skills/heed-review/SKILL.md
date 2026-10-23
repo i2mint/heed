@@ -17,6 +17,7 @@ heed review publish round1/*.mp3 --title "Voice options, round 1" --note "Pick o
 It prints the link (`https://apps.thorwhalen.com/review/#<id>` on tw). The `<id>` after `#` is the page id; keep it. Python: `heed.publish_review(paths, title=..., note=...)` returns the page (`.id`), and `heed.review_url(page.id)` gives the link.
 
 - Video, audio and images only (anything else is refused). Several files go on one page, one player each, in the order given. There is no folder argument; use a glob.
+- Every player has a **Download** link (`.../media/<name>?download=1`, served as an attachment), so whoever holds the link can save the file; publish nothing you would not hand them as a file.
 - **A new version goes on the same page**: `heed review publish cut2.mp4 --to <id>`. The link and the thread stay; a file with the same name replaces the old one.
 - The note is shown as plain text above the media (a `.md` reads fine as text).
 

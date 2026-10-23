@@ -2,7 +2,7 @@
 //
 // The page id is the URL fragment (#<id>), so it never reaches a server log or a
 // Referer. Every piece of visitor text is set with textContent, never as HTML.
-// Endpoints (see heed/review.py): GET {api}/pages/{id}, {api}/pages/{id}/media/{name},
+// Endpoints (see heed/review.py): GET {api}/pages/{id}, {api}/pages/{id}/media/{name}[?download=1],
 // GET|POST {api}/threads/{id}, DELETE {api}/threads/{id}/{comment}.
 (function () {
   "use strict";
@@ -89,7 +89,8 @@
       players.set(item.name, node);
       ["play", "seeked", "timeupdate"].forEach((ev) => node.addEventListener(ev, () => { lastPlayed = node; updatePin(); }));
     }
-    return el("figure", {}, node, el("figcaption", { text: item.name }));
+    const save = el("a", { class: "download", href: src + "?download=1", download: item.name, text: "Download" });
+    return el("figure", {}, node, el("figcaption", {}, el("span", { text: item.name }), save));
   }
 
   function seek(name, ms) {
