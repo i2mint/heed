@@ -329,7 +329,8 @@ def make_review_app(
 ) -> FastAPI:
     """The review API (and, with ``serve_shell``, the page at ``/``).
 
-    Routes: ``GET /pages/{id}``, ``GET /pages/{id}/media/{name}`` (byte ranges),
+    Routes: ``GET /pages/{id}``, ``GET /pages/{id}/media/{name}`` (byte ranges;
+    ``?download=1`` serves it as an attachment, so a phone saves the file),
     ``GET|POST /threads/{id}``, ``DELETE /threads/{id}/{comment}`` (moderators),
     ``GET /ui/review.{js,css}``. There is deliberately no HTTP listing of pages:
     it would hand every capability to any script running as the owner (the CLI's
@@ -357,7 +358,8 @@ def make_review_app(
         return _page_or_404(page_id).model_dump(mode="json")
 
     @app.get("/pages/{page_id}/media/{name}")
-    def get_media(page_id: str, name: str):
+    def get_media(page_id: str, name: str, download: bool = False):
+        # The link already lets its holder fetch the file, so a download grants nothing new.
         path = stores.media_path(page_id, name)
         if path is None:
             raise HTTPException(404, "No such media")
@@ -365,7 +367,8 @@ def make_review_app(
         return FileResponse(
             path,
             media_type=content_type,
-            content_disposition_type="inline",
+            filename=name,
+            content_disposition_type="attachment" if download else "inline",
             headers={"Cache-Control": "private, max-age=3600"},
         )
 

@@ -69,6 +69,17 @@ def test_unknown_page_is_404_everywhere(root, clip):
     assert client.get("/pages").status_code in (404, 405)  # no HTTP listing at all
 
 
+def test_media_plays_inline_and_downloads_as_attachment(root, clip):
+    page = publish_review([clip], title="t", rootdir=root)
+    client = _client(root)
+    url = f"/pages/{page.id}/media/cut 1.mp4"
+    assert client.get(url).headers["content-disposition"].startswith("inline")
+    saved = client.get(url, params={"download": 1})
+    assert saved.headers["content-disposition"].startswith("attachment")
+    assert "cut%201.mp4" in saved.headers["content-disposition"]
+    assert saved.content == clip.read_bytes()
+
+
 def test_media_not_listed_on_the_page_is_not_served(root, clip):
     page = publish_review([clip], title="x", rootdir=root)
     (root / "media" / page.id / "secret.mp4").write_bytes(b"x")
