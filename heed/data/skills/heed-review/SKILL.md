@@ -19,6 +19,7 @@ It prints the link (`https://apps.thorwhalen.com/review/#<id>` on tw). The `<id>
 - Video, audio and images only (anything else is refused). Several files go on one page, one player each, in the order given. There is no folder argument; use a glob.
 - Every player has a **Download** link (`.../media/<name>?download=1`, served as an attachment), so whoever holds the link can save the file; publish nothing you would not hand them as a file.
 - **A new version goes on the same page**: `heed review publish cut2.mp4 --to <id>`. The link and the thread stay; a file with the same name replaces the old one.
+- **A link for a client**: `--password-file pw.txt` and/or `--expires 7d` on `publish` (extra `heed[gate]`); `heed review revoke <id>` ends it for everyone. Never pass a password as a command-line argument.
 - The note is shown as plain text above the media (a `.md` reads fine as text).
 
 ## Read the comments back

@@ -13,6 +13,8 @@
     try { return decodeURIComponent(location.hash.replace(/^#/, "")); } catch (e) { return ""; }
   })();
   const REFRESH_MS = 30000;
+  let refreshTimer = null;
+  let listening = false;
 
   // Per-viewer conveniences only (the commenter's name); the thread lives server-side.
   const prefs = {
@@ -62,7 +64,11 @@
     });
     let data = null;
     try { data = await res.json(); } catch (e) { /* empty body */ }
-    if (!res.ok) throw new Error((data && data.detail) || res.statusText || "Request failed");
+    if (!res.ok) {
+      const err = new Error((data && data.detail) || res.statusText || "Request failed");
+      err.status = res.status;
+      throw err;
+    }
     return data;
   }
 
@@ -196,10 +202,37 @@
     el("div", { class: "actions" }, submit, status),
   );
 
+  // A page with a password answers 401 until the visitor unlocks it (a cookie is set).
+  function askPassword(message) {
+    const input = el("input", { type: "password", name: "password", required: "", autocomplete: "current-password", autofocus: "" });
+    const status = el("p", { class: "status error", role: "status", text: message || "" });
+    root.replaceChildren(
+      el("h1", { text: "Review" }),
+      el("p", { class: "muted", text: "This page is protected. Enter the password you were given." }),
+      el("form", {
+        onsubmit: async (ev) => {
+          ev.preventDefault();
+          try {
+            await call("POST", "/pages/" + encodeURIComponent(pageId) + "/unlock", { password: input.value });
+            start();
+          } catch (e) {
+            status.textContent = e.message;
+            input.select();
+          }
+        },
+      }, el("label", {}, "Password", input), el("div", { class: "actions" }, el("button", { class: "primary", type: "submit", text: "Open" })), status),
+    );
+  }
+
   async function start() {
     let page;
     try { page = await call("GET", "/pages/" + encodeURIComponent(pageId)); }
-    catch (e) { fail("This review page does not exist, or the link is wrong."); return; }
+    catch (e) {
+      if (e.status === 401) askPassword();
+      else if (e.status === 410) fail("This link has expired. Ask whoever sent it for a new one.");
+      else fail("This review page does not exist, or the link is wrong.");
+      return;
+    }
     document.title = page.title;
     root.replaceChildren(
       el("h1", { text: page.title }),
@@ -211,8 +244,12 @@
       form,
     );
     try { await loadThread(); } catch (e) { list.replaceChildren(el("li", { class: "muted", text: e.message })); }
-    setInterval(() => { if (!document.hidden && !bodyInput.matches(":focus")) loadThread().catch(() => {}); }, REFRESH_MS);
-    document.addEventListener("visibilitychange", () => { if (!document.hidden) loadThread().catch(() => {}); });
+    if (refreshTimer) clearInterval(refreshTimer);
+    refreshTimer = setInterval(() => { if (!document.hidden && !bodyInput.matches(":focus")) loadThread().catch(() => {}); }, REFRESH_MS);
+    if (!listening) {
+      listening = true;
+      document.addEventListener("visibilitychange", () => { if (!document.hidden) loadThread().catch(() => {}); });
+    }
   }
 
   window.addEventListener("hashchange", () => location.reload());

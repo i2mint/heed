@@ -19,6 +19,8 @@ Layout of the data root (one folder; ADR-0024's S3 layout mirrors it key for key
     pages/<id>.json            the page: title, note, media list, created_at
     media/<id>/<name>          the media files, served with byte ranges (seekable)
     comments/<id>/<cid>.json   the thread (heed.threads)
+    access/<id>.json           optional password, expiry, revoke (heed.review_access);
+                               no file means open: back this folder up too
 
 Python::
 
@@ -43,6 +45,7 @@ import os
 import re
 import secrets
 import shutil
+import sys
 from collections.abc import Callable, Iterable, MutableMapping
 from datetime import datetime, timezone
 from importlib.resources import files as _package_files
@@ -52,6 +55,7 @@ from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.responses import FileResponse, HTMLResponse
 from pydantic import BaseModel, Field
 
+from heed.review_access import ReviewGate, revoke_access, set_access
 from heed.storage import make_report_store
 from heed.threads import (
     ID_PATTERN,
@@ -239,8 +243,14 @@ def publish_review(
     note: str | None = None,
     rootdir: str | os.PathLike | None = None,
     to: str | None = None,
+    password: str | None = None,
+    expires=None,
 ) -> ReviewPage:
     """Publish ``media`` as a new review page (or add it to page ``to``).
+
+    ``password`` and ``expires`` (``"7d"``, ``"2026-11-01"``, ``"never"``) gate the
+    page (:mod:`heed.review_access`, needs ``heed[gate]``); on an existing page they
+    change only what is given. Neither: the page is open to whoever has the link.
 
     The files are copied into the data root. Adding to an existing page keeps its
     link and its thread, so a new cut can go where the old one's comments are; a file
@@ -266,6 +276,9 @@ def publish_review(
         page.title = title
     if note is not None:
         page.note = note
+    if password is not None or expires is not None:
+        # first: a bad password or expiry must not leave an open page behind
+        set_access(stores.root, page.id, password=password, expires=expires)
     folder = stores.root / "media" / page.id
     folder.mkdir(parents=True, exist_ok=True)
     for src in sources:
@@ -326,6 +339,7 @@ def make_review_app(
     rate_limit_per_minute: int = 10,
     max_comments_per_thread: int = 500,
     serve_shell: bool = True,
+    gate: ReviewGate | None = None,
 ) -> FastAPI:
     """The review API (and, with ``serve_shell``, the page at ``/``).
 
@@ -335,8 +349,15 @@ def make_review_app(
     ``GET /ui/review.{js,css}``. There is deliberately no HTTP listing of pages:
     it would hand every capability to any script running as the owner (the CLI's
     ``ls`` lists them).
+
+    A page given a password, an expiry or a revoke (:func:`publish_review`,
+    ``heed review revoke``) is gated by ``gate`` (a :class:`ReviewGate`, built over
+    ``rootdir`` with ``trusted_proxies`` by default): 401 until ``POST
+    /pages/{id}/unlock`` ``{"password": ...}`` sets a cookie, 410 once expired, 404
+    once revoked. Pages with no such record are open, as ever.
     """
     stores = ReviewStores(rootdir)
+    gate = gate or ReviewGate(stores.root, trusted_proxies=trusted_proxies)
     app = FastAPI(title="heed review", docs_url=None, redoc_url=None, openapi_url=None)
 
     @app.middleware("http")
@@ -352,14 +373,27 @@ def make_review_app(
             raise HTTPException(404, "No such page")
         return page
 
+    def _open_page_or_404(page_id: str, request: Request) -> ReviewPage:
+        page = _page_or_404(page_id)
+        gate.check(request, page_id)
+        return page
+
     @app.get("/pages/{page_id}")
-    def get_page(page_id: str, response: Response):
+    def get_page(page_id: str, request: Request, response: Response):
         response.headers.update(_JSON_HEADERS)
-        return _page_or_404(page_id).model_dump(mode="json")
+        return _open_page_or_404(page_id, request).model_dump(mode="json")
+
+    @app.post("/pages/{page_id}/unlock")
+    async def unlock_page(page_id: str, request: Request):
+        _page_or_404(page_id)
+        response = await gate.unlock(request, page_id)
+        response.headers.update(_JSON_HEADERS)
+        return response
 
     @app.get("/pages/{page_id}/media/{name}")
-    def get_media(page_id: str, name: str, download: bool = False):
+    def get_media(page_id: str, name: str, request: Request, download: bool = False):
         # The link already lets its holder fetch the file: a download adds nothing.
+        _open_page_or_404(page_id, request)
         path = stores.media_path(page_id, name)
         if path is None:
             raise HTTPException(404, "No such media")
@@ -381,6 +415,7 @@ def make_review_app(
             rate_limiter=rate_limiter,
             rate_limit_per_minute=rate_limit_per_minute,
             max_comments_per_thread=max_comments_per_thread,
+            thread_gate=lambda request, page_id: gate.check(request, page_id),
         )
     )
 
@@ -460,6 +495,20 @@ def main(argv: list[str] | None = None) -> int:
     pub.add_argument("--note-file", help="read the note from this file (e.g. a .md)")
     pub.add_argument("--to", help="add the media to this existing page (same link)")
     pub.add_argument("--base-url", help=f"the page's URL (default ${ENV_BASE_URL})")
+    pub.add_argument(
+        "--password-file",
+        help="gate the page with the password in this file ('-' reads stdin); "
+        "not an argument, which other users' `ps` would show",
+    )
+    pub.add_argument(
+        "--expires",
+        help="the link stops working then: 7d, 2026-11-01, an ISO time, never",
+    )
+
+    rev = sub.add_parser(
+        "revoke", help="end a page's link for everyone (it answers 404)"
+    )
+    rev.add_argument("page")
 
     com = sub.add_parser("comments", help="print a page's comments")
     com.add_argument("page")
@@ -490,10 +539,33 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if a.cmd == "publish":
         note = Path(a.note_file).read_text() if a.note_file else a.note
-        page = publish_review(a.media, title=a.title, note=note, rootdir=a.dir, to=a.to)
+        password = None
+        if a.password_file:
+            raw = (
+                sys.stdin.read()
+                if a.password_file == "-"
+                else Path(a.password_file).read_text()
+            )
+            password = raw.rstrip("\r\n")
+        page = publish_review(
+            a.media,
+            title=a.title,
+            note=note,
+            rootdir=a.dir,
+            to=a.to,
+            password=password,
+            expires=a.expires,
+        )
         print(review_url(page.id, a.base_url))
         return 0
     stores = ReviewStores(a.dir)
+    if a.cmd == "revoke":
+        if stores.page(a.page) is None:
+            print(f"No review page {a.page!r} in {stores.root}")
+            return 1
+        revoke_access(stores.root, a.page)
+        print("revoked")
+        return 0
     if a.cmd == "comments":
         return _print_comments(stores, a.page, as_json=a.json)
     if a.cmd == "ls":
