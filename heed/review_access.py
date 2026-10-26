@@ -30,19 +30,25 @@ per page, and a page that takes too many wrong ones from everyone is locked for 
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
+import tempfile
 import time
 from collections.abc import Iterator, MutableMapping
 from pathlib import Path
 
 from fastapi import HTTPException, Request, Response
+from starlette.concurrency import run_in_threadpool
 
 from heed.security import RateLimiter, client_ip, make_rate_limiter, rate_limit_key
-from heed.threads import read_capped
+from heed.threads import read_capped, valid_id
 
 ACCESS_DIR = "access"
 COOKIE_PREFIX = "heed_unlock_"
+#: hex chars of the page id's hash in the cookie name (the id itself is the capability
+#: and must not travel to other apps on the origin)
+COOKIE_ID_HEX = 16
 #: password tries one client gets on one page per window
 DFLT_MAX_ATTEMPTS = 10
 #: wrong passwords one page takes from everyone per window before it locks
@@ -63,7 +69,7 @@ class _JsonRecords(MutableMapping):
         self.folder = folder
 
     def _path(self, key: str) -> Path:
-        if not key.replace("-", "").replace("_", "").isalnum():
+        if not valid_id(key):
             raise KeyError(key)
         return self.folder / f"{key}.json"
 
@@ -76,9 +82,9 @@ class _JsonRecords(MutableMapping):
     def __setitem__(self, key, value):
         path = self._path(key)
         path.parent.mkdir(parents=True, exist_ok=True)
-        tmp = path.with_suffix(".tmp")
-        tmp.write_text(json.dumps(value))
-        os.chmod(tmp, 0o600)  # holds a password hash
+        fd, tmp = tempfile.mkstemp(dir=path.parent, suffix=".tmp")  # 0600: a hash
+        with os.fdopen(fd, "w") as f:
+            json.dump(value, f)
         os.replace(tmp, path)
 
     def __delitem__(self, key):
@@ -140,8 +146,19 @@ def revoke_access(rootdir, page_id: str):
     """
     links = _links(rootdir)
     if links.record(page_id) is None:
+        if page_id in links.store:  # a damaged record: replace it, closed
+            del links.store[page_id]
         links.create({}, expires="never", token=page_id)
     return links.revoke(page_id)
+
+
+def _cookie_name(page_id: str) -> str:
+    """The unlock cookie's name: a hash of the id, so the id never leaves the page.
+
+    >>> _cookie_name("A" * 22) == _cookie_name("A" * 22) != _cookie_name("B" * 22)
+    True
+    """
+    return COOKIE_PREFIX + hashlib.sha256(page_id.encode()).hexdigest()[:COOKIE_ID_HEX]
 
 
 class ReviewGate:
@@ -208,7 +225,7 @@ class ReviewGate:
         if found is None:
             return
         links, rec = found
-        cookie = request.cookies.get(COOKIE_PREFIX + page_id)
+        cookie = request.cookies.get(_cookie_name(page_id))
         if not links.unlocked(rec, cookie, max_age_s=self.unlock_max_age_s):
             raise HTTPException(401, "Password required")
 
@@ -234,14 +251,15 @@ class ReviewGate:
             raise HTTPException(
                 429, "Too many attempts. Wait a few minutes and try again."
             )
-        if not links.check_password(rec, password):
+        # scrypt is slow on purpose: keep it off the event loop
+        if not await run_in_threadpool(links.check_password, rec, password):
             if not self.page_failure_limiter.allow(page_id):
                 self._locked[page_id] = self._clock() + self.lock_s
             raise HTTPException(401, "That password is not right.")
         proto = request.headers.get("x-forwarded-proto", request.url.scheme)
         response = Response(status_code=204, headers={"Cache-Control": "no-store"})
         response.set_cookie(
-            COOKIE_PREFIX + page_id,
+            _cookie_name(page_id),
             links.unlock_value(rec),
             max_age=links.unlock_max_age(rec, max_age_s=self.unlock_max_age_s),
             path=request.scope.get("root_path") or "/",

@@ -283,12 +283,7 @@ def test_a_token_moderator_is_not_fooled_by_a_login_alone(root, clip):
     # Logged in as the owner, but without the secret: no powers at all.
     assert owner.get(url).json()["can_moderate"] is False
     assert owner.delete(f"{url}/{cid}", headers=hdr).status_code == 403
-    assert (
-        owner.post(url, json={"author": "x", "body": "y"}).json()["comment"][
-            "moderator"
-        ]
-        is False
-    )
+    assert owner.post(url, json={"author": "x", "body": "y"}).json()["comment"]["moderator"] is False
     # The wrong secret is no better; the secret without the login is no better either.
     bad = {**hdr, MODERATOR_TOKEN_HEADER: "wrong-wrong-wrong-wrong"}
     assert owner.delete(f"{url}/{cid}", headers=bad).status_code == 403
@@ -395,23 +390,62 @@ def test_revoking_an_ungated_page_closes_it(root, clip):
     assert client.get(f"/pages/{page.id}").status_code == 404
 
 
-def test_wrong_passwords_are_limited_per_client_and_then_per_page(root, clip):
+def test_wrong_passwords_are_limited_per_client(root, clip):
     from heed.review_access import ReviewGate
     from heed.security import InMemoryRateLimiter
 
     page = publish_review([clip], title="Cut", rootdir=root, password=PW)
-    gate = ReviewGate(
-        root,
-        rate_limiter=InMemoryRateLimiter(max_per_window=3),
-        page_failure_limiter=InMemoryRateLimiter(max_per_window=4),
-    )
+    gate = ReviewGate(root, rate_limiter=InMemoryRateLimiter(max_per_window=3))
     client = _client(root, gate=gate)
     url = f"/pages/{page.id}/unlock"
     codes = [client.post(url, json={"password": "nope"}).status_code for _ in range(5)]
     assert codes == [401, 401, 401, 429, 429]
-    assert (
-        client.post(url, json={"password": PW}).status_code == 429
-    )  # even the right one
+    assert client.post(url, json={"password": PW}).status_code == 429  # even the right one
+
+
+def test_a_page_taking_too_many_wrong_passwords_locks_for_everyone(root, clip):
+    from heed.review_access import ReviewGate
+    from heed.security import InMemoryRateLimiter
+
+    now = [0.0]
+    page = publish_review([clip], title="Cut", rootdir=root, password=PW)
+    gate = ReviewGate(
+        root,
+        rate_limiter=InMemoryRateLimiter(max_per_window=100),
+        page_failure_limiter=InMemoryRateLimiter(max_per_window=2),
+        lock_s=60,
+        clock=lambda: now[0],
+    )
+    client = _client(root, gate=gate)
+    url = f"/pages/{page.id}/unlock"
+    wrong = {"password": "nope"}
+    assert [client.post(url, json=wrong).status_code for _ in range(3)] == [401] * 3
+    assert client.post(url, json={"password": PW}).status_code == 429  # locked
+    now[0] = 61.0
+    assert client.post(url, json={"password": PW}).status_code == 204  # lock over
+
+
+def test_a_bad_password_at_publish_leaves_no_open_page(root, clip):
+    with pytest.raises(ValueError):
+        publish_review([clip], title="Cut", rootdir=root, password="short")
+    assert ReviewStores(root).all_pages() == []
+    page = publish_review([clip], title="Cut", rootdir=root)
+    with pytest.raises(ValueError):
+        publish_review([clip], rootdir=root, to=page.id, password="short")
+
+
+def test_the_unlock_cookie_does_not_carry_the_page_id(root, clip):
+    page, client = _gated(root, clip, password=PW)
+    ok = client.post(f"/pages/{page.id}/unlock", json={"password": PW})
+    assert page.id not in ok.headers["set-cookie"]
+
+
+def test_revoking_a_page_with_a_damaged_record_still_closes_it(root, clip):
+    page, client = _gated(root, clip, password=PW)
+    (root / "access" / f"{page.id}.json").write_text("{not json")
+    assert client.get(f"/pages/{page.id}").status_code == 404  # closed, not open
+    assert main(["--dir", str(root), "revoke", page.id]) == 0
+    assert client.get(f"/pages/{page.id}").status_code == 404
 
 
 def test_a_gated_page_without_caplinks_fails_closed(root, clip, monkeypatch):

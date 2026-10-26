@@ -19,6 +19,8 @@ Layout of the data root (one folder; ADR-0024's S3 layout mirrors it key for key
     pages/<id>.json            the page: title, note, media list, created_at
     media/<id>/<name>          the media files, served with byte ranges (seekable)
     comments/<id>/<cid>.json   the thread (heed.threads)
+    access/<id>.json           optional password hash, expiry, revoke (heed.review_access);
+                               a page without one is open: back this folder up too
 
 Python::
 
@@ -274,6 +276,9 @@ def publish_review(
         page.title = title
     if note is not None:
         page.note = note
+    if password is not None or expires is not None:
+        # first: a bad password or expiry must not leave an open page behind
+        set_access(stores.root, page.id, password=password, expires=expires)
     folder = stores.root / "media" / page.id
     folder.mkdir(parents=True, exist_ok=True)
     for src in sources:
@@ -285,8 +290,6 @@ def publish_review(
         )
         page.media = [m for m in page.media if m.name != name] + [item]
     stores.save(page)
-    if password is not None or expires is not None:
-        set_access(stores.root, page.id, password=password, expires=expires)
     return page
 
 
