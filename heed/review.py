@@ -19,8 +19,8 @@ Layout of the data root (one folder; ADR-0024's S3 layout mirrors it key for key
     pages/<id>.json            the page: title, note, media list, created_at
     media/<id>/<name>          the media files, served with byte ranges (seekable)
     comments/<id>/<cid>.json   the thread (heed.threads)
-    access/<id>.json           optional password hash, expiry, revoke (heed.review_access);
-                               a page without one is open: back this folder up too
+    access/<id>.json           optional password, expiry, revoke (heed.review_access);
+                               no file means open: back this folder up too
 
 Python::
 
