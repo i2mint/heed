@@ -733,6 +733,8 @@ window.runMermaid = runMermaid;</script>
 <span class="sd">    pages/&lt;id&gt;.json            the page: title, note, media list, created_at</span>
 <span class="sd">    media/&lt;id&gt;/&lt;name&gt;          the media files, served with byte ranges (seekable)</span>
 <span class="sd">    comments/&lt;id&gt;/&lt;cid&gt;.json   the thread (heed.threads)</span>
+<span class="sd">    access/&lt;id&gt;.json           optional password, expiry, revoke (heed.review_access);</span>
+<span class="sd">                               no file means open: back this folder up too</span>
 
 <span class="sd">Python::</span>
 
@@ -757,6 +759,7 @@ window.runMermaid = runMermaid;</script>
 <span class="kn">import</span><span class="w"> </span><span class="nn">re</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">secrets</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">shutil</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Iterable</span><span class="p">,</span> <span class="n">MutableMapping</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">timezone</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">importlib.resources</span><span class="w"> </span><span class="kn">import</span> <span class="n">files</span> <span class="k">as</span> <span class="n">_package_files</span>
@@ -766,6 +769,7 @@ window.runMermaid = runMermaid;</script>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fastapi.responses</span><span class="w"> </span><span class="kn">import</span> <span class="n">FileResponse</span><span class="p">,</span> <span class="n">HTMLResponse</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">pydantic</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseModel</span><span class="p">,</span> <span class="n">Field</span>
 
+<span class="kn">from</span><span class="w"> </span><span class="nn">heed.review_access</span><span class="w"> </span><span class="kn">import</span> <span class="n">ReviewGate</span><span class="p">,</span> <span class="n">revoke_access</span><span class="p">,</span> <span class="n">set_access</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">heed.storage</span><span class="w"> </span><span class="kn">import</span> <span class="n">make_report_store</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">heed.threads</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">ID_PATTERN</span><span class="p">,</span>
@@ -994,8 +998,14 @@ window.runMermaid = runMermaid;</script>
     <span class="n">note</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">rootdir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">os</span><span class="o">.</span><span class="n">PathLike</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">to</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">password</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">expires</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ReviewPage</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Publish ``media`` as a new review page (or add it to page ``to``).</span>
+
+<span class="sd">    ``password`` and ``expires`` (``"7d"``, ``"2026-11-01"``, ``"never"``) gate the</span>
+<span class="sd">    page (:mod:`heed.review_access`, needs ``heed[gate]``); on an existing page they</span>
+<span class="sd">    change only what is given. Neither: the page is open to whoever has the link.</span>
 
 <span class="sd">    The files are copied into the data root. Adding to an existing page keeps its</span>
 <span class="sd">    link and its thread, so a new cut can go where the old one's comments are; a file</span>
@@ -1021,6 +1031,9 @@ window.runMermaid = runMermaid;</script>
         <span class="n">page</span><span class="o">.</span><span class="n">title</span> <span class="o">=</span> <span class="n">title</span>
     <span class="k">if</span> <span class="n">note</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">page</span><span class="o">.</span><span class="n">note</span> <span class="o">=</span> <span class="n">note</span>
+    <span class="k">if</span> <span class="n">password</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">expires</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="c1"># first: a bad password or expiry must not leave an open page behind</span>
+        <span class="n">set_access</span><span class="p">(</span><span class="n">stores</span><span class="o">.</span><span class="n">root</span><span class="p">,</span> <span class="n">page</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">password</span><span class="o">=</span><span class="n">password</span><span class="p">,</span> <span class="n">expires</span><span class="o">=</span><span class="n">expires</span><span class="p">)</span>
     <span class="n">folder</span> <span class="o">=</span> <span class="n">stores</span><span class="o">.</span><span class="n">root</span> <span class="o">/</span> <span class="s2">"media"</span> <span class="o">/</span> <span class="n">page</span><span class="o">.</span><span class="n">id</span>
     <span class="n">folder</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
     <span class="k">for</span> <span class="n">src</span> <span class="ow">in</span> <span class="n">sources</span><span class="p">:</span>
@@ -1087,6 +1100,7 @@ window.runMermaid = runMermaid;</script>
     <span class="n">rate_limit_per_minute</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span><span class="p">,</span>
     <span class="n">max_comments_per_thread</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">500</span><span class="p">,</span>
     <span class="n">serve_shell</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="n">gate</span><span class="p">:</span> <span class="n">ReviewGate</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">FastAPI</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""The review API (and, with ``serve_shell``, the page at ``/``).</span>
 
@@ -1096,8 +1110,15 @@ window.runMermaid = runMermaid;</script>
 <span class="sd">    ``GET /ui/review.{js,css}``. There is deliberately no HTTP listing of pages:</span>
 <span class="sd">    it would hand every capability to any script running as the owner (the CLI's</span>
 <span class="sd">    ``ls`` lists them).</span>
+
+<span class="sd">    A page given a password, an expiry or a revoke (:func:`publish_review`,</span>
+<span class="sd">    ``heed review revoke``) is gated by ``gate`` (a :class:`ReviewGate`, built over</span>
+<span class="sd">    ``rootdir`` with ``trusted_proxies`` by default): 401 until ``POST</span>
+<span class="sd">    /pages/{id}/unlock`` ``{"password": ...}`` sets a cookie, 410 once expired, 404</span>
+<span class="sd">    once revoked. Pages with no such record are open, as ever.</span>
 <span class="sd">    """</span>
     <span class="n">stores</span> <span class="o">=</span> <span class="n">ReviewStores</span><span class="p">(</span><span class="n">rootdir</span><span class="p">)</span>
+    <span class="n">gate</span> <span class="o">=</span> <span class="n">gate</span> <span class="ow">or</span> <span class="n">ReviewGate</span><span class="p">(</span><span class="n">stores</span><span class="o">.</span><span class="n">root</span><span class="p">,</span> <span class="n">trusted_proxies</span><span class="o">=</span><span class="n">trusted_proxies</span><span class="p">)</span>
     <span class="n">app</span> <span class="o">=</span> <span class="n">FastAPI</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="s2">"heed review"</span><span class="p">,</span> <span class="n">docs_url</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">redoc_url</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">openapi_url</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
 
     <span class="nd">@app</span><span class="o">.</span><span class="n">middleware</span><span class="p">(</span><span class="s2">"http"</span><span class="p">)</span>
@@ -1113,14 +1134,27 @@ window.runMermaid = runMermaid;</script>
             <span class="k">raise</span> <span class="n">HTTPException</span><span class="p">(</span><span class="mi">404</span><span class="p">,</span> <span class="s2">"No such page"</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">page</span>
 
+    <span class="k">def</span><span class="w"> </span><span class="nf">_open_page_or_404</span><span class="p">(</span><span class="n">page_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">request</span><span class="p">:</span> <span class="n">Request</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ReviewPage</span><span class="p">:</span>
+        <span class="n">page</span> <span class="o">=</span> <span class="n">_page_or_404</span><span class="p">(</span><span class="n">page_id</span><span class="p">)</span>
+        <span class="n">gate</span><span class="o">.</span><span class="n">check</span><span class="p">(</span><span class="n">request</span><span class="p">,</span> <span class="n">page_id</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">page</span>
+
     <span class="nd">@app</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"/pages/</span><span class="si">{page_id}</span><span class="s2">"</span><span class="p">)</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">get_page</span><span class="p">(</span><span class="n">page_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">response</span><span class="p">:</span> <span class="n">Response</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_page</span><span class="p">(</span><span class="n">page_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">request</span><span class="p">:</span> <span class="n">Request</span><span class="p">,</span> <span class="n">response</span><span class="p">:</span> <span class="n">Response</span><span class="p">):</span>
         <span class="n">response</span><span class="o">.</span><span class="n">headers</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">_JSON_HEADERS</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">_page_or_404</span><span class="p">(</span><span class="n">page_id</span><span class="p">)</span><span class="o">.</span><span class="n">model_dump</span><span class="p">(</span><span class="n">mode</span><span class="o">=</span><span class="s2">"json"</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">_open_page_or_404</span><span class="p">(</span><span class="n">page_id</span><span class="p">,</span> <span class="n">request</span><span class="p">)</span><span class="o">.</span><span class="n">model_dump</span><span class="p">(</span><span class="n">mode</span><span class="o">=</span><span class="s2">"json"</span><span class="p">)</span>
+
+    <span class="nd">@app</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="s2">"/pages/</span><span class="si">{page_id}</span><span class="s2">/unlock"</span><span class="p">)</span>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">unlock_page</span><span class="p">(</span><span class="n">page_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">request</span><span class="p">:</span> <span class="n">Request</span><span class="p">):</span>
+        <span class="n">_page_or_404</span><span class="p">(</span><span class="n">page_id</span><span class="p">)</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="k">await</span> <span class="n">gate</span><span class="o">.</span><span class="n">unlock</span><span class="p">(</span><span class="n">request</span><span class="p">,</span> <span class="n">page_id</span><span class="p">)</span>
+        <span class="n">response</span><span class="o">.</span><span class="n">headers</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">_JSON_HEADERS</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">response</span>
 
     <span class="nd">@app</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"/pages/</span><span class="si">{page_id}</span><span class="s2">/media/</span><span class="si">{name}</span><span class="s2">"</span><span class="p">)</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">get_media</span><span class="p">(</span><span class="n">page_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">download</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_media</span><span class="p">(</span><span class="n">page_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">request</span><span class="p">:</span> <span class="n">Request</span><span class="p">,</span> <span class="n">download</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span>
         <span class="c1"># The link already lets its holder fetch the file: a download adds nothing.</span>
+        <span class="n">_open_page_or_404</span><span class="p">(</span><span class="n">page_id</span><span class="p">,</span> <span class="n">request</span><span class="p">)</span>
         <span class="n">path</span> <span class="o">=</span> <span class="n">stores</span><span class="o">.</span><span class="n">media_path</span><span class="p">(</span><span class="n">page_id</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">path</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">HTTPException</span><span class="p">(</span><span class="mi">404</span><span class="p">,</span> <span class="s2">"No such media"</span><span class="p">)</span>
@@ -1142,6 +1176,7 @@ window.runMermaid = runMermaid;</script>
             <span class="n">rate_limiter</span><span class="o">=</span><span class="n">rate_limiter</span><span class="p">,</span>
             <span class="n">rate_limit_per_minute</span><span class="o">=</span><span class="n">rate_limit_per_minute</span><span class="p">,</span>
             <span class="n">max_comments_per_thread</span><span class="o">=</span><span class="n">max_comments_per_thread</span><span class="p">,</span>
+            <span class="n">thread_gate</span><span class="o">=</span><span class="k">lambda</span> <span class="n">request</span><span class="p">,</span> <span class="n">page_id</span><span class="p">:</span> <span class="n">gate</span><span class="o">.</span><span class="n">check</span><span class="p">(</span><span class="n">request</span><span class="p">,</span> <span class="n">page_id</span><span class="p">),</span>
         <span class="p">)</span>
     <span class="p">)</span>
 
@@ -1224,6 +1259,20 @@ window.runMermaid = runMermaid;</script>
     <span class="n">pub</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">"--note-file"</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">"read the note from this file (e.g. a .md)"</span><span class="p">)</span>
     <span class="n">pub</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">"--to"</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">"add the media to this existing page (same link)"</span><span class="p">)</span>
     <span class="n">pub</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">"--base-url"</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="sa">f</span><span class="s2">"the page's URL (default $</span><span class="si">{</span><span class="n">ENV_BASE_URL</span><span class="si">}</span><span class="s2">)"</span><span class="p">)</span>
+    <span class="n">pub</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">"--password-file"</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">"gate the page with the password in this file ('-' reads stdin); "</span>
+        <span class="s2">"not an argument, which other users' `ps` would show"</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">pub</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">"--expires"</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">"the link stops working then: 7d, 2026-11-01, an ISO time, never"</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="n">rev</span> <span class="o">=</span> <span class="n">sub</span><span class="o">.</span><span class="n">add_parser</span><span class="p">(</span>
+        <span class="s2">"revoke"</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">"end a page's link for everyone (it answers 404)"</span>
+    <span class="p">)</span>
+    <span class="n">rev</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">"page"</span><span class="p">)</span>
 
     <span class="n">com</span> <span class="o">=</span> <span class="n">sub</span><span class="o">.</span><span class="n">add_parser</span><span class="p">(</span><span class="s2">"comments"</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">"print a page's comments"</span><span class="p">)</span>
     <span class="n">com</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">"page"</span><span class="p">)</span>
@@ -1254,10 +1303,33 @@ window.runMermaid = runMermaid;</script>
         <span class="k">return</span> <span class="mi">0</span>
     <span class="k">if</span> <span class="n">a</span><span class="o">.</span><span class="n">cmd</span> <span class="o">==</span> <span class="s2">"publish"</span><span class="p">:</span>
         <span class="n">note</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">note_file</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">()</span> <span class="k">if</span> <span class="n">a</span><span class="o">.</span><span class="n">note_file</span> <span class="k">else</span> <span class="n">a</span><span class="o">.</span><span class="n">note</span>
-        <span class="n">page</span> <span class="o">=</span> <span class="n">publish_review</span><span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">media</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="n">a</span><span class="o">.</span><span class="n">title</span><span class="p">,</span> <span class="n">note</span><span class="o">=</span><span class="n">note</span><span class="p">,</span> <span class="n">rootdir</span><span class="o">=</span><span class="n">a</span><span class="o">.</span><span class="n">dir</span><span class="p">,</span> <span class="n">to</span><span class="o">=</span><span class="n">a</span><span class="o">.</span><span class="n">to</span><span class="p">)</span>
+        <span class="n">password</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">a</span><span class="o">.</span><span class="n">password_file</span><span class="p">:</span>
+            <span class="n">raw</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="n">sys</span><span class="o">.</span><span class="n">stdin</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+                <span class="k">if</span> <span class="n">a</span><span class="o">.</span><span class="n">password_file</span> <span class="o">==</span> <span class="s2">"-"</span>
+                <span class="k">else</span> <span class="n">Path</span><span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">password_file</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">()</span>
+            <span class="p">)</span>
+            <span class="n">password</span> <span class="o">=</span> <span class="n">raw</span><span class="o">.</span><span class="n">rstrip</span><span class="p">(</span><span class="s2">"</span><span class="se">\r\n</span><span class="s2">"</span><span class="p">)</span>
+        <span class="n">page</span> <span class="o">=</span> <span class="n">publish_review</span><span class="p">(</span>
+            <span class="n">a</span><span class="o">.</span><span class="n">media</span><span class="p">,</span>
+            <span class="n">title</span><span class="o">=</span><span class="n">a</span><span class="o">.</span><span class="n">title</span><span class="p">,</span>
+            <span class="n">note</span><span class="o">=</span><span class="n">note</span><span class="p">,</span>
+            <span class="n">rootdir</span><span class="o">=</span><span class="n">a</span><span class="o">.</span><span class="n">dir</span><span class="p">,</span>
+            <span class="n">to</span><span class="o">=</span><span class="n">a</span><span class="o">.</span><span class="n">to</span><span class="p">,</span>
+            <span class="n">password</span><span class="o">=</span><span class="n">password</span><span class="p">,</span>
+            <span class="n">expires</span><span class="o">=</span><span class="n">a</span><span class="o">.</span><span class="n">expires</span><span class="p">,</span>
+        <span class="p">)</span>
         <span class="nb">print</span><span class="p">(</span><span class="n">review_url</span><span class="p">(</span><span class="n">page</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">a</span><span class="o">.</span><span class="n">base_url</span><span class="p">))</span>
         <span class="k">return</span> <span class="mi">0</span>
     <span class="n">stores</span> <span class="o">=</span> <span class="n">ReviewStores</span><span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">dir</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">a</span><span class="o">.</span><span class="n">cmd</span> <span class="o">==</span> <span class="s2">"revoke"</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">stores</span><span class="o">.</span><span class="n">page</span><span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">page</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"No review page </span><span class="si">{</span><span class="n">a</span><span class="o">.</span><span class="n">page</span><span class="si">!r}</span><span class="s2"> in </span><span class="si">{</span><span class="n">stores</span><span class="o">.</span><span class="n">root</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+            <span class="k">return</span> <span class="mi">1</span>
+        <span class="n">revoke_access</span><span class="p">(</span><span class="n">stores</span><span class="o">.</span><span class="n">root</span><span class="p">,</span> <span class="n">a</span><span class="o">.</span><span class="n">page</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">"revoked"</span><span class="p">)</span>
+        <span class="k">return</span> <span class="mi">0</span>
     <span class="k">if</span> <span class="n">a</span><span class="o">.</span><span class="n">cmd</span> <span class="o">==</span> <span class="s2">"comments"</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">_print_comments</span><span class="p">(</span><span class="n">stores</span><span class="p">,</span> <span class="n">a</span><span class="o">.</span><span class="n">page</span><span class="p">,</span> <span class="n">as_json</span><span class="o">=</span><span class="n">a</span><span class="o">.</span><span class="n">json</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">a</span><span class="o">.</span><span class="n">cmd</span> <span class="o">==</span> <span class="s2">"ls"</span><span class="p">:</span>

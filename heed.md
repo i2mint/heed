@@ -1,4 +1,4 @@
-> built 2026-10-23 15:34 UTC from 9be0d24 (main) · heed 0.0.1. Details: build_info.json
+> built 2026-10-26 10:23 UTC from 50a1654 (main) · heed 0.0.1. Details: build_info.json
 
 # index.html.md
 
@@ -109,9 +109,11 @@ Publish a video, audio takes or images and get a link; whoever has it watches, r
 heed review publish cut1.mp4 --title "Cut 1" --note-file notes.md   # prints the link
 heed review publish cut2.mp4 --to <page-id>                          # a new cut, same link and thread
 heed review comments <page-id> --json                                # read the feedback back
+heed review publish cut2.mp4 --to <page-id> --password-file pw.txt --expires 7d   # gate it (pip install 'heed[gate]')
+heed review revoke <page-id>                                          # end the link for everyone
 ```
 
-The link is a capability (128 random bits in the URL fragment); the thread endpoint is rate-limited, capped and honeypotted. Serve it with `make_review_app(rootdir, is_moderator=email_moderator([...]))`, or `heed review serve`. On an origin shared with other apps, a login is ambient authority (any script there acts as the owner), so require a typed-in secret instead: `is_moderator=token_moderator(secret, also=email_moderator([...]))` (`heed review serve --moderator-token-env VAR`); the review page’s *Moderate* button asks for it and keeps it in memory only. A dedicated origin (e.g. `review.<domain>`) is the stronger fix and is a deployment decision. The reusable part is `heed.threads` (a hardened comment thread per key, `make_thread_router`); `heed.review` is one consumer of it. Agents: the shipped skill `heed/data/skills/heed-review`. Rationale: [`misc/docs/adr/0001-review-pages-and-comment-threads-live-in-heed.md`]().
+A link sent to a client can carry a password, an expiry and a revoke (`heed.review_access`, on [caplinks](https://github.com/i2mint/caplinks); the `gate` extra): the page answers 401 until unlocked with the password (a cookie; wrong tries limited per client and per page), 410 once expired, 404 once revoked, and pages without any of it stay open as before. The link is a capability (128 random bits in the URL fragment); the thread endpoint is rate-limited, capped and honeypotted. Serve it with `make_review_app(rootdir, is_moderator=email_moderator([...]))`, or `heed review serve`. On an origin shared with other apps, a login is ambient authority (any script there acts as the owner), so require a typed-in secret instead: `is_moderator=token_moderator(secret, also=email_moderator([...]))` (`heed review serve --moderator-token-env VAR`); the review page’s *Moderate* button asks for it and keeps it in memory only. A dedicated origin (e.g. `review.<domain>`) is the stronger fix and is a deployment decision. The reusable part is `heed.threads` (a hardened comment thread per key, `make_thread_router`); `heed.review` is one consumer of it. Agents: the shipped skill `heed/data/skills/heed-review`. Rationale: [`misc/docs/adr/0001-review-pages-and-comment-threads-live-in-heed.md`]().
 
 ## Documents
 
@@ -1432,7 +1434,7 @@ report – and reports can carry personal data. Pass `delete_func` to opt back i
 * **Return type:**
   [`MutableMapping`](https://docs.python.org/3/library/collections.abc.html#collections.abc.MutableMapping)
 
-### heed.make_review_app(rootdir=None, \*, is_moderator=<function no_moderator>, trusted_proxies=(), rate_limiter=None, rate_limit_per_minute=10, max_comments_per_thread=500, serve_shell=True)
+### heed.make_review_app(rootdir=None, \*, is_moderator=<function no_moderator>, trusted_proxies=(), rate_limiter=None, rate_limit_per_minute=10, max_comments_per_thread=500, serve_shell=True, gate=None)
 
 The review API (and, with `serve_shell`, the page at `/`).
 
@@ -1442,6 +1444,12 @@ Routes: `GET /pages/{id}`, `GET /pages/{id}/media/{name}` (byte ranges;
 `GET /ui/review.{js,css}`. There is deliberately no HTTP listing of pages:
 it would hand every capability to any script running as the owner (the CLI’s
 `ls` lists them).
+
+A page given a password, an expiry or a revoke ([`publish_review()`](_autosummary/heed.html.md#heed.publish_review),
+`heed review revoke`) is gated by `gate` (a `ReviewGate`, built over
+`rootdir` with `trusted_proxies` by default): 401 until `POST
+/pages/{id}/unlock` `{"password": ...}` sets a cookie, 410 once expired, 404
+once revoked. Pages with no such record are open, as ever.
 
 * **Return type:**
   `FastAPI`
@@ -1471,7 +1479,7 @@ None; an origin resolving to no sink gets 403). `moderator` may hold reports in
 * **Return type:**
   `APIRouter`
 
-### heed.make_thread_router(threads=None, \*, thread_exists=<function valid_id>, is_moderator=<function no_moderator>, rate_limiter=None, rate_limit_per_minute=10, thread_rate_limiter=None, thread_rate_limit_per_hour=120, max_comments_per_thread=500, trusted_proxies=(), honeypot_field='website', on_comment=None)
+### heed.make_thread_router(threads=None, \*, thread_exists=<function valid_id>, is_moderator=<function no_moderator>, rate_limiter=None, rate_limit_per_minute=10, thread_rate_limiter=None, thread_rate_limit_per_hour=120, max_comments_per_thread=500, trusted_proxies=(), honeypot_field='website', on_comment=None, thread_gate=None)
 
 The HTTP surface of comment threads (`threads`: thread id -> its store).
 
@@ -1480,7 +1488,9 @@ The HTTP surface of comment threads (`threads`: thread id -> its store).
 `DELETE /threads/{thread}/{id}` deletes when `is_moderator(request)` and the
 request carries the `X-Heed-Moderate` header. A thread for which
 `thread_exists` is false answers 404 to everything, which is how a host makes
-threads capabilities. A filled `honeypot_field` is accepted silently and
+threads capabilities; `thread_gate(request, thread)` is called on every request
+to an existing thread and raises `HTTPException` to refuse it (a password, say).
+A filled `honeypot_field` is accepted silently and
 stored nowhere. Behind a reverse proxy, set `trusted_proxies` or every visitor
 shares the proxy’s rate-limit bucket.
 
@@ -1538,9 +1548,13 @@ unless enabled in `config`, and what is kept is passed through `redactor`
 * **Return type:**
   [`tuple`](https://docs.python.org/3/builtins/stdtypes.html#tuple)[[`Report`](_autosummary/heed.base.html.md#heed.base.Report), [`SinkResult`](_autosummary/heed.sinks.base.html.md#heed.sinks.base.SinkResult)]
 
-### heed.publish_review(media, , title=None, note=None, rootdir=None, to=None)
+### heed.publish_review(media, , title=None, note=None, rootdir=None, to=None, password=None, expires=None)
 
 Publish `media` as a new review page (or add it to page `to`).
+
+`password` and `expires` (`"7d"`, `"2026-11-01"`, `"never"`) gate the
+page ([`heed.review_access`](_autosummary/heed.review_access.html.md#module-heed.review_access), needs `heed[gate]`); on an existing page they
+change only what is given. Neither: the page is open to whoever has the link.
 
 The files are copied into the data root. Adding to an existing page keeps its
 link and its thread, so a new cut can go where the old one’s comments are; a file
@@ -1778,24 +1792,25 @@ overrides them.
 
 ### Modules
 
-| [`base`](_autosummary/heed.base.html.md#module-heed.base)         | Domain model for heed — the single source of truth shared by widget and backend.     |
-|--------------------------------------------------------------------------------|--------------------------------------------------------------------------------------|
-| [`board`](_autosummary/heed.board.html.md#module-heed.board)       | The read side of a feedback inbox: what a public board may show.                     |
-| [`config`](_autosummary/heed.config.html.md#module-heed.config)     | Configuration for the heed backend (smart defaults; keyword-only).                   |
-| [`dedup`](_autosummary/heed.dedup.html.md#module-heed.dedup)       | Duplicate detection in two stages: cheap retrieval, then confirmation (#8).          |
-| [`images`](_autosummary/heed.images.html.md#module-heed.images)     | Neutralise uploaded screenshots before they are stored (issue #15).                  |
-| [`ingest`](_autosummary/heed.ingest.html.md#module-heed.ingest)     | The ingest layer — build a Report from a submission and route it to a sink.          |
-| [`mcp`](_autosummary/heed.mcp.html.md#module-heed.mcp)           | The feedback queue as an MCP server (`pip install 'heed[mcp]'`) (#8).                |
-| [`queue`](_autosummary/heed.queue.html.md#module-heed.queue)       | The feedback queue as plain functions: list, get, triage, dedup, create, close (#8). |
-| [`redact`](_autosummary/heed.redact.html.md#module-heed.redact)     | Redaction of personal data and secrets in captured console and network entries.      |
-| [`review`](_autosummary/heed.review.html.md#module-heed.review)     | Review pages: media (a video, audio, images) with a comment thread under it.         |
-| [`routing`](_autosummary/heed.routing.html.md#module-heed.routing)   | Where a report goes: server-side site resolution and moderation (holding state).     |
-| [`security`](_autosummary/heed.security.html.md#module-heed.security) | Public-endpoint hardening (the ingest endpoint is unauthenticated and hostile).      |
-| [`serving`](_autosummary/heed.serving.html.md#module-heed.serving)   | Serve stored screenshots: a read-only route meant for its own origin (issue #19).    |
-| [`sinks`](_autosummary/heed.sinks.html.md#module-heed.sinks)       | Sinks: pluggable report destinations (strategy pattern).                             |
-| [`storage`](_autosummary/heed.storage.html.md#module-heed.storage)   | Storage helpers — dol-backed stores for reports and binary attachments.              |
-| [`threads`](_autosummary/heed.threads.html.md#module-heed.threads)   | Comment threads: a persistent, public, append-mostly conversation per key.           |
-| [`widget`](_autosummary/heed.widget.html.md#module-heed.widget)     | Serve the embeddable widget, and state the contract it is built against.             |
+| [`base`](_autosummary/heed.base.html.md#module-heed.base)                   | Domain model for heed — the single source of truth shared by widget and backend.     |
+|------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------|
+| [`board`](_autosummary/heed.board.html.md#module-heed.board)                 | The read side of a feedback inbox: what a public board may show.                     |
+| [`config`](_autosummary/heed.config.html.md#module-heed.config)               | Configuration for the heed backend (smart defaults; keyword-only).                   |
+| [`dedup`](_autosummary/heed.dedup.html.md#module-heed.dedup)                 | Duplicate detection in two stages: cheap retrieval, then confirmation (#8).          |
+| [`images`](_autosummary/heed.images.html.md#module-heed.images)               | Neutralise uploaded screenshots before they are stored (issue #15).                  |
+| [`ingest`](_autosummary/heed.ingest.html.md#module-heed.ingest)               | The ingest layer — build a Report from a submission and route it to a sink.          |
+| [`mcp`](_autosummary/heed.mcp.html.md#module-heed.mcp)                     | The feedback queue as an MCP server (`pip install 'heed[mcp]'`) (#8).                |
+| [`queue`](_autosummary/heed.queue.html.md#module-heed.queue)                 | The feedback queue as plain functions: list, get, triage, dedup, create, close (#8). |
+| [`redact`](_autosummary/heed.redact.html.md#module-heed.redact)               | Redaction of personal data and secrets in captured console and network entries.      |
+| [`review`](_autosummary/heed.review.html.md#module-heed.review)               | Review pages: media (a video, audio, images) with a comment thread under it.         |
+| [`review_access`](_autosummary/heed.review_access.html.md#module-heed.review_access) | Access control for review pages: an optional password, expiry and revoke.            |
+| [`routing`](_autosummary/heed.routing.html.md#module-heed.routing)             | Where a report goes: server-side site resolution and moderation (holding state).     |
+| [`security`](_autosummary/heed.security.html.md#module-heed.security)           | Public-endpoint hardening (the ingest endpoint is unauthenticated and hostile).      |
+| [`serving`](_autosummary/heed.serving.html.md#module-heed.serving)             | Serve stored screenshots: a read-only route meant for its own origin (issue #19).    |
+| [`sinks`](_autosummary/heed.sinks.html.md#module-heed.sinks)                 | Sinks: pluggable report destinations (strategy pattern).                             |
+| [`storage`](_autosummary/heed.storage.html.md#module-heed.storage)             | Storage helpers — dol-backed stores for reports and binary attachments.              |
+| [`threads`](_autosummary/heed.threads.html.md#module-heed.threads)             | Comment threads: a persistent, public, append-mostly conversation per key.           |
+| [`widget`](_autosummary/heed.widget.html.md#module-heed.widget)               | Serve the embeddable widget, and state the contract it is built against.             |
 
 
 # _autosummary/heed.images.html.md
@@ -2275,6 +2290,8 @@ Layout of the data root (one folder; ADR-0024’s S3 layout mirrors it key for k
 pages/<id>.json            the page: title, note, media list, created_at
 media/<id>/<name>          the media files, served with byte ranges (seekable)
 comments/<id>/<cid>.json   the thread (heed.threads)
+access/<id>.json           optional password, expiry, revoke (heed.review_access);
+                           no file means open: back this folder up too
 ```
 
 Python:
@@ -2422,7 +2439,7 @@ Write `page`.
 * **Return type:**
   [`int`](https://docs.python.org/3/builtins/functions.html#int)
 
-### heed.review.make_review_app(rootdir=None, \*, is_moderator=<function no_moderator>, trusted_proxies=(), rate_limiter=None, rate_limit_per_minute=10, max_comments_per_thread=500, serve_shell=True)
+### heed.review.make_review_app(rootdir=None, \*, is_moderator=<function no_moderator>, trusted_proxies=(), rate_limiter=None, rate_limit_per_minute=10, max_comments_per_thread=500, serve_shell=True, gate=None)
 
 The review API (and, with `serve_shell`, the page at `/`).
 
@@ -2432,6 +2449,12 @@ Routes: `GET /pages/{id}`, `GET /pages/{id}/media/{name}` (byte ranges;
 `GET /ui/review.{js,css}`. There is deliberately no HTTP listing of pages:
 it would hand every capability to any script running as the owner (the CLI’s
 `ls` lists them).
+
+A page given a password, an expiry or a revoke ([`publish_review()`](_autosummary/heed.review.html.md#heed.review.publish_review),
+`heed review revoke`) is gated by `gate` (a `ReviewGate`, built over
+`rootdir` with `trusted_proxies` by default): 401 until `POST
+/pages/{id}/unlock` `{"password": ...}` sets a cookie, 410 once expired, 404
+once revoked. Pages with no such record are open, as ever.
 
 * **Return type:**
   `FastAPI`
@@ -2462,9 +2485,13 @@ A host that serves static files (enlace’s `frontend_dir`) writes this once:
 * **Return type:**
   [`str`](https://docs.python.org/3/builtins/stdtypes.html#str)
 
-### heed.review.publish_review(media, , title=None, note=None, rootdir=None, to=None)
+### heed.review.publish_review(media, , title=None, note=None, rootdir=None, to=None, password=None, expires=None)
 
 Publish `media` as a new review page (or add it to page `to`).
+
+`password` and `expires` (`"7d"`, `"2026-11-01"`, `"never"`) gate the
+page ([`heed.review_access`](_autosummary/heed.review_access.html.md#module-heed.review_access), needs `heed[gate]`); on an existing page they
+change only what is given. Neither: the page is open to whoever has the link.
 
 The files are copied into the data root. Adding to an existing page keeps its
 link and its thread, so a new cut can go where the old one’s comments are; a file
@@ -2498,6 +2525,119 @@ A file name made safe to store and serve (no path, no odd characters).
 
 * **Return type:**
   [`str`](https://docs.python.org/3/builtins/stdtypes.html#str)
+
+
+# _autosummary/heed.review_access.html.md
+
+# heed.review_access
+
+Access control for review pages: an optional password, expiry and revoke.
+
+A review page is a capability (its 128-bit id), and by default stays one forever. This
+module adds what a link sent to a client needs, on top of [caplinks](https://github.com/i2mint/caplinks) (the optional `heed[gate]` extra): a password,
+an expiry, and a revoke, kept as one record per page under `<root>/access/<id>.json`.
+
+A page **with no record is open**, exactly as before; a page with one is gated. So
+nothing changes for existing pages, and `caplinks` is only imported when a record
+exists or one is being written (a gated page whose `caplinks` is missing answers 503,
+never open).
+
+Python:
+
+```default
+>>> import tempfile
+>>> root = tempfile.mkdtemp()
+>>> page_id = "A" * 22
+>>> rec = set_access(root, page_id, password="open sesame", expires="7d")
+>>> rec["protected"]
+True
+>>> revoke_access(root, page_id)["revoked"] is not None
+True
+```
+
+HTTP: [`ReviewGate`](_autosummary/heed.review_access.html.md#heed.review_access.ReviewGate) is what [`heed.review.make_review_app()`](_autosummary/heed.review.html.md#heed.review.make_review_app) consults. A gated
+page answers 401 until `POST /pages/{id}/unlock` with the password sets a cookie
+(HMAC keyed by the stored hash, so a new password or a revoke ends every open session);
+an expired page answers 410, a revoked one 404. Wrong passwords are limited per client
+per page, and a page that takes too many wrong ones from everyone is locked for a while.
+
+### Module Attributes
+
+| [`COOKIE_ID_HEX`](_autosummary/heed.review_access.html.md#heed.review_access.COOKIE_ID_HEX)          | hex chars of the page id's hash in the cookie name (the id itself is the capability and must not travel to other apps on the origin)   |
+|-------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------|
+| [`DFLT_MAX_ATTEMPTS`](_autosummary/heed.review_access.html.md#heed.review_access.DFLT_MAX_ATTEMPTS)      | password tries one client gets on one page per window                                                                                  |
+| [`DFLT_MAX_PAGE_FAILURES`](_autosummary/heed.review_access.html.md#heed.review_access.DFLT_MAX_PAGE_FAILURES) | wrong passwords one page takes from everyone per window before it locks                                                                |
+| [`DFLT_UNLOCK_MAX_AGE_S`](_autosummary/heed.review_access.html.md#heed.review_access.DFLT_UNLOCK_MAX_AGE_S)  | how long an unlock cookie lasts (never past the page's expiry)                                                                         |
+
+### Functions
+
+| [`revoke_access`](_autosummary/heed.review_access.html.md#heed.review_access.revoke_access)(rootdir, page_id)                   | End page `page_id` for every visitor: it answers 404 from now on.   |
+|----------------------------------------------------------------------------------------------------|---------------------------------------------------------------------|
+| [`set_access`](_autosummary/heed.review_access.html.md#heed.review_access.set_access)(rootdir, page_id, \*[, password, ...]) | Gate page `page_id` (creating its access record, or updating it).   |
+
+### Classes
+
+| [`ReviewGate`](_autosummary/heed.review_access.html.md#heed.review_access.ReviewGate)(rootdir, \*[, trusted_proxies, ...])   | The HTTP side of the gate: refuse, unlock, and limit password tries.   |
+|----------------------------------------------------------------------------------------------------|------------------------------------------------------------------------|
+
+### heed.review_access.COOKIE_ID_HEX *= 16*
+
+hex chars of the page id’s hash in the cookie name (the id itself is the capability
+and must not travel to other apps on the origin)
+
+### heed.review_access.DFLT_MAX_ATTEMPTS *= 10*
+
+password tries one client gets on one page per window
+
+### heed.review_access.DFLT_MAX_PAGE_FAILURES *= 30*
+
+wrong passwords one page takes from everyone per window before it locks
+
+### heed.review_access.DFLT_UNLOCK_MAX_AGE_S *= 604800*
+
+how long an unlock cookie lasts (never past the page’s expiry)
+
+### *class* heed.review_access.ReviewGate(rootdir, \*, trusted_proxies=(), rate_limiter=None, page_failure_limiter=None, unlock_max_age_s=604800, lock_s=300.0, clock=<built-in function monotonic>)
+
+Bases: [`object`](https://docs.python.org/3/builtins/functions.html#object)
+
+The HTTP side of the gate: refuse, unlock, and limit password tries.
+
+`rate_limiter` counts every try of one client on one page;
+`page_failure_limiter` counts the wrong passwords a page takes from everyone and,
+past its limit, locks the page’s unlock for `lock_s` seconds. Both are anything
+with `allow(key) -> bool` (heed’s Redis limiter fits). Behind a reverse proxy set
+`trusted_proxies`.
+
+#### check(request, page_id)
+
+Raise `HTTPException` (404 revoked, 410 expired, 401 locked) unless the
+page is open to `request`; an ungated page always is.
+
+* **Return type:**
+  [`None`](https://docs.python.org/3/builtins/constants.html#None)
+
+#### *async* unlock(request, page_id)
+
+Check the posted password; set the unlock cookie when it is right.
+
+* **Return type:**
+  `Response`
+
+### heed.review_access.revoke_access(rootdir, page_id)
+
+End page `page_id` for every visitor: it answers 404 from now on.
+
+A page with no access record is first gated (so it can be revoked), then revoked.
+
+### heed.review_access.set_access(rootdir, page_id, , password=None, expires=None)
+
+Gate page `page_id` (creating its access record, or updating it).
+
+`password` (at least 8 characters) and `expires` (`"7d"`, `"2026-11-01"`,
+an ISO timestamp, `"never"`) are changed only when given, so
+`set_access(root, id, expires="30d")` keeps the password. Returns the record
+without the hash. A revoked page stays revoked (`KeyError`).
 
 
 # _autosummary/heed.routing.html.md
@@ -3777,6 +3917,7 @@ True
 | [`memory_threads`](_autosummary/heed.threads.html.md#heed.threads.memory_threads)()                                    | Threads held in dicts, one per thread (tests, single-process demos).         |
 | [`new_comment_id`](_autosummary/heed.threads.html.md#heed.threads.new_comment_id)(\*[, clock])                         | A comment id that sorts by creation time (ms, zero-padded) then at random.   |
 | [`no_moderator`](_autosummary/heed.threads.html.md#heed.threads.no_moderator)(request)                               | The default moderator check: nobody may delete over HTTP (use the CLI).      |
+| [`read_capped`](_autosummary/heed.threads.html.md#heed.threads.read_capped)(request, cap, \*[, what])               | The request body, refusing (413) anything over `cap` bytes while streaming.  |
 | [`token_moderator`](_autosummary/heed.threads.html.md#heed.threads.token_moderator)(token, \*[, also])                  | A moderator check that needs a secret the owner types in, not a login.       |
 | [`valid_id`](_autosummary/heed.threads.html.md#heed.threads.valid_id)(value)                                     | Whether `value` is a safe thread or comment id.                              |
 
@@ -3901,7 +4042,7 @@ A thread’s comments, oldest first. Unreadable entries are skipped.
 * **Return type:**
   [`list`](https://docs.python.org/3/builtins/stdtypes.html#list)[[`Comment`](_autosummary/heed.threads.html.md#heed.threads.Comment)]
 
-### heed.threads.make_thread_router(threads=None, \*, thread_exists=<function valid_id>, is_moderator=<function no_moderator>, rate_limiter=None, rate_limit_per_minute=10, thread_rate_limiter=None, thread_rate_limit_per_hour=120, max_comments_per_thread=500, trusted_proxies=(), honeypot_field='website', on_comment=None)
+### heed.threads.make_thread_router(threads=None, \*, thread_exists=<function valid_id>, is_moderator=<function no_moderator>, rate_limiter=None, rate_limit_per_minute=10, thread_rate_limiter=None, thread_rate_limit_per_hour=120, max_comments_per_thread=500, trusted_proxies=(), honeypot_field='website', on_comment=None, thread_gate=None)
 
 The HTTP surface of comment threads (`threads`: thread id -> its store).
 
@@ -3910,7 +4051,9 @@ The HTTP surface of comment threads (`threads`: thread id -> its store).
 `DELETE /threads/{thread}/{id}` deletes when `is_moderator(request)` and the
 request carries the `X-Heed-Moderate` header. A thread for which
 `thread_exists` is false answers 404 to everything, which is how a host makes
-threads capabilities. A filled `honeypot_field` is accepted silently and
+threads capabilities; `thread_gate(request, thread)` is called on every request
+to an existing thread and raises `HTTPException` to refuse it (a password, say).
+A filled `honeypot_field` is accepted silently and
 stored nowhere. Behind a reverse proxy, set `trusted_proxies` or every visitor
 shares the proxy’s rate-limit bucket.
 
@@ -3954,6 +4097,13 @@ The default moderator check: nobody may delete over HTTP (use the CLI).
 
 * **Return type:**
   [`bool`](https://docs.python.org/3/builtins/functions.html#bool)
+
+### *async* heed.threads.read_capped(request, cap, , what='Comment')
+
+The request body, refusing (413) anything over `cap` bytes while streaming.
+
+* **Return type:**
+  [`bytes`](https://docs.python.org/3/builtins/stdtypes.html#bytes)
 
 ### heed.threads.token_moderator(token, , also=None)
 
@@ -4096,7 +4246,7 @@ overrides them.
 
 # About this build
 
-This documentation was built on **2026-10-23 15:34 UTC** from commit <a href="https://github.com/i2mint/heed/commit/9be0d246092c3b02781170618332724a9fb20c29"><code>9be0d24</code></a> on branch <code>main</code>, for **heed 0.0.1** (from <code>pyproject.toml</code>).
+This documentation was built on **2026-10-26 10:23 UTC** from commit <a href="https://github.com/i2mint/heed/commit/50a1654c7c9f7ef7b2e7c331977588d6bcffd6e1"><code>50a1654</code></a> on branch <code>main</code>, for **heed 0.0.1** (from <code>pyproject.toml</code>).
 
 #### WARNING
 The documentation and the package may be misaligned:
@@ -4107,7 +4257,7 @@ The documentation and the package may be misaligned:
 
 |                     |                                                                                                                                                    |
 |---------------------|----------------------------------------------------------------------------------------------------------------------------------------------------|
-| Commit              | <a href="https://github.com/i2mint/heed/commit/9be0d246092c3b02781170618332724a9fb20c29"><code>9be0d246092c3b02781170618332724a9fb20c29</code></a> |
+| Commit              | <a href="https://github.com/i2mint/heed/commit/50a1654c7c9f7ef7b2e7c331977588d6bcffd6e1"><code>50a1654c7c9f7ef7b2e7c331977588d6bcffd6e1</code></a> |
 | Branch              | <code>main</code>                                                                                                                                  |
 | Tags at this commit | none                                                                                                                                               |
 | Working tree        | clean                                                                                                                                              |
@@ -4118,9 +4268,9 @@ The documentation and the package may be misaligned:
 |              |                                                                                            |
 |--------------|--------------------------------------------------------------------------------------------|
 | Repository   | <code>i2mint/heed</code>                                                                   |
-| Run          | <a href="https://github.com/i2mint/heed/actions/runs/39979156728">39979156728</a>          |
+| Run          | <a href="https://github.com/i2mint/heed/actions/runs/40306793000">40306793000</a>          |
 | Ref          | <code>refs/heads/main</code>                                                               |
-| Event commit | <code>9be0d246092c3b02781170618332724a9fb20c29</code> (in the history of the built commit) |
+| Event commit | <code>50a1654c7c9f7ef7b2e7c331977588d6bcffd6e1</code> (in the history of the built commit) |
 
 ## Tools
 
@@ -4151,7 +4301,7 @@ Latest release: <a href="https://pypi.org/project/heed/0.1.0/">0.1.0</a>, newer 
 
 ```bash
 git clone https://github.com/i2mint/heed && cd heed
-git checkout 9be0d246092c3b02781170618332724a9fb20c29
+git checkout 50a1654c7c9f7ef7b2e7c331977588d6bcffd6e1
 pip install "epythet==0.2.22"
 epythet quickstart . --ignore tests/ scrap/ examples/
 ```

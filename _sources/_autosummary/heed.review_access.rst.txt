@@ -1,0 +1,28 @@
+heed.review\_access
+===================
+
+.. automodule:: heed.review_access
+
+   
+   .. rubric:: Module Attributes
+
+   .. autosummary::
+   
+      COOKIE_ID_HEX
+      DFLT_MAX_ATTEMPTS
+      DFLT_MAX_PAGE_FAILURES
+      DFLT_UNLOCK_MAX_AGE_S
+   
+   .. rubric:: Functions
+
+   .. autosummary::
+   
+      revoke_access
+      set_access
+   
+   .. rubric:: Classes
+
+   .. autosummary::
+   
+      ReviewGate
+   

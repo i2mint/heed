@@ -59,6 +59,7 @@ True
 | [`memory_threads`](#heed.threads.memory_threads)()                                    | Threads held in dicts, one per thread (tests, single-process demos).         |
 | [`new_comment_id`](#heed.threads.new_comment_id)(\*[, clock])                         | A comment id that sorts by creation time (ms, zero-padded) then at random.   |
 | [`no_moderator`](#heed.threads.no_moderator)(request)                               | The default moderator check: nobody may delete over HTTP (use the CLI).      |
+| [`read_capped`](#heed.threads.read_capped)(request, cap, \*[, what])               | The request body, refusing (413) anything over `cap` bytes while streaming.  |
 | [`token_moderator`](#heed.threads.token_moderator)(token, \*[, also])                  | A moderator check that needs a secret the owner types in, not a login.       |
 | [`valid_id`](#heed.threads.valid_id)(value)                                     | Whether `value` is a safe thread or comment id.                              |
 
@@ -183,7 +184,7 @@ A thread’s comments, oldest first. Unreadable entries are skipped.
 * **Return type:**
   [`list`](https://docs.python.org/3/builtins/stdtypes.html#list)[[`Comment`](#heed.threads.Comment)]
 
-### heed.threads.make_thread_router(threads=None, \*, thread_exists=<function valid_id>, is_moderator=<function no_moderator>, rate_limiter=None, rate_limit_per_minute=10, thread_rate_limiter=None, thread_rate_limit_per_hour=120, max_comments_per_thread=500, trusted_proxies=(), honeypot_field='website', on_comment=None)
+### heed.threads.make_thread_router(threads=None, \*, thread_exists=<function valid_id>, is_moderator=<function no_moderator>, rate_limiter=None, rate_limit_per_minute=10, thread_rate_limiter=None, thread_rate_limit_per_hour=120, max_comments_per_thread=500, trusted_proxies=(), honeypot_field='website', on_comment=None, thread_gate=None)
 
 The HTTP surface of comment threads (`threads`: thread id -> its store).
 
@@ -192,7 +193,9 @@ The HTTP surface of comment threads (`threads`: thread id -> its store).
 `DELETE /threads/{thread}/{id}` deletes when `is_moderator(request)` and the
 request carries the `X-Heed-Moderate` header. A thread for which
 `thread_exists` is false answers 404 to everything, which is how a host makes
-threads capabilities. A filled `honeypot_field` is accepted silently and
+threads capabilities; `thread_gate(request, thread)` is called on every request
+to an existing thread and raises `HTTPException` to refuse it (a password, say).
+A filled `honeypot_field` is accepted silently and
 stored nowhere. Behind a reverse proxy, set `trusted_proxies` or every visitor
 shares the proxy’s rate-limit bucket.
 
@@ -236,6 +239,13 @@ The default moderator check: nobody may delete over HTTP (use the CLI).
 
 * **Return type:**
   [`bool`](https://docs.python.org/3/builtins/functions.html#bool)
+
+### *async* heed.threads.read_capped(request, cap, , what='Comment')
+
+The request body, refusing (413) anything over `cap` bytes while streaming.
+
+* **Return type:**
+  [`bytes`](https://docs.python.org/3/builtins/stdtypes.html#bytes)
 
 ### heed.threads.token_moderator(token, , also=None)
 

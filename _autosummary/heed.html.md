@@ -908,7 +908,7 @@ report – and reports can carry personal data. Pass `delete_func` to opt back i
 * **Return type:**
   [`MutableMapping`](https://docs.python.org/3/library/collections.abc.html#collections.abc.MutableMapping)
 
-### heed.make_review_app(rootdir=None, \*, is_moderator=<function no_moderator>, trusted_proxies=(), rate_limiter=None, rate_limit_per_minute=10, max_comments_per_thread=500, serve_shell=True)
+### heed.make_review_app(rootdir=None, \*, is_moderator=<function no_moderator>, trusted_proxies=(), rate_limiter=None, rate_limit_per_minute=10, max_comments_per_thread=500, serve_shell=True, gate=None)
 
 The review API (and, with `serve_shell`, the page at `/`).
 
@@ -918,6 +918,12 @@ Routes: `GET /pages/{id}`, `GET /pages/{id}/media/{name}` (byte ranges;
 `GET /ui/review.{js,css}`. There is deliberately no HTTP listing of pages:
 it would hand every capability to any script running as the owner (the CLI’s
 `ls` lists them).
+
+A page given a password, an expiry or a revoke ([`publish_review()`](#heed.publish_review),
+`heed review revoke`) is gated by `gate` (a `ReviewGate`, built over
+`rootdir` with `trusted_proxies` by default): 401 until `POST
+/pages/{id}/unlock` `{"password": ...}` sets a cookie, 410 once expired, 404
+once revoked. Pages with no such record are open, as ever.
 
 * **Return type:**
   `FastAPI`
@@ -947,7 +953,7 @@ None; an origin resolving to no sink gets 403). `moderator` may hold reports in
 * **Return type:**
   `APIRouter`
 
-### heed.make_thread_router(threads=None, \*, thread_exists=<function valid_id>, is_moderator=<function no_moderator>, rate_limiter=None, rate_limit_per_minute=10, thread_rate_limiter=None, thread_rate_limit_per_hour=120, max_comments_per_thread=500, trusted_proxies=(), honeypot_field='website', on_comment=None)
+### heed.make_thread_router(threads=None, \*, thread_exists=<function valid_id>, is_moderator=<function no_moderator>, rate_limiter=None, rate_limit_per_minute=10, thread_rate_limiter=None, thread_rate_limit_per_hour=120, max_comments_per_thread=500, trusted_proxies=(), honeypot_field='website', on_comment=None, thread_gate=None)
 
 The HTTP surface of comment threads (`threads`: thread id -> its store).
 
@@ -956,7 +962,9 @@ The HTTP surface of comment threads (`threads`: thread id -> its store).
 `DELETE /threads/{thread}/{id}` deletes when `is_moderator(request)` and the
 request carries the `X-Heed-Moderate` header. A thread for which
 `thread_exists` is false answers 404 to everything, which is how a host makes
-threads capabilities. A filled `honeypot_field` is accepted silently and
+threads capabilities; `thread_gate(request, thread)` is called on every request
+to an existing thread and raises `HTTPException` to refuse it (a password, say).
+A filled `honeypot_field` is accepted silently and
 stored nowhere. Behind a reverse proxy, set `trusted_proxies` or every visitor
 shares the proxy’s rate-limit bucket.
 
@@ -1014,9 +1022,13 @@ unless enabled in `config`, and what is kept is passed through `redactor`
 * **Return type:**
   [`tuple`](https://docs.python.org/3/builtins/stdtypes.html#tuple)[[`Report`](heed.base.html.md#heed.base.Report), [`SinkResult`](heed.sinks.base.html.md#heed.sinks.base.SinkResult)]
 
-### heed.publish_review(media, , title=None, note=None, rootdir=None, to=None)
+### heed.publish_review(media, , title=None, note=None, rootdir=None, to=None, password=None, expires=None)
 
 Publish `media` as a new review page (or add it to page `to`).
+
+`password` and `expires` (`"7d"`, `"2026-11-01"`, `"never"`) gate the
+page ([`heed.review_access`](heed.review_access.html.md#module-heed.review_access), needs `heed[gate]`); on an existing page they
+change only what is given. Neither: the page is open to whoever has the link.
 
 The files are copied into the data root. Adding to an existing page keeps its
 link and its thread, so a new cut can go where the old one’s comments are; a file
@@ -1254,21 +1266,22 @@ overrides them.
 
 ### Modules
 
-| [`base`](heed.base.html.md#module-heed.base)         | Domain model for heed — the single source of truth shared by widget and backend.     |
-|--------------------------------------------------------------------------------|--------------------------------------------------------------------------------------|
-| [`board`](heed.board.html.md#module-heed.board)       | The read side of a feedback inbox: what a public board may show.                     |
-| [`config`](heed.config.html.md#module-heed.config)     | Configuration for the heed backend (smart defaults; keyword-only).                   |
-| [`dedup`](heed.dedup.html.md#module-heed.dedup)       | Duplicate detection in two stages: cheap retrieval, then confirmation (#8).          |
-| [`images`](heed.images.html.md#module-heed.images)     | Neutralise uploaded screenshots before they are stored (issue #15).                  |
-| [`ingest`](heed.ingest.html.md#module-heed.ingest)     | The ingest layer — build a Report from a submission and route it to a sink.          |
-| [`mcp`](heed.mcp.html.md#module-heed.mcp)           | The feedback queue as an MCP server (`pip install 'heed[mcp]'`) (#8).                |
-| [`queue`](heed.queue.html.md#module-heed.queue)       | The feedback queue as plain functions: list, get, triage, dedup, create, close (#8). |
-| [`redact`](heed.redact.html.md#module-heed.redact)     | Redaction of personal data and secrets in captured console and network entries.      |
-| [`review`](heed.review.html.md#module-heed.review)     | Review pages: media (a video, audio, images) with a comment thread under it.         |
-| [`routing`](heed.routing.html.md#module-heed.routing)   | Where a report goes: server-side site resolution and moderation (holding state).     |
-| [`security`](heed.security.html.md#module-heed.security) | Public-endpoint hardening (the ingest endpoint is unauthenticated and hostile).      |
-| [`serving`](heed.serving.html.md#module-heed.serving)   | Serve stored screenshots: a read-only route meant for its own origin (issue #19).    |
-| [`sinks`](heed.sinks.html.md#module-heed.sinks)       | Sinks: pluggable report destinations (strategy pattern).                             |
-| [`storage`](heed.storage.html.md#module-heed.storage)   | Storage helpers — dol-backed stores for reports and binary attachments.              |
-| [`threads`](heed.threads.html.md#module-heed.threads)   | Comment threads: a persistent, public, append-mostly conversation per key.           |
-| [`widget`](heed.widget.html.md#module-heed.widget)     | Serve the embeddable widget, and state the contract it is built against.             |
+| [`base`](heed.base.html.md#module-heed.base)                   | Domain model for heed — the single source of truth shared by widget and backend.     |
+|------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------|
+| [`board`](heed.board.html.md#module-heed.board)                 | The read side of a feedback inbox: what a public board may show.                     |
+| [`config`](heed.config.html.md#module-heed.config)               | Configuration for the heed backend (smart defaults; keyword-only).                   |
+| [`dedup`](heed.dedup.html.md#module-heed.dedup)                 | Duplicate detection in two stages: cheap retrieval, then confirmation (#8).          |
+| [`images`](heed.images.html.md#module-heed.images)               | Neutralise uploaded screenshots before they are stored (issue #15).                  |
+| [`ingest`](heed.ingest.html.md#module-heed.ingest)               | The ingest layer — build a Report from a submission and route it to a sink.          |
+| [`mcp`](heed.mcp.html.md#module-heed.mcp)                     | The feedback queue as an MCP server (`pip install 'heed[mcp]'`) (#8).                |
+| [`queue`](heed.queue.html.md#module-heed.queue)                 | The feedback queue as plain functions: list, get, triage, dedup, create, close (#8). |
+| [`redact`](heed.redact.html.md#module-heed.redact)               | Redaction of personal data and secrets in captured console and network entries.      |
+| [`review`](heed.review.html.md#module-heed.review)               | Review pages: media (a video, audio, images) with a comment thread under it.         |
+| [`review_access`](heed.review_access.html.md#module-heed.review_access) | Access control for review pages: an optional password, expiry and revoke.            |
+| [`routing`](heed.routing.html.md#module-heed.routing)             | Where a report goes: server-side site resolution and moderation (holding state).     |
+| [`security`](heed.security.html.md#module-heed.security)           | Public-endpoint hardening (the ingest endpoint is unauthenticated and hostile).      |
+| [`serving`](heed.serving.html.md#module-heed.serving)             | Serve stored screenshots: a read-only route meant for its own origin (issue #19).    |
+| [`sinks`](heed.sinks.html.md#module-heed.sinks)                 | Sinks: pluggable report destinations (strategy pattern).                             |
+| [`storage`](heed.storage.html.md#module-heed.storage)             | Storage helpers — dol-backed stores for reports and binary attachments.              |
+| [`threads`](heed.threads.html.md#module-heed.threads)             | Comment threads: a persistent, public, append-mostly conversation per key.           |
+| [`widget`](heed.widget.html.md#module-heed.widget)               | Serve the embeddable widget, and state the contract it is built against.             |

@@ -22,6 +22,8 @@ Layout of the data root (one folder; ADR-0024’s S3 layout mirrors it key for k
 pages/<id>.json            the page: title, note, media list, created_at
 media/<id>/<name>          the media files, served with byte ranges (seekable)
 comments/<id>/<cid>.json   the thread (heed.threads)
+access/<id>.json           optional password, expiry, revoke (heed.review_access);
+                           no file means open: back this folder up too
 ```
 
 Python:
@@ -169,7 +171,7 @@ Write `page`.
 * **Return type:**
   [`int`](https://docs.python.org/3/builtins/functions.html#int)
 
-### heed.review.make_review_app(rootdir=None, \*, is_moderator=<function no_moderator>, trusted_proxies=(), rate_limiter=None, rate_limit_per_minute=10, max_comments_per_thread=500, serve_shell=True)
+### heed.review.make_review_app(rootdir=None, \*, is_moderator=<function no_moderator>, trusted_proxies=(), rate_limiter=None, rate_limit_per_minute=10, max_comments_per_thread=500, serve_shell=True, gate=None)
 
 The review API (and, with `serve_shell`, the page at `/`).
 
@@ -179,6 +181,12 @@ Routes: `GET /pages/{id}`, `GET /pages/{id}/media/{name}` (byte ranges;
 `GET /ui/review.{js,css}`. There is deliberately no HTTP listing of pages:
 it would hand every capability to any script running as the owner (the CLI’s
 `ls` lists them).
+
+A page given a password, an expiry or a revoke ([`publish_review()`](#heed.review.publish_review),
+`heed review revoke`) is gated by `gate` (a `ReviewGate`, built over
+`rootdir` with `trusted_proxies` by default): 401 until `POST
+/pages/{id}/unlock` `{"password": ...}` sets a cookie, 410 once expired, 404
+once revoked. Pages with no such record are open, as ever.
 
 * **Return type:**
   `FastAPI`
@@ -209,9 +217,13 @@ A host that serves static files (enlace’s `frontend_dir`) writes this once:
 * **Return type:**
   [`str`](https://docs.python.org/3/builtins/stdtypes.html#str)
 
-### heed.review.publish_review(media, , title=None, note=None, rootdir=None, to=None)
+### heed.review.publish_review(media, , title=None, note=None, rootdir=None, to=None, password=None, expires=None)
 
 Publish `media` as a new review page (or add it to page `to`).
+
+`password` and `expires` (`"7d"`, `"2026-11-01"`, `"never"`) gate the
+page ([`heed.review_access`](heed.review_access.html.md#module-heed.review_access), needs `heed[gate]`); on an existing page they
+change only what is given. Neither: the page is open to whoever has the link.
 
 The files are copied into the data root. Adding to an existing page keeps its
 link and its thread, so a new cut can go where the old one’s comments are; a file

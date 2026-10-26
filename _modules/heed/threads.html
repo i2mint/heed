@@ -1060,6 +1060,7 @@ window.runMermaid = runMermaid;</script>
     <span class="n">trusted_proxies</span><span class="o">=</span><span class="p">(),</span>
     <span class="n">honeypot_field</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"website"</span><span class="p">,</span>
     <span class="n">on_comment</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">Comment</span><span class="p">],</span> <span class="kc">None</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">thread_gate</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">Request</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span> <span class="kc">None</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">APIRouter</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""The HTTP surface of comment threads (``threads``: thread id -&gt; its store).</span>
 
@@ -1068,7 +1069,9 @@ window.runMermaid = runMermaid;</script>
 <span class="sd">    ``DELETE /threads/{thread}/{id}`` deletes when ``is_moderator(request)`` and the</span>
 <span class="sd">    request carries the ``X-Heed-Moderate`` header. A thread for which</span>
 <span class="sd">    ``thread_exists`` is false answers 404 to everything, which is how a host makes</span>
-<span class="sd">    threads capabilities. A filled ``honeypot_field`` is accepted silently and</span>
+<span class="sd">    threads capabilities; ``thread_gate(request, thread)`` is called on every request</span>
+<span class="sd">    to an existing thread and raises ``HTTPException`` to refuse it (a password, say).</span>
+<span class="sd">    A filled ``honeypot_field`` is accepted silently and</span>
 <span class="sd">    stored nowhere. Behind a reverse proxy, set ``trusted_proxies`` or every visitor</span>
 <span class="sd">    shares the proxy's rate-limit bucket.</span>
 
@@ -1093,9 +1096,11 @@ window.runMermaid = runMermaid;</script>
     <span class="n">warned</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="n">router</span> <span class="o">=</span> <span class="n">APIRouter</span><span class="p">()</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_require_thread</span><span class="p">(</span><span class="n">thread</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MutableMapping</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_require_thread</span><span class="p">(</span><span class="n">thread</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">request</span><span class="p">:</span> <span class="n">Request</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MutableMapping</span><span class="p">:</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">valid_id</span><span class="p">(</span><span class="n">thread</span><span class="p">)</span> <span class="ow">and</span> <span class="n">thread_exists</span><span class="p">(</span><span class="n">thread</span><span class="p">)):</span>
             <span class="k">raise</span> <span class="n">HTTPException</span><span class="p">(</span><span class="mi">404</span><span class="p">,</span> <span class="s2">"No such thread"</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">thread_gate</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">thread_gate</span><span class="p">(</span><span class="n">request</span><span class="p">,</span> <span class="n">thread</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">threads</span><span class="p">(</span><span class="n">thread</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_client_key</span><span class="p">(</span><span class="n">request</span><span class="p">:</span> <span class="n">Request</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
@@ -1116,7 +1121,7 @@ window.runMermaid = runMermaid;</script>
 
     <span class="nd">@router</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"/threads/</span><span class="si">{thread}</span><span class="s2">"</span><span class="p">)</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">get_thread</span><span class="p">(</span><span class="n">thread</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">request</span><span class="p">:</span> <span class="n">Request</span><span class="p">,</span> <span class="n">response</span><span class="p">:</span> <span class="n">Response</span><span class="p">):</span>
-        <span class="n">store</span> <span class="o">=</span> <span class="n">_require_thread</span><span class="p">(</span><span class="n">thread</span><span class="p">)</span>
+        <span class="n">store</span> <span class="o">=</span> <span class="n">_require_thread</span><span class="p">(</span><span class="n">thread</span><span class="p">,</span> <span class="n">request</span><span class="p">)</span>
         <span class="n">response</span><span class="o">.</span><span class="n">headers</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">THREAD_RESPONSE_HEADERS</span><span class="p">)</span>
         <span class="k">return</span> <span class="p">{</span>
             <span class="s2">"thread"</span><span class="p">:</span> <span class="n">thread</span><span class="p">,</span>
@@ -1126,11 +1131,11 @@ window.runMermaid = runMermaid;</script>
 
     <span class="nd">@router</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="s2">"/threads/</span><span class="si">{thread}</span><span class="s2">"</span><span class="p">,</span> <span class="n">status_code</span><span class="o">=</span><span class="mi">201</span><span class="p">)</span>
     <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">post_comment</span><span class="p">(</span><span class="n">thread</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">request</span><span class="p">:</span> <span class="n">Request</span><span class="p">,</span> <span class="n">response</span><span class="p">:</span> <span class="n">Response</span><span class="p">):</span>
-        <span class="n">store</span> <span class="o">=</span> <span class="n">_require_thread</span><span class="p">(</span><span class="n">thread</span><span class="p">)</span>
+        <span class="n">store</span> <span class="o">=</span> <span class="n">_require_thread</span><span class="p">(</span><span class="n">thread</span><span class="p">,</span> <span class="n">request</span><span class="p">)</span>
         <span class="n">response</span><span class="o">.</span><span class="n">headers</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">THREAD_RESPONSE_HEADERS</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">limiter</span><span class="o">.</span><span class="n">allow</span><span class="p">(</span><span class="n">_client_key</span><span class="p">(</span><span class="n">request</span><span class="p">)):</span>
             <span class="k">raise</span> <span class="n">HTTPException</span><span class="p">(</span><span class="mi">429</span><span class="p">,</span> <span class="s2">"Too many comments; try again in a minute"</span><span class="p">)</span>
-        <span class="n">raw</span> <span class="o">=</span> <span class="k">await</span> <span class="n">_read_capped</span><span class="p">(</span><span class="n">request</span><span class="p">,</span> <span class="n">MAX_COMMENT_BYTES</span><span class="p">)</span>
+        <span class="n">raw</span> <span class="o">=</span> <span class="k">await</span> <span class="n">read_capped</span><span class="p">(</span><span class="n">request</span><span class="p">,</span> <span class="n">MAX_COMMENT_BYTES</span><span class="p">)</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="n">data</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">raw</span> <span class="ow">or</span> <span class="sa">b</span><span class="s2">"</span><span class="si">{}</span><span class="s2">"</span><span class="p">)</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
@@ -1160,7 +1165,7 @@ window.runMermaid = runMermaid;</script>
 
     <span class="nd">@router</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="s2">"/threads/</span><span class="si">{thread}</span><span class="s2">/</span><span class="si">{comment_id}</span><span class="s2">"</span><span class="p">)</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">remove_comment</span><span class="p">(</span><span class="n">thread</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">comment_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">request</span><span class="p">:</span> <span class="n">Request</span><span class="p">):</span>
-        <span class="n">store</span> <span class="o">=</span> <span class="n">_require_thread</span><span class="p">(</span><span class="n">thread</span><span class="p">)</span>
+        <span class="n">store</span> <span class="o">=</span> <span class="n">_require_thread</span><span class="p">(</span><span class="n">thread</span><span class="p">,</span> <span class="n">request</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">request</span><span class="o">.</span><span class="n">headers</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">MODERATE_HEADER</span><span class="p">)</span> <span class="o">!=</span> <span class="s2">"1"</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">is_moderator</span><span class="p">(</span><span class="n">request</span><span class="p">):</span>
             <span class="k">raise</span> <span class="n">HTTPException</span><span class="p">(</span><span class="mi">403</span><span class="p">,</span> <span class="s2">"Only a moderator can delete comments"</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">delete_comment</span><span class="p">(</span><span class="n">store</span><span class="p">,</span> <span class="n">comment_id</span><span class="p">):</span>
@@ -1171,18 +1176,21 @@ window.runMermaid = runMermaid;</script>
 
 
 
-<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_read_capped</span><span class="p">(</span><span class="n">request</span><span class="p">:</span> <span class="n">Request</span><span class="p">,</span> <span class="n">cap</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bytes</span><span class="p">:</span>
+<div class="viewcode-block" id="read_capped">
+<a class="viewcode-back" href="../../_autosummary/heed.threads.html#heed.read_capped">[docs]</a>
+<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">read_capped</span><span class="p">(</span><span class="n">request</span><span class="p">:</span> <span class="n">Request</span><span class="p">,</span> <span class="n">cap</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">what</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"Comment"</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bytes</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""The request body, refusing (413) anything over ``cap`` bytes while streaming."""</span>
     <span class="n">declared</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">headers</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"content-length"</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">declared</span> <span class="ow">and</span> <span class="n">declared</span><span class="o">.</span><span class="n">isdigit</span><span class="p">()</span> <span class="ow">and</span> <span class="nb">int</span><span class="p">(</span><span class="n">declared</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">cap</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="n">HTTPException</span><span class="p">(</span><span class="mi">413</span><span class="p">,</span> <span class="s2">"Comment too large"</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="n">HTTPException</span><span class="p">(</span><span class="mi">413</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">what</span><span class="si">}</span><span class="s2"> too large"</span><span class="p">)</span>
     <span class="n">chunks</span><span class="p">,</span> <span class="n">size</span> <span class="o">=</span> <span class="p">[],</span> <span class="mi">0</span>
     <span class="k">async</span> <span class="k">for</span> <span class="n">chunk</span> <span class="ow">in</span> <span class="n">request</span><span class="o">.</span><span class="n">stream</span><span class="p">():</span>
         <span class="n">size</span> <span class="o">+=</span> <span class="nb">len</span><span class="p">(</span><span class="n">chunk</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">size</span> <span class="o">&gt;</span> <span class="n">cap</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="n">HTTPException</span><span class="p">(</span><span class="mi">413</span><span class="p">,</span> <span class="s2">"Comment too large"</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="n">HTTPException</span><span class="p">(</span><span class="mi">413</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">what</span><span class="si">}</span><span class="s2"> too large"</span><span class="p">)</span>
         <span class="n">chunks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">chunk</span><span class="p">)</span>
-    <span class="k">return</span> <span class="sa">b</span><span class="s2">""</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">chunks</span><span class="p">)</span>
+    <span class="k">return</span> <span class="sa">b</span><span class="s2">""</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">chunks</span><span class="p">)</span></div>
+
 </pre></div>
 
                 </article>

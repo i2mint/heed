@@ -29,6 +29,7 @@ heed.threads
       memory_threads
       new_comment_id
       no_moderator
+      read_capped
       token_moderator
       valid_id
    

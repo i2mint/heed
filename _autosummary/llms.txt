@@ -16,6 +16,7 @@
 - [heed.queue](heed.queue.html.md): The feedback queue as plain functions: list, get, triage, dedup, create, close (#8).
 - [heed.redact](heed.redact.html.md): Redaction of personal data and secrets in captured console and network entries.
 - [heed.review](heed.review.html.md): Review pages: media (a video, audio, images) with a comment thread under it.
+- [heed.review_access](heed.review_access.html.md): Access control for review pages: an optional password, expiry and revoke.
 - [heed.routing](heed.routing.html.md): Where a report goes: server-side site resolution and moderation (holding state).
 - [heed.security](heed.security.html.md): Public-endpoint hardening (the ingest endpoint is unauthenticated and hostile).
 - [heed.serving](heed.serving.html.md): Serve stored screenshots: a read-only route meant for its own origin (issue #19).
