@@ -283,7 +283,12 @@ def test_a_token_moderator_is_not_fooled_by_a_login_alone(root, clip):
     # Logged in as the owner, but without the secret: no powers at all.
     assert owner.get(url).json()["can_moderate"] is False
     assert owner.delete(f"{url}/{cid}", headers=hdr).status_code == 403
-    assert owner.post(url, json={"author": "x", "body": "y"}).json()["comment"]["moderator"] is False
+    assert (
+        owner.post(url, json={"author": "x", "body": "y"}).json()["comment"][
+            "moderator"
+        ]
+        is False
+    )
     # The wrong secret is no better; the secret without the login is no better either.
     bad = {**hdr, MODERATOR_TOKEN_HEADER: "wrong-wrong-wrong-wrong"}
     assert owner.delete(f"{url}/{cid}", headers=bad).status_code == 403
@@ -301,3 +306,137 @@ def test_a_weak_moderator_token_is_refused():
     for weak in ("", "short", None, " padded-token-value-1 ", "tökén-with-non-ascii-1"):
         with _pytest.raises(ValueError, match="token"):
             token_moderator(weak)
+
+
+# ------------------------------------------------------------ gated pages (heed#88)
+
+PW = "open sesame"
+
+
+def _gated(root, clip, **kw):
+    page = publish_review([clip], title="Cut", rootdir=root, **kw)
+    return page, _client(root)
+
+
+def test_an_ungated_page_is_open_and_makes_no_access_record(root, clip):
+    page, client = _gated(root, clip)
+    assert client.get(f"/pages/{page.id}").status_code == 200
+    assert not (root / "access").exists()
+
+
+def test_a_password_gates_page_media_and_thread_until_unlocked(root, clip):
+    page, client = _gated(root, clip, password=PW)
+    paths = [
+        f"/pages/{page.id}",
+        f"/pages/{page.id}/media/{page.media[0].name}",
+        f"/threads/{page.id}",
+    ]
+    assert [client.get(p).status_code for p in paths] == [401, 401, 401]
+    assert (
+        client.post(
+            f"/threads/{page.id}", json={"author": "a", "body": "b"}
+        ).status_code
+        == 401
+    )
+    assert (
+        client.post(f"/pages/{page.id}/unlock", json={"password": "wrong"}).status_code
+        == 401
+    )
+    assert client.get(paths[0]).status_code == 401
+    ok = client.post(f"/pages/{page.id}/unlock", json={"password": PW})
+    assert ok.status_code == 204
+    assert "httponly" in ok.headers["set-cookie"].lower()
+    assert [client.get(p).status_code for p in paths] == [200, 200, 200]
+
+
+def test_an_unlock_does_not_open_another_page(root, clip):
+    a, client = _gated(root, clip, password=PW)
+    b = publish_review([clip], title="B", rootdir=root, password="another one")
+    client.post(f"/pages/{a.id}/unlock", json={"password": PW})
+    assert client.get(f"/pages/{a.id}").status_code == 200
+    assert client.get(f"/pages/{b.id}").status_code == 401
+
+
+def test_changing_the_password_ends_open_sessions(root, clip):
+    page, client = _gated(root, clip, password=PW)
+    client.post(f"/pages/{page.id}/unlock", json={"password": PW})
+    publish_review([], rootdir=root, to=page.id, password="a new password")
+    assert client.get(f"/pages/{page.id}").status_code == 401
+    ok = client.post(f"/pages/{page.id}/unlock", json={"password": "a new password"})
+    assert ok.status_code == 204
+
+
+def test_expiry_answers_410_and_revoke_404(root, clip):
+    from datetime import datetime, timedelta, timezone
+
+    page, client = _gated(root, clip, expires="1d")
+    assert (
+        client.get(f"/pages/{page.id}").status_code == 200
+    )  # expiry alone: no password
+    rec_path = root / "access" / f"{page.id}.json"
+    import json
+
+    rec = json.loads(rec_path.read_text())
+    past = datetime.now(timezone.utc) - timedelta(hours=1)
+    rec["expires"] = past.isoformat()
+    rec_path.write_text(json.dumps(rec))
+    assert client.get(f"/pages/{page.id}").status_code == 410
+    assert client.get(f"/threads/{page.id}").status_code == 410
+    publish_review([], rootdir=root, to=page.id, expires="3d")  # extend: open again
+    assert client.get(f"/pages/{page.id}").status_code == 200
+    assert main(["--dir", str(root), "revoke", page.id]) == 0
+    assert client.get(f"/pages/{page.id}").status_code == 404
+    assert client.get(f"/pages/{page.id}/media/{page.media[0].name}").status_code == 404
+
+
+def test_revoking_an_ungated_page_closes_it(root, clip):
+    page, client = _gated(root, clip)
+    assert main(["--dir", str(root), "revoke", page.id]) == 0
+    assert client.get(f"/pages/{page.id}").status_code == 404
+
+
+def test_wrong_passwords_are_limited_per_client_and_then_per_page(root, clip):
+    from heed.review_access import ReviewGate
+    from heed.security import InMemoryRateLimiter
+
+    page = publish_review([clip], title="Cut", rootdir=root, password=PW)
+    gate = ReviewGate(
+        root,
+        rate_limiter=InMemoryRateLimiter(max_per_window=3),
+        page_failure_limiter=InMemoryRateLimiter(max_per_window=4),
+    )
+    client = _client(root, gate=gate)
+    url = f"/pages/{page.id}/unlock"
+    codes = [client.post(url, json={"password": "nope"}).status_code for _ in range(5)]
+    assert codes == [401, 401, 401, 429, 429]
+    assert (
+        client.post(url, json={"password": PW}).status_code == 429
+    )  # even the right one
+
+
+def test_a_gated_page_without_caplinks_fails_closed(root, clip, monkeypatch):
+    page, client = _gated(root, clip, password=PW)
+    monkeypatch.setitem(__import__("sys").modules, "caplinks", None)
+    assert client.get(f"/pages/{page.id}").status_code == 503
+
+
+def test_unlock_rejects_a_malformed_or_oversized_body(root, clip):
+    page, client = _gated(root, clip, password=PW)
+    url = f"/pages/{page.id}/unlock"
+    assert client.post(url, content=b"nope").status_code == 400
+    assert client.post(url, json={"password": 5}).status_code == 400
+    assert client.post(url, json={"password": "x" * 5000}).status_code == 413
+
+
+def test_publish_cli_reads_the_password_from_a_file(root, clip, tmp_path, capsys):
+    pw = tmp_path / "pw"
+    pw.write_text(PW + "\n")
+    argv = ["--dir", str(root), "publish", str(clip), "--title", "t"]
+    assert main([*argv, "--password-file", str(pw), "--expires", "7d"]) == 0
+    page_id = capsys.readouterr().out.strip().lstrip("#")
+    client = _client(root)
+    assert client.get(f"/pages/{page_id}").status_code == 401
+    assert (
+        client.post(f"/pages/{page_id}/unlock", json={"password": PW}).status_code
+        == 204
+    )

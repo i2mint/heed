@@ -305,6 +305,7 @@ def make_thread_router(
     trusted_proxies=(),
     honeypot_field: str = "website",
     on_comment: Callable[[Comment], None] | None = None,
+    thread_gate: Callable[[Request, str], None] | None = None,
 ) -> APIRouter:
     """The HTTP surface of comment threads (``threads``: thread id -> its store).
 
@@ -313,7 +314,9 @@ def make_thread_router(
     ``DELETE /threads/{thread}/{id}`` deletes when ``is_moderator(request)`` and the
     request carries the ``X-Heed-Moderate`` header. A thread for which
     ``thread_exists`` is false answers 404 to everything, which is how a host makes
-    threads capabilities. A filled ``honeypot_field`` is accepted silently and
+    threads capabilities; ``thread_gate(request, thread)`` is called on every request
+    to an existing thread and raises ``HTTPException`` to refuse it (a password, say).
+    A filled ``honeypot_field`` is accepted silently and
     stored nowhere. Behind a reverse proxy, set ``trusted_proxies`` or every visitor
     shares the proxy's rate-limit bucket.
 
@@ -338,9 +341,11 @@ def make_thread_router(
     warned = []
     router = APIRouter()
 
-    def _require_thread(thread: str) -> MutableMapping:
+    def _require_thread(thread: str, request: Request) -> MutableMapping:
         if not (valid_id(thread) and thread_exists(thread)):
             raise HTTPException(404, "No such thread")
+        if thread_gate is not None:
+            thread_gate(request, thread)
         return threads(thread)
 
     def _client_key(request: Request) -> str:
@@ -361,7 +366,7 @@ def make_thread_router(
 
     @router.get("/threads/{thread}")
     def get_thread(thread: str, request: Request, response: Response):
-        store = _require_thread(thread)
+        store = _require_thread(thread, request)
         response.headers.update(THREAD_RESPONSE_HEADERS)
         return {
             "thread": thread,
@@ -371,11 +376,11 @@ def make_thread_router(
 
     @router.post("/threads/{thread}", status_code=201)
     async def post_comment(thread: str, request: Request, response: Response):
-        store = _require_thread(thread)
+        store = _require_thread(thread, request)
         response.headers.update(THREAD_RESPONSE_HEADERS)
         if not limiter.allow(_client_key(request)):
             raise HTTPException(429, "Too many comments; try again in a minute")
-        raw = await _read_capped(request, MAX_COMMENT_BYTES)
+        raw = await read_capped(request, MAX_COMMENT_BYTES)
         try:
             data = json.loads(raw or b"{}")
             if not isinstance(data, dict):
@@ -405,7 +410,7 @@ def make_thread_router(
 
     @router.delete("/threads/{thread}/{comment_id}")
     def remove_comment(thread: str, comment_id: str, request: Request):
-        store = _require_thread(thread)
+        store = _require_thread(thread, request)
         if request.headers.get(MODERATE_HEADER) != "1" or not is_moderator(request):
             raise HTTPException(403, "Only a moderator can delete comments")
         if not delete_comment(store, comment_id):
@@ -415,15 +420,15 @@ def make_thread_router(
     return router
 
 
-async def _read_capped(request: Request, cap: int) -> bytes:
+async def read_capped(request: Request, cap: int, *, what: str = "Comment") -> bytes:
     """The request body, refusing (413) anything over ``cap`` bytes while streaming."""
     declared = request.headers.get("content-length")
     if declared and declared.isdigit() and int(declared) > cap:
-        raise HTTPException(413, "Comment too large")
+        raise HTTPException(413, f"{what} too large")
     chunks, size = [], 0
     async for chunk in request.stream():
         size += len(chunk)
         if size > cap:
-            raise HTTPException(413, "Comment too large")
+            raise HTTPException(413, f"{what} too large")
         chunks.append(chunk)
     return b"".join(chunks)
