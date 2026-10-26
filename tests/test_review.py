@@ -379,14 +379,14 @@ def test_expiry_answers_410_and_revoke_404(root, clip):
     assert client.get(f"/threads/{page.id}").status_code == 410
     publish_review([], rootdir=root, to=page.id, expires="3d")  # extend: open again
     assert client.get(f"/pages/{page.id}").status_code == 200
-    assert main(["--dir", str(root), "revoke", page.id]) == 0
+    assert main(["--dir", str(root), "revoke", "--", page.id]) == 0
     assert client.get(f"/pages/{page.id}").status_code == 404
     assert client.get(f"/pages/{page.id}/media/{page.media[0].name}").status_code == 404
 
 
 def test_revoking_an_ungated_page_closes_it(root, clip):
     page, client = _gated(root, clip)
-    assert main(["--dir", str(root), "revoke", page.id]) == 0
+    assert main(["--dir", str(root), "revoke", "--", page.id]) == 0
     assert client.get(f"/pages/{page.id}").status_code == 404
 
 
@@ -444,7 +444,7 @@ def test_revoking_a_page_with_a_damaged_record_still_closes_it(root, clip):
     page, client = _gated(root, clip, password=PW)
     (root / "access" / f"{page.id}.json").write_text("{not json")
     assert client.get(f"/pages/{page.id}").status_code == 404  # closed, not open
-    assert main(["--dir", str(root), "revoke", page.id]) == 0
+    assert main(["--dir", str(root), "revoke", "--", page.id]) == 0
     assert client.get(f"/pages/{page.id}").status_code == 404
 
 
@@ -473,4 +473,18 @@ def test_publish_cli_reads_the_password_from_a_file(root, clip, tmp_path, capsys
     assert (
         client.post(f"/pages/{page_id}/unlock", json={"password": PW}).status_code
         == 204
+    )
+
+
+def test_a_dangling_or_symlinked_record_closes_the_page_and_revoke_replaces_it(
+    root, clip, tmp_path
+):
+    page, client = _gated(root, clip, password=PW)
+    record = root / "access" / f"{page.id}.json"
+    record.unlink()
+    record.symlink_to(tmp_path / "nowhere.json")  # dangling
+    assert client.get(f"/pages/{page.id}").status_code == 404
+    assert main(["--dir", str(root), "revoke", "--", page.id]) == 0
+    assert (
+        not record.is_symlink() and client.get(f"/pages/{page.id}").status_code == 404
     )
