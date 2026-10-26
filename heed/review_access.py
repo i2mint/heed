@@ -30,19 +30,18 @@ per page, and a page that takes too many wrong ones from everyone is locked for 
 
 from __future__ import annotations
 
+import functools
 import hashlib
 import json
 import os
-import tempfile
 import time
-from collections.abc import Iterator, MutableMapping
 from pathlib import Path
 
 from fastapi import HTTPException, Request, Response
 from starlette.concurrency import run_in_threadpool
 
 from heed.security import RateLimiter, client_ip, make_rate_limiter, rate_limit_key
-from heed.threads import read_capped, valid_id
+from heed.threads import read_capped
 
 ACCESS_DIR = "access"
 COOKIE_PREFIX = "heed_unlock_"
@@ -62,49 +61,15 @@ _MISSING_EXTRA = (
 )
 
 
-class _JsonRecords(MutableMapping):
-    """``{id: dict}`` kept as ``<dir>/<id>.json`` files (what caplinks stores)."""
+def _records_dir(rootdir) -> Path:
+    return Path(rootdir).expanduser() / ACCESS_DIR
 
-    def __init__(self, folder: Path):
-        self.folder = folder
 
-    def _path(self, key: str) -> Path:
-        if not valid_id(key):
-            raise KeyError(key)
-        return self.folder / f"{key}.json"
+def _records(rootdir):
+    """The access records of a data root: caplinks' JSON records in ``access/``."""
+    from caplinks import FileTexts, JsonRecords
 
-    def __getitem__(self, key):
-        try:
-            return json.loads(self._path(key).read_text())
-        except FileNotFoundError:
-            raise KeyError(key) from None
-
-    def __setitem__(self, key, value):
-        path = self._path(key)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        fd, tmp = tempfile.mkstemp(dir=path.parent, suffix=".tmp")  # 0600: a hash
-        with os.fdopen(fd, "w") as f:
-            json.dump(value, f)
-        os.replace(tmp, path)
-
-    def __delitem__(self, key):
-        try:
-            self._path(key).unlink()
-        except FileNotFoundError:
-            raise KeyError(key) from None
-
-    def __iter__(self) -> Iterator[str]:
-        if self.folder.is_dir():
-            yield from (p.stem for p in self.folder.glob("*.json"))
-
-    def __len__(self):
-        return sum(1 for _ in self)
-
-    def __contains__(self, key):
-        try:
-            return self._path(key).is_file()
-        except KeyError:
-            return False
+    return JsonRecords(FileTexts(_records_dir(rootdir)))
 
 
 def _links(rootdir):
@@ -112,7 +77,7 @@ def _links(rootdir):
         from caplinks import CapabilityLinks
     except ImportError as e:
         raise ImportError(_MISSING_EXTRA) from e
-    return CapabilityLinks(_JsonRecords(Path(rootdir).expanduser() / ACCESS_DIR))
+    return CapabilityLinks(_records(rootdir))
 
 
 def set_access(rootdir, page_id: str, *, password: str | None = None, expires=None):
@@ -182,7 +147,7 @@ class ReviewGate:
         lock_s: float = DFLT_ATTEMPT_WINDOW_S,
         clock=time.monotonic,
     ):
-        self.records = _JsonRecords(Path(rootdir).expanduser() / ACCESS_DIR)
+        self.rootdir = rootdir
         self.trusted_proxies = trusted_proxies
         self.rate_limiter = rate_limiter or make_rate_limiter(
             max_per_window=DFLT_MAX_ATTEMPTS,
@@ -197,16 +162,27 @@ class ReviewGate:
         self.unlock_max_age_s = unlock_max_age_s
         self.lock_s = lock_s
         self._clock = clock
-        self._locked: dict[str, float] = {}  # page id -> when its lock ends
+
+    @functools.cached_property
+    def _guard(self):
+        """The lock-out (caplinks' ``AttemptGuard``), built on the first unlock."""
+        from caplinks import AttemptGuard
+
+        return AttemptGuard(
+            client_limiter=self.rate_limiter,
+            link_limiter=self.page_failure_limiter,
+            lock_s=self.lock_s,
+            clock=self._clock,
+        )
 
     def _open_record(self, page_id: str):
         """``(links, record)`` of a gated page that is neither revoked nor expired;
         ``None`` for an ungated one. Raises 404 (revoked), 410 (expired), 503 (no
         caplinks to judge a gated page: closed, never open)."""
-        if page_id not in self.records:
-            return None
+        if not os.path.lexists(_records_dir(self.rootdir) / f"{page_id}.json"):
+            return None  # no record: open (a dangling or damaged one still gates)
         try:
-            links = _links(self.records.folder.parent)
+            links = _links(self.rootdir)
         except ImportError:
             raise HTTPException(
                 503, "This page is protected and cannot be opened here"
@@ -245,16 +221,13 @@ class ReviewGate:
                 raise TypeError
         except (ValueError, KeyError, TypeError, RecursionError):
             raise HTTPException(400, "Expected a JSON object with a password") from None
-        if self._locked.get(page_id, 0) > self._clock() or not self.rate_limiter.allow(
-            f"{page_id}:{self._client(request)}"
-        ):
+        if not self._guard.allow(page_id, self._client(request)):
             raise HTTPException(
                 429, "Too many attempts. Wait a few minutes and try again."
             )
         # scrypt is slow on purpose: keep it off the event loop
         if not await run_in_threadpool(links.check_password, rec, password):
-            if not self.page_failure_limiter.allow(page_id):
-                self._locked[page_id] = self._clock() + self.lock_s
+            self._guard.failed(page_id)
             raise HTTPException(401, "That password is not right.")
         proto = request.headers.get("x-forwarded-proto", request.url.scheme)
         response = Response(status_code=204, headers={"Cache-Control": "no-store"})
