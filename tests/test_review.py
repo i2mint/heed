@@ -474,3 +474,17 @@ def test_publish_cli_reads_the_password_from_a_file(root, clip, tmp_path, capsys
         client.post(f"/pages/{page_id}/unlock", json={"password": PW}).status_code
         == 204
     )
+
+
+def test_a_dangling_or_symlinked_record_closes_the_page_and_revoke_replaces_it(
+    root, clip, tmp_path
+):
+    page, client = _gated(root, clip, password=PW)
+    record = root / "access" / f"{page.id}.json"
+    record.unlink()
+    record.symlink_to(tmp_path / "nowhere.json")  # dangling
+    assert client.get(f"/pages/{page.id}").status_code == 404
+    assert main(["--dir", str(root), "revoke", page.id]) == 0
+    assert (
+        not record.is_symlink() and client.get(f"/pages/{page.id}").status_code == 404
+    )

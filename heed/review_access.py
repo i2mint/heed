@@ -65,19 +65,12 @@ def _records_dir(rootdir) -> Path:
     return Path(rootdir).expanduser() / ACCESS_DIR
 
 
-def _records(rootdir):
-    """The access records of a data root: caplinks' JSON records in ``access/``."""
-    from caplinks import FileTexts, JsonRecords
-
-    return JsonRecords(FileTexts(_records_dir(rootdir)))
-
-
 def _links(rootdir):
     try:
-        from caplinks import CapabilityLinks
+        from caplinks import CapabilityLinks, FileTexts, JsonRecords
     except ImportError as e:
         raise ImportError(_MISSING_EXTRA) from e
-    return CapabilityLinks(_records(rootdir))
+    return CapabilityLinks(JsonRecords(FileTexts(_records_dir(rootdir))))
 
 
 def set_access(rootdir, page_id: str, *, password: str | None = None, expires=None):
@@ -111,7 +104,10 @@ def revoke_access(rootdir, page_id: str):
     """
     links = _links(rootdir)
     if links.record(page_id) is None:
-        if page_id in links.store:  # a damaged record: replace it, closed
+        path = _records_dir(rootdir) / f"{page_id}.json"
+        if path.is_symlink():  # caplinks refuses to follow it: replace it, closed
+            path.unlink()
+        elif page_id in links.store:  # a damaged record
             del links.store[page_id]
         links.create({}, expires="never", token=page_id)
     return links.revoke(page_id)
@@ -180,7 +176,7 @@ class ReviewGate:
         ``None`` for an ungated one. Raises 404 (revoked), 410 (expired), 503 (no
         caplinks to judge a gated page: closed, never open)."""
         if not os.path.lexists(_records_dir(self.rootdir) / f"{page_id}.json"):
-            return None  # no record: open (a dangling or damaged one still gates)
+            return None  # no record: open (a bad or symlinked one gates: 404)
         try:
             links = _links(self.rootdir)
         except ImportError:
