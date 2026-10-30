@@ -1,9 +1,11 @@
 # The embeddable widget (widget/): type-check, unit tests, a rebuild that must match
 # the committed heed/static/widget/ files, and the browser tests against a real backend.
+# A `widget-v<version>` tag also publishes widget/ to npm as heed-widget (independent of PyPI).
 name: Widget
 on:
   push:
     branches: [main]
+    tags: ["widget-v*"]
   pull_request:
 
 jobs:
@@ -38,3 +40,29 @@ jobs:
           python -m pip install -e ".[dev]" uvicorn playwright
           python -m playwright install --with-deps chromium
           python -m pytest -q tests/test_widget.py tests/test_widget_browser.py
+
+  publish:
+    # Runs only for a widget-v* tag, after the checks above pass. Needs the NPM_TOKEN
+    # repository secret (an npm automation token able to publish heed-widget).
+    needs: widget
+    if: startsWith(github.ref, 'refs/tags/widget-v')
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: widget
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+          cache: npm
+          cache-dependency-path: widget/package-lock.json
+      - name: Tag matches package.json version
+        run: |
+          test "${GITHUB_REF_NAME}" = "widget-v$(node -p "require('./package.json').version")"
+      - run: npm ci
+      - run: npm run build:lib
+      - run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
