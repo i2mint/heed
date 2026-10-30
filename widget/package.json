@@ -1,7 +1,6 @@
 {
   "name": "heed-widget",
   "version": "0.9.1",
-  "private": true,
   "description": "heed's embeddable feedback widget: a Web Component in an open Shadow DOM with a native <dialog>.",
   "license": "Apache-2.0",
   "type": "module",
@@ -44,5 +43,13 @@
     "react-dom": "^18.3.1",
     "typescript": "^5.9.3",
     "vitest": "^3.2.7"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/i2mint/heed.git",
+    "directory": "widget"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }
