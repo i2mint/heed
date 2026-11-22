@@ -24,7 +24,8 @@ Public API (Phase 1):
     Routing   sinks_by_origin, Verdict, accept_all, hold_all,
               make_heuristic_moderator, chain_moderators, release_held,
               recover_claimed, discard_held
-    Storage   make_report_store, make_holding_store, make_attachment_store
+    Storage   make_report_store, make_holding_store, make_attachment_store,
+              ClaimMove, pop_claim_move, rename_claim_move (atomic claims, #24)
     Serving   make_attachment_router, make_attachment_app, AttachmentSigner,
               screenshot_url_resolver (a separate origin for screenshots, #19)
     Widget    make_widget_router (serves the built embeddable widget),
@@ -108,7 +109,14 @@ from heed.sinks import (
     StoreSink,
     github_sink_from_token,
 )
-from heed.storage import make_attachment_store, make_holding_store, make_report_store
+from heed.storage import (
+    ClaimMove,
+    make_attachment_store,
+    make_holding_store,
+    make_report_store,
+    pop_claim_move,
+    rename_claim_move,
+)
 from heed.threads import (
     Comment,
     CommentSubmission,
@@ -191,6 +199,9 @@ __all__ = [
     "make_report_store",
     "make_attachment_store",
     "make_holding_store",
+    "ClaimMove",
+    "pop_claim_move",
+    "rename_claim_move",
     # comment threads + review pages (media with a thread under it)
     "Comment",
     "CommentSubmission",
