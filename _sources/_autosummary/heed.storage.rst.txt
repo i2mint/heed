@@ -9,12 +9,17 @@ heed.storage
    .. autosummary::
    
       CLAIMS_ATTR
+      CLAIM_MOVE_ATTR
+      ClaimMove
    
    .. rubric:: Functions
 
    .. autosummary::
    
+      carried_claim_move
       make_attachment_store
       make_holding_store
       make_report_store
+      pop_claim_move
+      rename_claim_move
    

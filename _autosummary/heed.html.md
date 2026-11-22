@@ -32,10 +32,11 @@ Public API (Phase 1):
   > make_heuristic_moderator, chain_moderators, release_held,
   > recover_claimed, discard_held
   <br/>
-  Storage   make_report_store, make_holding_store, make_attachment_store
-  Serving   make_attachment_router, make_attachment_app, AttachmentSigner,
+  Storage   make_report_store, make_holding_store, make_attachment_store,
+  : ClaimMove, pop_claim_move, rename_claim_move (atomic claims, #24)
   <br/>
-  > screenshot_url_resolver (a separate origin for screenshots, #19)
+  Serving   make_attachment_router, make_attachment_app, AttachmentSigner,
+  : screenshot_url_resolver (a separate origin for screenshots, #19)
   <br/>
   Widget    make_widget_router (serves the built embeddable widget),
   : widget_contract (what the widget sends; SSOT for widget/)
@@ -67,50 +68,52 @@ True
 
 ### Functions
 
-| [`make_attachment_app`](#heed.make_attachment_app)(attachment_store, ...)         | A standalone app serving only the attachment route (no docs, no OpenAPI): run it on the dedicated attachment origin.                |
-|-----------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------|
-| [`make_attachment_router`](#heed.make_attachment_router)(attachment_store, \*)       | A router serving `GET {path}/{ref}` from `attachment_store`, read-only.                                                             |
-| [`make_widget_router`](#heed.make_widget_router)(\*[, asset_dir])                | A router serving the built widget at `GET /widget/{name}`.                                                                          |
-| [`widget_contract`](#heed.widget_contract)([config])                          | What the widget sends and the limits it must respect (from heed's SSOT).                                                            |
-| [`screenshot_url_resolver`](#heed.screenshot_url_resolver)(base_url, signer, \*)      | A `GitHubIssuesSink(screenshot_url=...)` callable: the report's first image attachment as a (signed) URL under `base_url`, or None. |
-| [`new_report_id`](#heed.new_report_id)()                                    | Return a fresh opaque report id (uuid4 hex).                                                                                        |
-| [`github_sink_from_token`](#heed.github_sink_from_token)(repo, token, \*\*kwargs)    | Build a GitHubIssuesSink that creates issues in `repo` ('owner/name').                                                              |
-| [`roadmap`](#heed.roadmap)(items)                                     | Items still to come, started first; most-voted first within each stage.                                                             |
-| [`changelog`](#heed.changelog)(items)                                   | Shipped items, newest first (undated ones last).                                                                                    |
-| [`process_submission`](#heed.process_submission)(submission, sink, \*[, ...])    | Enrich `submission` into a Report, store any screenshot, and route to `sink`.                                                       |
-| [`make_router`](#heed.make_router)(sink, \*[, config, ...])               | Build a FastAPI APIRouter exposing `POST /report` (and its CORS preflight).                                                         |
-| [`make_app`](#heed.make_app)(sink, \*[, config, ...])                  | A standalone FastAPI app serving the heed router under `prefix`.                                                                    |
-| [`make_rate_limiter`](#heed.make_rate_limiter)([backend, window_seconds, ...])  | Build a limiter from the `rate_limiter_backends` registry by name.                                                                  |
-| [`make_bot_verifier`](#heed.make_bot_verifier)(provider, secret, \*\*kwargs)    | Return a verifier, or `None` (gate off) when no secret is configured.                                                               |
-| [`make_image_sanitizer`](#heed.make_image_sanitizer)([name, max_pixels, ...])      | Build a sanitizer from the `image_sanitizers` registry by name.                                                                     |
-| [`strip_image`](#heed.strip_image)(data, media_type)                      | Keep only what renders the image; truncate at its end.                                                                              |
-| [`reencode_image`](#heed.reencode_image)(data, media_type, \*[, max_pixels]) | Strip `data`, then decode it and save its first frame afresh, same format.                                                          |
-| [`attachment_headers`](#heed.attachment_headers)(media_type, \*[, ...])          | Headers for serving a stored screenshot (issue #15).                                                                                |
-| [`redact_text`](#heed.redact_text)(text)                                  | Replace personal data and secrets in `text` by placeholders.                                                                        |
-| [`redact_url`](#heed.redact_url)(url, \*[, redactor])                    | `url` without credentials, fragment or query values (keys are kept).                                                                |
-| [`sinks_by_origin`](#heed.sinks_by_origin)(sinks, \*[, default])              | A resolver from an `{origin: sink}` mapping (origins compared normalized).                                                          |
-| [`accept_all`](#heed.accept_all)(report)                                 | The default moderator: everything goes straight to the sink.                                                                        |
-| [`hold_all`](#heed.hold_all)(report)                                   | Full pre-moderation: every report waits for a human.                                                                                |
-| [`make_heuristic_moderator`](#heed.make_heuristic_moderator)(\*[, max_links, ...])     | Hold reports with more than `max_links` links or any of `blocked_terms`.                                                            |
-| [`chain_moderators`](#heed.chain_moderators)(\*moderators)                     | Combine moderators; the most severe verdict wins (reject > hold > accept).                                                          |
-| [`release_held`](#heed.release_held)(report_id, \*, holding_store[, ...])  | Release a held report: route it on and remove it from holding.                                                                      |
-| [`recover_claimed`](#heed.recover_claimed)(\*, holding_store[, ...])          | Return every claimed report to holding, and the ids returned.                                                                       |
-| [`discard_held`](#heed.discard_held)(report_id, \*, holding_store[, ...])  | Delete a held report for good, with its attachments (e.g. a screenshot).                                                            |
-| [`make_report_store`](#heed.make_report_store)([rootdir, delete_func])          | A text store for report JSON.                                                                                                       |
-| [`make_attachment_store`](#heed.make_attachment_store)([rootdir, ...])              | A bytes store for attachments.                                                                                                      |
-| [`make_holding_store`](#heed.make_holding_store)([rootdir, delete_func])         | A report store for held reports, with a dedicated claims store beside it.                                                           |
-| [`add_comment`](#heed.add_comment)(store, thread, submission, \*[, ...])  | Store `submission` in `thread`'s `store`; return the stored comment.                                                                |
-| [`list_comments`](#heed.list_comments)(store)                               | A thread's comments, oldest first.                                                                                                  |
-| [`delete_comment`](#heed.delete_comment)(store, comment_id)                  | Delete one comment; `False` if there was none (or the id is invalid).                                                               |
-| [`email_moderator`](#heed.email_moderator)(emails)                            | A moderator check passing requests whose authenticated email is in `emails`.                                                        |
-| [`token_moderator`](#heed.token_moderator)(token, \*[, also])                 | A moderator check that needs a secret the owner types in, not a login.                                                              |
-| [`make_thread_router`](#heed.make_thread_router)([threads, thread_exists, ...])  | The HTTP surface of comment threads (`threads`: thread id -> its store).                                                            |
-| [`publish_review`](#heed.publish_review)(media, \*[, title, note, ...])      | Publish `media` as a new review page (or add it to page `to`).                                                                      |
-| [`review_url`](#heed.review_url)(page_id[, base_url])                    | The shareable link of a page: the base URL with the id as its fragment.                                                             |
-| [`make_review_app`](#heed.make_review_app)([rootdir, is_moderator, ...])      | The review API (and, with `serve_shell`, the page at `/`).                                                                          |
-| [`triage`](#heed.triage)(report, \*[, llm, labels])                  | Propose a triage for `report`: by `llm` when given, else by keywords.                                                               |
-| [`find_duplicates`](#heed.find_duplicates)(report, candidates, \*[, k, ...])  | Likely duplicates of `report` among `candidates`, best first.                                                                       |
-| [`mark_duplicate`](#heed.mark_duplicate)(store, report_id, \*, of)           | Record that stored report `report_id` duplicates `of` (both must exist).                                                            |
+| [`make_attachment_app`](#heed.make_attachment_app)(attachment_store, ...)         | A standalone app serving only the attachment route (no docs, no OpenAPI): run it on the dedicated attachment origin.                                         |
+|-----------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| [`make_attachment_router`](#heed.make_attachment_router)(attachment_store, \*)       | A router serving `GET {path}/{ref}` from `attachment_store`, read-only.                                                                                      |
+| [`make_widget_router`](#heed.make_widget_router)(\*[, asset_dir])                | A router serving the built widget at `GET /widget/{name}`.                                                                                                   |
+| [`widget_contract`](#heed.widget_contract)([config])                          | What the widget sends and the limits it must respect (from heed's SSOT).                                                                                     |
+| [`screenshot_url_resolver`](#heed.screenshot_url_resolver)(base_url, signer, \*)      | A `GitHubIssuesSink(screenshot_url=...)` callable: the report's first image attachment as a (signed) URL under `base_url`, or None.                          |
+| [`new_report_id`](#heed.new_report_id)()                                    | Return a fresh opaque report id (uuid4 hex).                                                                                                                 |
+| [`github_sink_from_token`](#heed.github_sink_from_token)(repo, token, \*\*kwargs)    | Build a GitHubIssuesSink that creates issues in `repo` ('owner/name').                                                                                       |
+| [`roadmap`](#heed.roadmap)(items)                                     | Items still to come, started first; most-voted first within each stage.                                                                                      |
+| [`changelog`](#heed.changelog)(items)                                   | Shipped items, newest first (undated ones last).                                                                                                             |
+| [`process_submission`](#heed.process_submission)(submission, sink, \*[, ...])    | Enrich `submission` into a Report, store any screenshot, and route to `sink`.                                                                                |
+| [`make_router`](#heed.make_router)(sink, \*[, config, ...])               | Build a FastAPI APIRouter exposing `POST /report` (and its CORS preflight).                                                                                  |
+| [`make_app`](#heed.make_app)(sink, \*[, config, ...])                  | A standalone FastAPI app serving the heed router under `prefix`.                                                                                             |
+| [`make_rate_limiter`](#heed.make_rate_limiter)([backend, window_seconds, ...])  | Build a limiter from the `rate_limiter_backends` registry by name.                                                                                           |
+| [`make_bot_verifier`](#heed.make_bot_verifier)(provider, secret, \*\*kwargs)    | Return a verifier, or `None` (gate off) when no secret is configured.                                                                                        |
+| [`make_image_sanitizer`](#heed.make_image_sanitizer)([name, max_pixels, ...])      | Build a sanitizer from the `image_sanitizers` registry by name.                                                                                              |
+| [`strip_image`](#heed.strip_image)(data, media_type)                      | Keep only what renders the image; truncate at its end.                                                                                                       |
+| [`reencode_image`](#heed.reencode_image)(data, media_type, \*[, max_pixels]) | Strip `data`, then decode it and save its first frame afresh, same format.                                                                                   |
+| [`attachment_headers`](#heed.attachment_headers)(media_type, \*[, ...])          | Headers for serving a stored screenshot (issue #15).                                                                                                         |
+| [`redact_text`](#heed.redact_text)(text)                                  | Replace personal data and secrets in `text` by placeholders.                                                                                                 |
+| [`redact_url`](#heed.redact_url)(url, \*[, redactor])                    | `url` without credentials, fragment or query values (keys are kept).                                                                                         |
+| [`sinks_by_origin`](#heed.sinks_by_origin)(sinks, \*[, default])              | A resolver from an `{origin: sink}` mapping (origins compared normalized).                                                                                   |
+| [`accept_all`](#heed.accept_all)(report)                                 | The default moderator: everything goes straight to the sink.                                                                                                 |
+| [`hold_all`](#heed.hold_all)(report)                                   | Full pre-moderation: every report waits for a human.                                                                                                         |
+| [`make_heuristic_moderator`](#heed.make_heuristic_moderator)(\*[, max_links, ...])     | Hold reports with more than `max_links` links or any of `blocked_terms`.                                                                                     |
+| [`chain_moderators`](#heed.chain_moderators)(\*moderators)                     | Combine moderators; the most severe verdict wins (reject > hold > accept).                                                                                   |
+| [`release_held`](#heed.release_held)(report_id, \*, holding_store[, ...])  | Release a held report: route it on and remove it from holding.                                                                                               |
+| [`recover_claimed`](#heed.recover_claimed)(\*, holding_store[, ...])          | Return every claimed report to holding, and the ids returned.                                                                                                |
+| [`discard_held`](#heed.discard_held)(report_id, \*, holding_store[, ...])  | Delete a held report for good, with its attachments (e.g. a screenshot).                                                                                     |
+| [`make_report_store`](#heed.make_report_store)([rootdir, delete_func])          | A text store for report JSON.                                                                                                                                |
+| [`make_attachment_store`](#heed.make_attachment_store)([rootdir, ...])              | A bytes store for attachments.                                                                                                                               |
+| [`make_holding_store`](#heed.make_holding_store)([rootdir, delete_func])         | A report store for held reports, with a dedicated claims store beside it.                                                                                    |
+| [`pop_claim_move`](#heed.pop_claim_move)(holding_store, report_id, ...)      | The atomic claim move for in-process stores: `dict.pop` is atomic, so of two threads releasing one report only one gets it.                                  |
+| [`rename_claim_move`](#heed.rename_claim_move)(holding_store, report_id, ...)   | The atomic claim move for file stores (`dol` `Files`/`TextFiles`) on one filesystem: `os.rename`, so of two processes releasing one report only one gets it. |
+| [`add_comment`](#heed.add_comment)(store, thread, submission, \*[, ...])  | Store `submission` in `thread`'s `store`; return the stored comment.                                                                                         |
+| [`list_comments`](#heed.list_comments)(store)                               | A thread's comments, oldest first.                                                                                                                           |
+| [`delete_comment`](#heed.delete_comment)(store, comment_id)                  | Delete one comment; `False` if there was none (or the id is invalid).                                                                                        |
+| [`email_moderator`](#heed.email_moderator)(emails)                            | A moderator check passing requests whose authenticated email is in `emails`.                                                                                 |
+| [`token_moderator`](#heed.token_moderator)(token, \*[, also])                 | A moderator check that needs a secret the owner types in, not a login.                                                                                       |
+| [`make_thread_router`](#heed.make_thread_router)([threads, thread_exists, ...])  | The HTTP surface of comment threads (`threads`: thread id -> its store).                                                                                     |
+| [`publish_review`](#heed.publish_review)(media, \*[, title, note, ...])      | Publish `media` as a new review page (or add it to page `to`).                                                                                               |
+| [`review_url`](#heed.review_url)(page_id[, base_url])                    | The shareable link of a page: the base URL with the id as its fragment.                                                                                      |
+| [`make_review_app`](#heed.make_review_app)([rootdir, is_moderator, ...])      | The review API (and, with `serve_shell`, the page at `/`).                                                                                                   |
+| [`triage`](#heed.triage)(report, \*[, llm, labels])                  | Propose a triage for `report`: by `llm` when given, else by keywords.                                                                                        |
+| [`find_duplicates`](#heed.find_duplicates)(report, candidates, \*[, k, ...])  | Likely duplicates of `report` among `candidates`, best first.                                                                                                |
+| [`mark_duplicate`](#heed.mark_duplicate)(store, report_id, \*, of)           | Record that stored report `report_id` duplicates `of` (both must exist).                                                                                     |
 
 ### Classes
 
@@ -868,7 +871,9 @@ A report store for held reports, with a dedicated claims store beside it.
 not every held report (issue #21), and nothing listing holding (a moderation view,
 `StoreSink.find_duplicates`) ever sees a claim. With `rootdir`, claims live in a
 sibling directory, `<rootdir>.claims` (a subdirectory would show up in the
-holding store’s recursive listing).
+holding store’s recursive listing). It also carries the atomic move a release claims
+with (`heed_claim_move`: `os.rename` on disk, `dict.pop` in memory), so two
+releases of one report at the same moment cannot both send it (issue #24).
 
 ```pycon
 >>> held = make_holding_store()
@@ -1007,6 +1012,25 @@ Return a fresh opaque report id (uuid4 hex).
 * **Return type:**
   [`str`](https://docs.python.org/3/builtins/stdtypes.html#str)
 
+### heed.pop_claim_move(holding_store, report_id, claims, claim_key)
+
+The atomic claim move for in-process stores: `dict.pop` is atomic, so of two
+threads releasing one report only one gets it.
+
+```pycon
+>>> held, claims = {"r1": "{}"}, {}
+>>> pop_claim_move(held, "r1", claims, "r1--token")
+>>> held, claims
+({}, {'r1--token': '{}'})
+>>> pop_claim_move(held, "r1", claims, "r1--other")
+Traceback (most recent call last):
+  ...
+KeyError: 'r1'
+```
+
+* **Return type:**
+  [`None`](https://docs.python.org/3/builtins/constants.html#None)
+
 ### heed.process_submission(submission, sink, \*, origin='', user=None, screenshot=None, screenshot_media_type='image/png', attachment_store=None, config=None, id_gen=<function new_report_id>, clock=<function utcnow>, moderator=<function accept_all>, holding_sink=None, redactor=<function redact_text>)
 
 Enrich `submission` into a Report, store any screenshot, and route to `sink`.
@@ -1123,7 +1147,7 @@ malformed, oversized or too costly image.
 * **Return type:**
   [`bytes`](https://docs.python.org/3/builtins/stdtypes.html#bytes)
 
-### heed.release_held(report_id, \*, holding_store, sink=None, resolve_sink=None, claimed_store=None, clock=<built-in function time>)
+### heed.release_held(report_id, \*, holding_store, sink=None, resolve_sink=None, claimed_store=None, claim_move=None, clock=<built-in function time>)
 
 Release a held report: route it on and remove it from holding.
 
@@ -1143,13 +1167,32 @@ back in holding. So a crash at any point leaves the report in holding, in the
 claims, or in both – never lost – and [`recover_claimed()`](#heed.recover_claimed) returns stranded
 claims to holding. A report with a claim is not released again until then.
 
-Not safe against two releases of the same report at the same moment: claiming is a
-copy and a delete on a plain mapping, not an atomic move, so one interleaving
-leaves a claim on a report the other release already sent, and the next
-[`recover_claimed()`](#heed.recover_claimed) sends it again. Serialise releases of one report.
+Two releases of the same report at the same moment send it once when the claim is
+an atomic move (`claim_move`, a [`heed.storage.ClaimMove`](heed.storage.html.md#heed.storage.ClaimMove)): only one of them
+gets the report, the other raises `KeyError`. A `make_holding_store` store
+carries one (`os.rename` on disk, `dict.pop` in memory) and it is used when
+`claim_move` is not given and the claims store is that store’s own (not through
+a `dol` wrapper of it, whose keys differ). Otherwise
+claiming is a copy and a delete on a plain mapping, and one interleaving leaves a
+claim on a report the other release already sent, so the next
+[`recover_claimed()`](#heed.recover_claimed) sends it again (issue #24): serialise releases of one
+report, or pass `claim_move` (e.g. a Redis `RENAMENX`).
 
 * **Return type:**
   [`SinkResult`](heed.sinks.base.html.md#heed.sinks.base.SinkResult)
+
+### heed.rename_claim_move(holding_store, report_id, claims, claim_key)
+
+The atomic claim move for file stores (`dol` `Files`/`TextFiles`) on one
+filesystem: `os.rename`, so of two processes releasing one report only one gets
+it. Raises `FileNotFoundError` if the claims directory is missing, and refuses
+(`ValueError`) a store whose keys do not resolve to absolute paths under its
+`rootdir` (e.g. one wrapped by a key codec) or a held report that is a symlink.
+On Windows a rename of a file open elsewhere raises `PermissionError`; the report
+stays held.
+
+* **Return type:**
+  [`None`](https://docs.python.org/3/builtins/constants.html#None)
 
 ### heed.review_url(page_id, base_url=None)
 

@@ -146,7 +146,7 @@ left in place, and not returned.
 * **Return type:**
   [`list`](https://docs.python.org/3/builtins/stdtypes.html#list)[[`str`](https://docs.python.org/3/builtins/stdtypes.html#str)]
 
-### heed.routing.release_held(report_id, \*, holding_store, sink=None, resolve_sink=None, claimed_store=None, clock=<built-in function time>)
+### heed.routing.release_held(report_id, \*, holding_store, sink=None, resolve_sink=None, claimed_store=None, claim_move=None, clock=<built-in function time>)
 
 Release a held report: route it on and remove it from holding.
 
@@ -166,10 +166,16 @@ back in holding. So a crash at any point leaves the report in holding, in the
 claims, or in both – never lost – and [`recover_claimed()`](#heed.routing.recover_claimed) returns stranded
 claims to holding. A report with a claim is not released again until then.
 
-Not safe against two releases of the same report at the same moment: claiming is a
-copy and a delete on a plain mapping, not an atomic move, so one interleaving
-leaves a claim on a report the other release already sent, and the next
-[`recover_claimed()`](#heed.routing.recover_claimed) sends it again. Serialise releases of one report.
+Two releases of the same report at the same moment send it once when the claim is
+an atomic move (`claim_move`, a [`heed.storage.ClaimMove`](heed.storage.html.md#heed.storage.ClaimMove)): only one of them
+gets the report, the other raises `KeyError`. A `make_holding_store` store
+carries one (`os.rename` on disk, `dict.pop` in memory) and it is used when
+`claim_move` is not given and the claims store is that store’s own (not through
+a `dol` wrapper of it, whose keys differ). Otherwise
+claiming is a copy and a delete on a plain mapping, and one interleaving leaves a
+claim on a report the other release already sent, so the next
+[`recover_claimed()`](#heed.routing.recover_claimed) sends it again (issue #24): serialise releases of one
+report, or pass `claim_move` (e.g. a Redis `RENAMENX`).
 
 * **Return type:**
   [`SinkResult`](heed.sinks.base.html.md#heed.sinks.base.SinkResult)

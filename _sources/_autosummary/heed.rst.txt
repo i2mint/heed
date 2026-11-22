@@ -39,6 +39,8 @@
       make_report_store
       make_attachment_store
       make_holding_store
+      pop_claim_move
+      rename_claim_move
       add_comment
       list_comments
       delete_comment
