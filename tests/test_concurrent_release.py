@@ -137,3 +137,26 @@ def test_a_failed_sink_puts_an_atomically_claimed_report_back(tmp_path):
     with pytest.raises(RuntimeError):
         release_held(rid, holding_store=held, sink=Failing({}))
     assert rid in held and not list(getattr(held, CLAIMS_ATTR))
+
+
+def test_a_wrapped_holding_store_claims_by_copy(tmp_path, monkeypatch):
+    """A dol wrapper forwards the carried move's attribute, but its keys are not file
+    names: the release must not rename relative to the working directory."""
+    from dol import wrap_kvs
+
+    held = make_holding_store(str(tmp_path / "held"))
+    wrapped = wrap_kvs(held, key_decoder=lambda k: k, key_encoder=lambda k: k)
+    rid = _hold(held)
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / rid).write_text("DECOY")
+    sink = _RecordingSink()
+    assert release_held(rid, holding_store=wrapped, sink=sink).ok
+    assert sink.sent == [rid] and rid not in held
+    assert (tmp_path / rid).read_text() == "DECOY"
+
+
+def test_rename_refuses_a_store_without_file_paths():
+    from heed import rename_claim_move
+
+    with pytest.raises(ValueError, match="rootdir"):
+        rename_claim_move({"r1": "{}"}, "r1", {}, "r1--t")

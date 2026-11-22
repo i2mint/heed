@@ -28,7 +28,7 @@ from uuid import uuid4
 from heed.base import Report, Status
 from heed.security import normalize_origin
 from heed.sinks.base import Sink, SinkResult
-from heed.storage import CLAIM_MOVE_ATTR, CLAIMS_ATTR, ClaimMove
+from heed.storage import CLAIMS_ATTR, ClaimMove, carried_claim_move
 
 logger = logging.getLogger(__name__)
 
@@ -183,7 +183,8 @@ def release_held(
     an atomic move (``claim_move``, a :data:`heed.storage.ClaimMove`): only one of them
     gets the report, the other raises ``KeyError``. A `make_holding_store` store
     carries one (``os.rename`` on disk, ``dict.pop`` in memory) and it is used when
-    ``claim_move`` is not given and the claims store is that store's own. Otherwise
+    ``claim_move`` is not given and the claims store is that store's own (not through
+    a ``dol`` wrapper of it, whose keys differ). Otherwise
     claiming is a copy and a delete on a plain mapping, and one interleaving leaves a
     claim on a report the other release already sent, so the next
     :func:`recover_claimed` sends it again (issue #24): serialise releases of one
@@ -193,7 +194,7 @@ def release_held(
         raise ValueError("pass exactly one of sink= or resolve_sink=")
     claims, own_prefix = _claims_of(holding_store, claimed_store)
     if claim_move is None and claims is getattr(holding_store, CLAIMS_ATTR, None):
-        claim_move = getattr(holding_store, CLAIM_MOVE_ATTR, None)
+        claim_move = carried_claim_move(holding_store)  # not through a wrapper
     if _is_claim_key(report_id, True):  # incl. one left in holding by an older heed
         raise ValueError(
             f"{report_id!r} is a claim, not a held report: use recover_claimed() to "

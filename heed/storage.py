@@ -18,7 +18,8 @@ CLAIM_MOVE_ATTR = "heed_claim_move"
 #: ``move(holding_store, report_id, claims_store, claim_key)``: take the report out of
 #: holding and put it under ``claim_key`` in the claims store, as one atomic step. Of
 #: several concurrent moves of one report exactly one succeeds; the others raise
-#: ``KeyError`` and change nothing. A crash leaves the report in exactly one of the two.
+#: ``KeyError`` and change nothing. A crash leaves the report in at least one of the
+#: two (`heed.routing.recover_claimed` handles a report in both).
 ClaimMove = Callable[[MutableMapping, str, MutableMapping, str], None]
 
 
@@ -56,16 +57,48 @@ def rename_claim_move(
 ) -> None:
     """The atomic claim move for file stores (``dol`` ``Files``/``TextFiles``) on one
     filesystem: ``os.rename``, so of two processes releasing one report only one gets
-    it.
+    it. Raises ``FileNotFoundError`` if the claims directory is missing, and refuses
+    (``ValueError``) a store whose keys do not resolve to absolute paths under its
+    ``rootdir`` (e.g. one wrapped by a key codec) or a held report that is a symlink.
+    On Windows a rename of a file open elsewhere raises ``PermissionError``; the report
+    stays held.
     """
-    src = holding_store._id_of_key(report_id)
-    dst = claims._id_of_key(claim_key)
+    src = _file_path(holding_store, report_id)
+    dst = _file_path(claims, claim_key)
+    if os.path.islink(src):
+        raise ValueError(f"held report {report_id!r} is a symlink: not moving it")
     try:
         os.rename(src, dst)  # claim keys are unique, so dst never exists
     except FileNotFoundError:
         if os.path.exists(src):  # the claims directory is missing, not the report
             raise
         raise KeyError(report_id) from None
+
+
+def _file_path(store, key: str) -> str:
+    """The absolute path of ``key`` in a dol file store, or ``ValueError`` if ``store``
+    does not map keys to paths under its own ``rootdir``."""
+    rootdir = getattr(store, "rootdir", None)
+    path = store._id_of_key(key) if rootdir else None
+    if not (
+        isinstance(path, str)
+        and os.path.isabs(path)
+        and os.path.commonpath([os.path.abspath(rootdir), path])
+        == os.path.abspath(rootdir)
+    ):
+        raise ValueError(
+            f"{type(store).__name__} does not map keys to files under its rootdir: "
+            "rename_claim_move needs the store make_report_store(rootdir) returns"
+        )
+    return path
+
+
+def carried_claim_move(holding_store) -> ClaimMove | None:
+    """The claim move ``holding_store`` itself carries (set by `make_holding_store`),
+    or None. Only the store's own attribute counts: a ``dol`` wrapper forwards
+    attribute lookups to the store it wraps, but its keys are not that store's keys.
+    """
+    return getattr(holding_store, "__dict__", {}).get(CLAIM_MOVE_ATTR)
 
 
 def make_report_store(
