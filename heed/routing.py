@@ -28,7 +28,7 @@ from uuid import uuid4
 from heed.base import Report, Status
 from heed.security import normalize_origin
 from heed.sinks.base import Sink, SinkResult
-from heed.storage import CLAIMS_ATTR
+from heed.storage import CLAIM_MOVE_ATTR, CLAIMS_ATTR, ClaimMove
 
 logger = logging.getLogger(__name__)
 
@@ -158,6 +158,7 @@ def release_held(
     sink: Sink | None = None,
     resolve_sink: SinkResolver | None = None,
     claimed_store: MutableMapping[str, str] | None = None,
+    claim_move: ClaimMove | None = None,
     clock: Callable[[], float] = time.time,
 ) -> SinkResult:
     """Release a held report: route it on and remove it from holding.
@@ -178,14 +179,21 @@ def release_held(
     claims, or in both -- never lost -- and :func:`recover_claimed` returns stranded
     claims to holding. A report with a claim is not released again until then.
 
-    Not safe against two releases of the same report at the same moment: claiming is a
-    copy and a delete on a plain mapping, not an atomic move, so one interleaving
-    leaves a claim on a report the other release already sent, and the next
-    :func:`recover_claimed` sends it again. Serialise releases of one report.
+    Two releases of the same report at the same moment send it once when the claim is
+    an atomic move (``claim_move``, a :data:`heed.storage.ClaimMove`): only one of them
+    gets the report, the other raises ``KeyError``. A `make_holding_store` store
+    carries one (``os.rename`` on disk, ``dict.pop`` in memory) and it is used when
+    ``claim_move`` is not given and the claims store is that store's own. Otherwise
+    claiming is a copy and a delete on a plain mapping, and one interleaving leaves a
+    claim on a report the other release already sent, so the next
+    :func:`recover_claimed` sends it again (issue #24): serialise releases of one
+    report, or pass ``claim_move`` (e.g. a Redis ``RENAMENX``).
     """
     if (sink is None) == (resolve_sink is None):
         raise ValueError("pass exactly one of sink= or resolve_sink=")
     claims, own_prefix = _claims_of(holding_store, claimed_store)
+    if claim_move is None and claims is getattr(holding_store, CLAIMS_ATTR, None):
+        claim_move = getattr(holding_store, CLAIM_MOVE_ATTR, None)
     if _is_claim_key(report_id, True):  # incl. one left in holding by an older heed
         raise ValueError(
             f"{report_id!r} is a claim, not a held report: use recover_claimed() to "
@@ -205,6 +213,54 @@ def release_held(
         and _report_id_of_claim_key(claim_key, own_prefix) == report_id
     ):  # never write a claim recover_claimed() could not find
         raise ValueError(f"{report_id!r} cannot be claimed: its claim key is ambiguous")
+    if claim_move is not None:
+        raw = _claim_atomically(report_id, holding_store, claims, claim_key, claim_move)
+    else:
+        _claim_by_copy(report_id, raw, holding_store, claims, claim_key, own_prefix)
+    try:
+        report = Report.model_validate_json(raw)
+        destination = sink if sink is not None else resolve_sink(report.origin)
+        if destination is None:
+            raise LookupError(f"No sink for the report's origin {report.origin!r}")
+        if any(
+            getattr(sink_, "store", None) is store
+            for sink_ in _leaf_sinks(destination)
+            for store in (holding_store, claims)
+        ):
+            raise ValueError("the destination sink writes to the holding store itself")
+        result = destination.submit(
+            report.model_copy(update={"status": Status.received})
+        )
+    except BaseException:  # incl. KeyboardInterrupt/cancellation: never lose it
+        _unclaim(report_id, raw, holding_store, claims, claim_key)
+        raise
+    if result.ok:
+        _drop_claim(claims, claim_key)
+    else:
+        _unclaim(report_id, raw, holding_store, claims, claim_key)
+    return result
+
+
+def _claim_atomically(report_id, holding_store, claims, claim_key, claim_move):
+    """Claim with an atomic move; return the report text that was claimed."""
+    try:
+        claim_move(holding_store, report_id, claims, claim_key)
+    except KeyError:  # a concurrent release (or a discard) took it first
+        raise KeyError(f"No held report with id {report_id!r}") from None
+    raw = claims.get(claim_key)
+    if raw is None:
+        # A recover_claimed() elsewhere took our claim for a stranded one, and so put
+        # the report back in holding (a pause or clock skew longer than stale_after).
+        raise KeyError(
+            f"The claim on held report {report_id!r} was recovered by another worker "
+            "during this release; the report is back in holding. Raise stale_after."
+        )
+    return raw
+
+
+def _claim_by_copy(report_id, raw, holding_store, claims, claim_key, own_prefix):
+    """Claim with a copy then a delete: crash-safe, but not safe against a concurrent
+    release of the same report (issue #24)."""
     claims[claim_key] = raw
     if report_id not in holding_store:  # a concurrent release took it meanwhile
         _drop_claim(claims, claim_key)
@@ -232,28 +288,6 @@ def release_held(
             f"The claim on held report {report_id!r} was recovered by another worker "
             "during this release; the report is back in holding. Raise stale_after."
         )
-    try:
-        report = Report.model_validate_json(raw)
-        destination = sink if sink is not None else resolve_sink(report.origin)
-        if destination is None:
-            raise LookupError(f"No sink for the report's origin {report.origin!r}")
-        if any(
-            getattr(sink_, "store", None) is store
-            for sink_ in _leaf_sinks(destination)
-            for store in (holding_store, claims)
-        ):
-            raise ValueError("the destination sink writes to the holding store itself")
-        result = destination.submit(
-            report.model_copy(update={"status": Status.received})
-        )
-    except BaseException:  # incl. KeyboardInterrupt/cancellation: never lose it
-        _unclaim(report_id, raw, holding_store, claims, claim_key)
-        raise
-    if result.ok:
-        _drop_claim(claims, claim_key)
-    else:
-        _unclaim(report_id, raw, holding_store, claims, claim_key)
-    return result
 
 
 def _leaf_sinks(sink):

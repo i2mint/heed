@@ -11,6 +11,61 @@ from collections.abc import Callable, MutableMapping
 #: Attribute a holding store made by `make_holding_store` carries: the store its
 #: reports are claimed in while `heed.routing.release_held` sends them.
 CLAIMS_ATTR = "heed_claims"
+#: Attribute a holding store made by `make_holding_store` carries: the atomic move
+#: `heed.routing.release_held` claims its reports with (issue #24).
+CLAIM_MOVE_ATTR = "heed_claim_move"
+
+#: ``move(holding_store, report_id, claims_store, claim_key)``: take the report out of
+#: holding and put it under ``claim_key`` in the claims store, as one atomic step. Of
+#: several concurrent moves of one report exactly one succeeds; the others raise
+#: ``KeyError`` and change nothing. A crash leaves the report in exactly one of the two.
+ClaimMove = Callable[[MutableMapping, str, MutableMapping, str], None]
+
+
+def pop_claim_move(
+    holding_store: MutableMapping,
+    report_id: str,
+    claims: MutableMapping,
+    claim_key: str,
+) -> None:
+    """The atomic claim move for in-process stores: ``dict.pop`` is atomic, so of two
+    threads releasing one report only one gets it.
+
+    >>> held, claims = {"r1": "{}"}, {}
+    >>> pop_claim_move(held, "r1", claims, "r1--token")
+    >>> held, claims
+    ({}, {'r1--token': '{}'})
+    >>> pop_claim_move(held, "r1", claims, "r1--other")
+    Traceback (most recent call last):
+      ...
+    KeyError: 'r1'
+    """
+    raw = holding_store.pop(report_id)
+    try:
+        claims[claim_key] = raw
+    except BaseException:
+        holding_store[report_id] = raw  # never leave it in neither
+        raise
+
+
+def rename_claim_move(
+    holding_store: MutableMapping,
+    report_id: str,
+    claims: MutableMapping,
+    claim_key: str,
+) -> None:
+    """The atomic claim move for file stores (``dol`` ``Files``/``TextFiles``) on one
+    filesystem: ``os.rename``, so of two processes releasing one report only one gets
+    it.
+    """
+    src = holding_store._id_of_key(report_id)
+    dst = claims._id_of_key(claim_key)
+    try:
+        os.rename(src, dst)  # claim keys are unique, so dst never exists
+    except FileNotFoundError:
+        if os.path.exists(src):  # the claims directory is missing, not the report
+            raise
+        raise KeyError(report_id) from None
 
 
 def make_report_store(
@@ -102,7 +157,9 @@ def make_holding_store(
     not every held report (issue #21), and nothing listing holding (a moderation view,
     ``StoreSink.find_duplicates``) ever sees a claim. With ``rootdir``, claims live in a
     sibling directory, ``<rootdir>.claims`` (a subdirectory would show up in the
-    holding store's recursive listing).
+    holding store's recursive listing). It also carries the atomic move a release claims
+    with (``heed_claim_move``: ``os.rename`` on disk, ``dict.pop`` in memory), so two
+    releases of one report at the same moment cannot both send it (issue #24).
 
     >>> held = make_holding_store()
     >>> held["r1"] = "{}"
@@ -110,12 +167,14 @@ def make_holding_store(
     (['r1'], {})
     """
     if rootdir is None:
-        store, claims = _HoldingDict(), {}
+        store, claims, move = _HoldingDict(), {}, pop_claim_move
     else:
         claims_dir = os.path.normpath(rootdir) + ".claims"
         os.makedirs(rootdir, exist_ok=True)
         os.makedirs(claims_dir, exist_ok=True)
         store = make_report_store(rootdir, delete_func=delete_func)
         claims = make_report_store(claims_dir + os.sep, delete_func=delete_func)
+        move = rename_claim_move
     setattr(store, CLAIMS_ATTR, claims)
+    setattr(store, CLAIM_MOVE_ATTR, move)
     return store
