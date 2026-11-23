@@ -80,6 +80,8 @@ ignore = ["D203"]
 
 [tool.wads.ci]
 installer = "uv"
+# CI lints/type-checks this folder; the distribution name (heed-feedback) differs from the import package
+project_name = "heed"
 
 [tool.wads.ci.install]
 # CI installs only the core dependencies unless extras are named here. The test
