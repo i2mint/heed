@@ -28,6 +28,22 @@ uvicorn = pytest.importorskip("uvicorn")
 HOST = "127.0.0.1"
 
 
+def _wait_until(tab, expression: str, *, timeout: float = 10.0, interval: float = 0.05):
+    """Poll ``expression`` with ``tab.evaluate`` until it is truthy.
+
+    ``wait_for_function`` with a string evaluates it inside the page, which the page's
+    CSP (no ``unsafe-eval``) refuses on newer Playwright; ``evaluate`` goes through CDP.
+    """
+    deadline = time.monotonic() + timeout
+    while True:
+        value = tab.evaluate(expression)
+        if value:
+            return value
+        if time.monotonic() > deadline:
+            raise TimeoutError(f"Timed out waiting for {expression!r}")
+        time.sleep(interval)
+
+
 def _free_port() -> int:
     with socket.socket() as s:
         s.bind((HOST, 0))
@@ -439,7 +455,7 @@ def test_calls_queued_before_the_loader_arrives_are_replayed(browser):
 def test_data_auto_false_waits_for_init(browser):
     page = _loader_page('data-auto="false"')
     with _site(browser, page=page) as (tab, problems, _store, _origin):
-        tab.wait_for_function("window.heed && window.heed.loaded")
+        _wait_until(tab, "window.heed && window.heed.loaded")
         assert tab.locator("heed-feedback").count() == 0
         tab.evaluate("heed.init({label: 'Now'})")
         tab.get_by_role("button", name="Now").wait_for()
@@ -455,7 +471,7 @@ def test_a_trusted_types_allow_list_without_heed_is_reported_not_crashed(browser
         )
 
     with _site(browser, page=page) as (tab, problems, _store, _origin):
-        tab.wait_for_function("window.heed && window.heed.q")
+        _wait_until(tab, "window.heed && window.heed.q")
         tab.wait_for_timeout(300)
         assert any("trusted-types" in w for w in tab.heed_warnings)
         assert not any("Failed to set" in p for p in problems), problems
@@ -862,7 +878,7 @@ def test_built_in_turnstile_gate_supplies_the_token(browser, tmp_path):
         router_kwargs={"bot_verifier": verifier},
     ) as (tab, problems, store, _origin):
         tab.get_by_role("button", name="Feedback").click()
-        tab.wait_for_function("window.turnstile && window.turnstile.log.length")
+        _wait_until(tab, "window.turnstile && window.turnstile.log.length")
         # The challenge lives inside the (modal) dialog, where it can be clicked.
         assert tab.locator("heed-feedback").evaluate(
             "el => !!el.shadowRoot.querySelector('dialog .gate iframe')"
