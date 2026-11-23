@@ -51,10 +51,10 @@ routes wherever you want.
 ## Install
 
 ```bash
-pip install heed                 # core (backend + models)
-pip install "heed[github]"       # + GitHub sink
-pip install "heed[enlace,mcp]"   # + enlace mount + MCP feedback queue
-pip install "heed[redis]"        # + rate limits shared across workers
+pip install heed-feedback                 # core (backend + models)
+pip install "heed-feedback[github]"       # + GitHub sink
+pip install "heed-feedback[enlace,mcp]"   # + enlace mount + MCP feedback queue
+pip install "heed-feedback[redis]"        # + rate limits shared across workers
 ```
 
 ## Running the ingest endpoint safely
@@ -103,7 +103,7 @@ Publish a video, audio takes or images and get a link; whoever has it watches, r
 heed review publish cut1.mp4 --title "Cut 1" --note-file notes.md   # prints the link
 heed review publish cut2.mp4 --to <page-id>                          # a new cut, same link and thread
 heed review comments <page-id> --json                                # read the feedback back
-heed review publish cut2.mp4 --to <page-id> --password-file pw.txt --expires 7d   # gate it (pip install 'heed[gate]')
+heed review publish cut2.mp4 --to <page-id> --password-file pw.txt --expires 7d   # gate it (pip install 'heed-feedback[gate]')
 heed review revoke <page-id>                                          # end the link for everyone
 ```
 

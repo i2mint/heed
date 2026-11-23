@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "heed"
+name = "heed-feedback"  # PyPI `heed` is an unrelated project; the import package stays `heed`
 version = "0.0.1"
 description = "Embeddable, no-install, framework-agnostic end-user feedback / bug-report / feature-request capability with a pluggable backend (standalone; optional enlace add-on)"
 readme = "README.md"
@@ -40,6 +40,7 @@ Homepage = "https://github.com/i2mint/heed"
 
 [project.scripts]
 heed = "heed.__main__:main"
+heed-feedback = "heed.__main__:main"  # collision-free alias of `heed`
 
 [project.optional-dependencies]
 # The GitHub sink (brokers issue/discussion creation via a GitHub App or token).
@@ -87,9 +88,8 @@ extras = "dev"
 
 [tool.wads.ci.publish]
 # Design phase: do NOT auto-publish to PyPI on main pushes.
-# NOTE: the PyPI name `heed` is NOT available -- it is taken by an unrelated
-# project. A first release therefore needs a different distribution name (the
-# import package can stay `heed`). See the repo issues for that decision.
+# The distribution is `heed-feedback` (PyPI `heed` is an unrelated project);
+# the import package stays `heed`.
 enabled = false
 
 [tool.wads.ci.testing]
