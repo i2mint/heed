@@ -430,6 +430,7 @@ def test_blocking_calls_run_in_their_own_pools(monkeypatch):
     monkeypatch.setattr(ingest.anyio.to_thread, "run_sync", recording)
     cfg = HeedConfig(
         allowed_origins=[ORIGIN],
+        origin_rate_limit_requires_bot_gate=False,  # exercise the origin limiter (heed#25)
         limiter_threads=3,
         reencode_threads=5,
         delivery_threads=7,
