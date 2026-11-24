@@ -733,7 +733,9 @@ window.runMermaid = runMermaid;</script>
 <span class="c1">#: holding and put it under ``claim_key`` in the claims store, as one atomic step. Of</span>
 <span class="c1">#: several concurrent moves of one report exactly one succeeds; the others raise</span>
 <span class="c1">#: ``KeyError`` and change nothing. A crash leaves the report in at least one of the</span>
-<span class="c1">#: two (`heed.routing.recover_claimed` handles a report in both).</span>
+<span class="c1">#: two (`heed.routing.recover_claimed` handles a report in both). A release also puts a</span>
+<span class="c1">#: report back with it, claims to holding: ``move(claims_store, claim_key,</span>
+<span class="c1">#: holding_store, report_id)``.</span>
 <span class="n">ClaimMove</span> <span class="o">=</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">MutableMapping</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="n">MutableMapping</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span> <span class="kc">None</span><span class="p">]</span>
 
 
@@ -789,7 +791,7 @@ window.runMermaid = runMermaid;</script>
     <span class="k">try</span><span class="p">:</span>
         <span class="n">os</span><span class="o">.</span><span class="n">rename</span><span class="p">(</span><span class="n">src</span><span class="p">,</span> <span class="n">dst</span><span class="p">)</span>  <span class="c1"># claim keys are unique, so dst never exists</span>
     <span class="k">except</span> <span class="ne">FileNotFoundError</span><span class="p">:</span>
-        <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">src</span><span class="p">):</span>  <span class="c1"># the claims directory is missing, not the report</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isdir</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">dst</span><span class="p">)):</span>  <span class="c1"># the claims directory is missing</span>
             <span class="k">raise</span>
         <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span><span class="n">report_id</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="kc">None</span></div>
 
@@ -797,15 +799,15 @@ window.runMermaid = runMermaid;</script>
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_file_path</span><span class="p">(</span><span class="n">store</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""The absolute path of ``key`` in a dol file store, or ``ValueError`` if ``store``</span>
-<span class="sd">    does not map keys to paths under its own ``rootdir``."""</span>
+<span class="sd">    does not map keys to paths under its own ``rootdir``. A relative ``rootdir`` is</span>
+<span class="sd">    resolved against the working directory, as the store itself resolves it."""</span>
     <span class="n">rootdir</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">store</span><span class="p">,</span> <span class="s2">"rootdir"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
     <span class="n">path</span> <span class="o">=</span> <span class="n">store</span><span class="o">.</span><span class="n">_id_of_key</span><span class="p">(</span><span class="n">key</span><span class="p">)</span> <span class="k">if</span> <span class="n">rootdir</span> <span class="k">else</span> <span class="kc">None</span>
-    <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span>
-        <span class="nb">isinstance</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span>
-        <span class="ow">and</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isabs</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
-        <span class="ow">and</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">commonpath</span><span class="p">([</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">rootdir</span><span class="p">),</span> <span class="n">path</span><span class="p">])</span>
-        <span class="o">==</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">rootdir</span><span class="p">)</span>
-    <span class="p">):</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">rootdir</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="n">path</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">path</span><span class="p">,</span> <span class="n">rootdir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">path</span><span class="p">),</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">rootdir</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">path</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">commonpath</span><span class="p">([</span><span class="n">rootdir</span><span class="p">,</span> <span class="n">path</span><span class="p">])</span> <span class="o">!=</span> <span class="n">rootdir</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
             <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">store</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> does not map keys to files under its rootdir: "</span>
             <span class="s2">"rename_claim_move needs the store make_report_store(rootdir) returns"</span>
@@ -933,6 +935,8 @@ window.runMermaid = runMermaid;</script>
     <span class="k">if</span> <span class="n">rootdir</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">store</span><span class="p">,</span> <span class="n">claims</span><span class="p">,</span> <span class="n">move</span> <span class="o">=</span> <span class="n">_HoldingDict</span><span class="p">(),</span> <span class="p">{},</span> <span class="n">pop_claim_move</span>
     <span class="k">else</span><span class="p">:</span>
+        <span class="n">rootdir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">fspath</span><span class="p">(</span><span class="n">rootdir</span><span class="p">))</span>
+        <span class="n">rootdir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">rootdir</span><span class="p">),</span> <span class="s2">""</span><span class="p">)</span>  <span class="c1"># immune to a chdir</span>
         <span class="n">claims_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">normpath</span><span class="p">(</span><span class="n">rootdir</span><span class="p">)</span> <span class="o">+</span> <span class="s2">".claims"</span>
         <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">rootdir</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
         <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">claims_dir</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>

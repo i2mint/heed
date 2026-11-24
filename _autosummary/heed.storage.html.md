@@ -45,7 +45,9 @@ take the report out of
 holding and put it under `claim_key` in the claims store, as one atomic step. Of
 several concurrent moves of one report exactly one succeeds; the others raise
 `KeyError` and change nothing. A crash leaves the report in at least one of the
-two (`heed.routing.recover_claimed` handles a report in both).
+two (`heed.routing.recover_claimed` handles a report in both). A release also puts a
+report back with it, claims to holding: `move(claims_store, claim_key,
+holding_store, report_id)`.
 
 * **Type:**
   `move(holding_store, report_id, claims_store, claim_key)`

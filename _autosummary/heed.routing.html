@@ -622,11 +622,13 @@ of its own (<code class="docutils literal notranslate"><span class="pre">&lt;id&
 from holding. The claims store is <code class="docutils literal notranslate"><span class="pre">claimed_store</span></code> if given, else the one a
 <code class="code docutils literal notranslate"><span class="pre">make_holding_store</span></code> store carries, else (legacy) <code class="docutils literal notranslate"><span class="pre">holding_store</span></code> itself under a
 <code class="docutils literal notranslate"><span class="pre">claimed--</span></code> prefix – which makes every release list the whole holding store.
-If the sink fails the report is put back in holding; a release only ever
-deletes its own claim, and only once the sink has accepted the report or it is
-back in holding. So a crash at any point leaves the report in holding, in the
-claims, or in both – never lost – and <a class="reference internal" href="#heed.routing.recover_claimed" title="heed.routing.recover_claimed"><code class="xref py py-func docutils literal notranslate"><span class="pre">recover_claimed()</span></code></a> returns stranded
-claims to holding. A report with a claim is not released again until then.</p>
+If the sink fails the report is put back in holding (by the same atomic move it was
+claimed with, when there is one, so no release ever reads a half-written report);
+a release only ever deletes its own claim, and only once the sink has accepted the
+report or it is back in holding. So a crash at any point leaves the report in
+holding, in the claims, or in both – never lost – and <a class="reference internal" href="#heed.routing.recover_claimed" title="heed.routing.recover_claimed"><code class="xref py py-func docutils literal notranslate"><span class="pre">recover_claimed()</span></code></a>
+returns stranded claims to holding. A report with a claim is not released again
+until then.</p>
 <p>Two releases of the same report at the same moment send it once when the claim is
 an atomic move (<code class="docutils literal notranslate"><span class="pre">claim_move</span></code>, a <a class="reference internal" href="heed.storage.html#heed.storage.ClaimMove" title="heed.storage.ClaimMove"><code class="xref py py-data docutils literal notranslate"><span class="pre">heed.storage.ClaimMove</span></code></a>): only one of them
 gets the report, the other raises <code class="docutils literal notranslate"><span class="pre">KeyError</span></code>. A <code class="code docutils literal notranslate"><span class="pre">make_holding_store</span></code> store

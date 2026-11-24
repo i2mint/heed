@@ -160,11 +160,13 @@ of its own (`<id>--<time>-<token>`) in the claims store and only then deleted
 from holding. The claims store is `claimed_store` if given, else the one a
 `make_holding_store` store carries, else (legacy) `holding_store` itself under a
 `claimed--` prefix – which makes every release list the whole holding store.
-If the sink fails the report is put back in holding; a release only ever
-deletes its own claim, and only once the sink has accepted the report or it is
-back in holding. So a crash at any point leaves the report in holding, in the
-claims, or in both – never lost – and [`recover_claimed()`](#heed.routing.recover_claimed) returns stranded
-claims to holding. A report with a claim is not released again until then.
+If the sink fails the report is put back in holding (by the same atomic move it was
+claimed with, when there is one, so no release ever reads a half-written report);
+a release only ever deletes its own claim, and only once the sink has accepted the
+report or it is back in holding. So a crash at any point leaves the report in
+holding, in the claims, or in both – never lost – and [`recover_claimed()`](#heed.routing.recover_claimed)
+returns stranded claims to holding. A report with a claim is not released again
+until then.
 
 Two releases of the same report at the same moment send it once when the claim is
 an atomic move (`claim_move`, a [`heed.storage.ClaimMove`](heed.storage.html.md#heed.storage.ClaimMove)): only one of them

@@ -485,7 +485,9 @@ reports are claimed in while <code class="code docutils literal notranslate"><sp
 holding and put it under <code class="docutils literal notranslate"><span class="pre">claim_key</span></code> in the claims store, as one atomic step. Of
 several concurrent moves of one report exactly one succeeds; the others raise
 <code class="docutils literal notranslate"><span class="pre">KeyError</span></code> and change nothing. A crash leaves the report in at least one of the
-two (<code class="code docutils literal notranslate"><span class="pre">heed.routing.recover_claimed</span></code> handles a report in both).</p>
+two (<code class="code docutils literal notranslate"><span class="pre">heed.routing.recover_claimed</span></code> handles a report in both). A release also puts a
+report back with it, claims to holding: <code class="docutils literal notranslate"><span class="pre">move(claims_store,</span> <span class="pre">claim_key,</span>
+<span class="pre">holding_store,</span> <span class="pre">report_id)</span></code>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">move(holding_store,</span> <span class="pre">report_id,</span> <span class="pre">claims_store,</span> <span class="pre">claim_key)</span></code></p>
