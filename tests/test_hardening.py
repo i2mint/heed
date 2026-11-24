@@ -483,3 +483,29 @@ def test_garbled_multipart_is_400():
         headers={"origin": ORIGIN, "content-type": "multipart/form-data; boundary=XYZ"},
     )
     assert resp.status_code == 400
+
+
+def _origin_budget_spent(config, **router_kwargs):
+    """True when a request past a 1-per-window origin budget is refused."""
+    client = _client(config=config, **router_kwargs)
+    return 429 in [_post(client).status_code for _ in range(3)]
+
+
+def test_origin_limit_is_off_without_a_bot_gate_by_default():
+    # Origin is client-chosen: without a bot gate the per-origin budget is a kill
+    # switch any small IP pool can trip (heed#25), so it does not apply by default.
+    from heed.config import HeedConfig
+
+    cfg = HeedConfig(allowed_origins=[ORIGIN], origin_rate_limit_per_minute=1)
+    assert not _origin_budget_spent(cfg)
+
+
+def test_origin_limit_applies_without_a_bot_gate_when_asked():
+    from heed.config import HeedConfig
+
+    cfg = HeedConfig(
+        allowed_origins=[ORIGIN],
+        origin_rate_limit_per_minute=1,
+        origin_rate_limit_requires_bot_gate=False,
+    )
+    assert _origin_budget_spent(cfg)

@@ -495,11 +495,16 @@ def make_router(
         )
 
     ip_limiter = rate_limiter or _limiter(cfg.rate_limit_per_minute, "ip")
-    if origin_rate_limiter is None and cfg.origin_rate_limit_per_minute is not None:
-        origin_rate_limiter = _limiter(cfg.origin_rate_limit_per_minute, "origin")
     verifier = bot_verifier or make_bot_verifier(
         cfg.bot_gate, cfg.bot_secret, expected_hostnames=cfg.bot_expected_hostnames
     )
+    origin_limit_applies = verifier is not None or not cfg.origin_rate_limit_requires_bot_gate
+    if (
+        origin_rate_limiter is None
+        and cfg.origin_rate_limit_per_minute is not None
+        and origin_limit_applies
+    ):
+        origin_rate_limiter = _limiter(cfg.origin_rate_limit_per_minute, "origin")
     sanitize_image = image_sanitizer or make_image_sanitizer(
         cfg.screenshot_sanitizer,
         max_pixels=cfg.max_screenshot_pixels,

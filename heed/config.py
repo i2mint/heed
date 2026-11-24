@@ -57,6 +57,10 @@ class HeedConfig:
     # --- Rate limiting --------------------------------------------------------------
     rate_limit_per_minute: int = 30  # per client IP
     origin_rate_limit_per_minute: int | None = 600  # per Origin; None disables
+    # ``Origin`` is chosen by the client, so without a bot gate a small pool of IPs can
+    # spend a site's whole per-origin budget and lock its real visitors out (heed#25).
+    # By default the per-origin limit therefore applies only when the bot gate is on.
+    origin_rate_limit_requires_bot_gate: bool = True
     rate_limit_window_seconds: float = 60.0
     rate_limit_backend: str = "memory"  # "memory" | "redis" (see security.py)
     redis_url: str | None = field(default=None, repr=False)
