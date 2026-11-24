@@ -178,7 +178,8 @@ def release_held(
     a release only ever deletes its own claim, and only once the sink has accepted the
     report or it is back in holding. So a crash at any point leaves the report in
     holding, in the claims, or in both -- never lost -- and :func:`recover_claimed`
-    returns stranded claims to holding. A report with a claim is not released again until then.
+    returns stranded claims to holding. A report with a claim is not released again
+    until then.
 
     Two releases of the same report at the same moment send it once when the claim is
     an atomic move (``claim_move``, a :data:`heed.storage.ClaimMove`): only one of them
