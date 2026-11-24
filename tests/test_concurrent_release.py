@@ -257,3 +257,40 @@ def test_concurrent_releases_with_a_flaky_sink_never_tear_a_report(tmp_path, on_
     for rid in held:
         assert held[rid], f"held report {rid} is empty"
     assert set(sink.sent) | set(held) == set(rids)
+
+
+def test_a_one_way_claim_move_still_puts_a_failed_release_back():
+    """A user's move may only work holding -> claims (e.g. fixed key prefixes): when
+    it cannot run backwards, a failed release still puts the report back."""
+    held, claims = {}, {}
+
+    def one_way(src, report_id, dst, claim_key):
+        if src is not held:
+            raise KeyError(report_id)
+        pop_claim_move(src, report_id, dst, claim_key)
+
+    rid = _hold(held)
+
+    class Failing(StoreSink):
+        def submit(self, report):
+            raise RuntimeError("down")
+
+    with pytest.raises(RuntimeError):
+        release_held(
+            rid,
+            holding_store=held,
+            sink=Failing({}),
+            claimed_store=claims,
+            claim_move=one_way,
+        )
+    assert rid in held and not claims
+
+
+def test_a_home_relative_rootdir_is_expanded(tmp_path, monkeypatch):
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    monkeypatch.chdir(tmp_path)
+    held = make_holding_store("~/held")
+    assert held.rootdir.startswith(str(tmp_path / "home"))
+    rid = _hold(held)
+    assert (tmp_path / "home" / "held" / rid).exists()
+    assert not (tmp_path / "~").exists()

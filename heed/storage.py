@@ -204,6 +204,7 @@ def make_holding_store(
     if rootdir is None:
         store, claims, move = _HoldingDict(), {}, pop_claim_move
     else:
+        rootdir = os.path.expanduser(os.fspath(rootdir))
         rootdir = os.path.join(os.path.abspath(rootdir), "")  # immune to a chdir
         claims_dir = os.path.normpath(rootdir) + ".claims"
         os.makedirs(rootdir, exist_ok=True)

@@ -502,14 +502,16 @@ def _unclaim(report_id, raw, holding_store, claims, claim_key, *, move=None) -> 
     (claims to holding), so a concurrent release never reads a half-written report in
     holding. If the claim is gone, a ``recover_claimed`` elsewhere already put the
     report back, and nothing is done. If the move cannot be made (e.g. on Windows, a
-    report of that id is in holding again), the report is written back instead.
+    report of that id is in holding again, or a user's move that only works one way),
+    the report is written back instead.
     """
     if move is not None:
         try:
             move(claims, claim_key, holding_store, report_id)
             return True
         except KeyError:
-            return False  # the claim was recovered: the report is back in holding
+            if claim_key not in claims and report_id in holding_store:
+                return False  # the claim was recovered: the report is back in holding
         except Exception:  # noqa: BLE001 (e.g. OSError): write it back instead
             pass
     holding_store[report_id] = raw
