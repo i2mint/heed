@@ -19,7 +19,9 @@ CLAIM_MOVE_ATTR = "heed_claim_move"
 #: holding and put it under ``claim_key`` in the claims store, as one atomic step. Of
 #: several concurrent moves of one report exactly one succeeds; the others raise
 #: ``KeyError`` and change nothing. A crash leaves the report in at least one of the
-#: two (`heed.routing.recover_claimed` handles a report in both).
+#: two (`heed.routing.recover_claimed` handles a report in both). A release also puts a
+#: report back with it, claims to holding: ``move(claims_store, claim_key,
+#: holding_store, report_id)``.
 ClaimMove = Callable[[MutableMapping, str, MutableMapping, str], None]
 
 
@@ -70,22 +72,22 @@ def rename_claim_move(
     try:
         os.rename(src, dst)  # claim keys are unique, so dst never exists
     except FileNotFoundError:
-        if os.path.exists(src):  # the claims directory is missing, not the report
+        if not os.path.isdir(os.path.dirname(dst)):  # the claims directory is missing
             raise
         raise KeyError(report_id) from None
 
 
 def _file_path(store, key: str) -> str:
     """The absolute path of ``key`` in a dol file store, or ``ValueError`` if ``store``
-    does not map keys to paths under its own ``rootdir``."""
+    does not map keys to paths under its own ``rootdir``. A relative ``rootdir`` is
+    resolved against the working directory, as the store itself resolves it."""
     rootdir = getattr(store, "rootdir", None)
     path = store._id_of_key(key) if rootdir else None
-    if not (
-        isinstance(path, str)
-        and os.path.isabs(path)
-        and os.path.commonpath([os.path.abspath(rootdir), path])
-        == os.path.abspath(rootdir)
-    ):
+    if not isinstance(path, str) or not isinstance(rootdir, str):
+        path = None
+    else:
+        path, rootdir = os.path.abspath(path), os.path.abspath(rootdir)
+    if path is None or os.path.commonpath([rootdir, path]) != rootdir:
         raise ValueError(
             f"{type(store).__name__} does not map keys to files under its rootdir: "
             "rename_claim_move needs the store make_report_store(rootdir) returns"
@@ -202,6 +204,7 @@ def make_holding_store(
     if rootdir is None:
         store, claims, move = _HoldingDict(), {}, pop_claim_move
     else:
+        rootdir = os.path.join(os.path.abspath(rootdir), "")  # immune to a chdir
         claims_dir = os.path.normpath(rootdir) + ".claims"
         os.makedirs(rootdir, exist_ok=True)
         os.makedirs(claims_dir, exist_ok=True)

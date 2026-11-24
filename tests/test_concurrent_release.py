@@ -160,3 +160,100 @@ def test_rename_refuses_a_store_without_file_paths():
 
     with pytest.raises(ValueError, match="rootdir"):
         rename_claim_move({"r1": "{}"}, "r1", {}, "r1--t")
+
+
+def test_a_relative_rootdir_can_be_released(tmp_path, monkeypatch):
+    """``make_holding_store('held/')`` (the form heed's own error hint suggests) must
+    release: the carried rename needs paths it can resolve."""
+    monkeypatch.chdir(tmp_path)
+    held = make_holding_store("held/")
+    rid = _hold(held)
+    sink = _RecordingSink()
+    assert release_held(rid, holding_store=held, sink=sink).ok
+    assert sink.sent == [rid] and rid not in held
+    assert not list(getattr(held, CLAIMS_ATTR))
+
+
+def test_rename_accepts_a_relative_file_store(tmp_path, monkeypatch):
+    from heed import make_report_store, rename_claim_move
+
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "h").mkdir()
+    (tmp_path / "c").mkdir()
+    held, claims = make_report_store("h/"), make_report_store("c/")
+    held["r1"] = "{}"
+    rename_claim_move(held, "r1", claims, "r1--t")
+    assert "r1" not in held and claims["r1--t"] == "{}"
+
+
+def test_a_put_back_is_atomic(tmp_path, monkeypatch):
+    """A failed release puts the report back by a move, never by rewriting the file:
+    a concurrent release must never read a half-written (e.g. empty) report."""
+    import heed.routing as routing
+
+    held = make_holding_store(str(tmp_path / "held"))
+    rid = _hold(held)
+    original = (tmp_path / "held" / rid).read_text()
+    writes = []
+
+    def no_rewrite(*args, **kwargs):
+        writes.append(args)
+        raise AssertionError("put back by rewriting the file")
+
+    monkeypatch.setattr(type(held), "__setitem__", no_rewrite)
+
+    class Failing(StoreSink):
+        def submit(self, report):
+            return routing.SinkResult(ok=False, detail="down")
+
+    assert not release_held(rid, holding_store=held, sink=Failing({})).ok
+    assert not writes
+    assert (tmp_path / "held" / rid).read_text() == original
+    assert not list(getattr(held, CLAIMS_ATTR))
+
+
+@pytest.mark.parametrize("on_disk", [False, True], ids=["memory", "disk"])
+def test_concurrent_releases_with_a_flaky_sink_never_tear_a_report(tmp_path, on_disk):
+    """When the sink sometimes fails, a put back races other releases of the report:
+    none of them may read or leave behind a torn report."""
+    from heed.sinks.base import SinkResult
+
+    held = make_holding_store(str(tmp_path / "held") if on_disk else None)
+    lock = threading.Lock()
+
+    class Flaky(_RecordingSink):
+        calls = 0
+
+        def submit(self, report):
+            with lock:
+                Flaky.calls += 1
+                fail = Flaky.calls % 2 == 0
+            if fail:
+                return SinkResult(ok=False, detail="down")
+            return super().submit(report)
+
+    sink, n, errors = Flaky(), 8, []
+    rids = [_hold(held) for _ in range(30)]
+    start = threading.Barrier(n)
+
+    def release():
+        start.wait()
+        for _ in range(3):
+            for rid in rids:
+                try:
+                    release_held(rid, holding_store=held, sink=sink)
+                except KeyError:
+                    pass
+                except Exception as e:  # noqa: BLE001
+                    errors.append(e)
+
+    threads = [threading.Thread(target=release) for _ in range(n)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert not errors, errors[:3]
+    assert len(sink.sent) == len(set(sink.sent))
+    for rid in held:
+        assert held[rid], f"held report {rid} is empty"
+    assert set(sink.sent) | set(held) == set(rids)
