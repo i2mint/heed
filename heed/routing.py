@@ -173,11 +173,13 @@ def release_held(
     from holding. The claims store is ``claimed_store`` if given, else the one a
     `make_holding_store` store carries, else (legacy) ``holding_store`` itself under a
     ``claimed--`` prefix -- which makes every release list the whole holding store.
-    If the sink fails the report is put back in holding; a release only ever
-    deletes its own claim, and only once the sink has accepted the report or it is
-    back in holding. So a crash at any point leaves the report in holding, in the
-    claims, or in both -- never lost -- and :func:`recover_claimed` returns stranded
-    claims to holding. A report with a claim is not released again until then.
+    If the sink fails the report is put back in holding (by the same atomic move it was
+    claimed with, when there is one, so no release ever reads a half-written report);
+    a release only ever deletes its own claim, and only once the sink has accepted the
+    report or it is back in holding. So a crash at any point leaves the report in
+    holding, in the claims, or in both -- never lost -- and :func:`recover_claimed`
+    returns stranded claims to holding. A report with a claim is not released again
+    until then.
 
     Two releases of the same report at the same moment send it once when the claim is
     an atomic move (``claim_move``, a :data:`heed.storage.ClaimMove`): only one of them
@@ -233,12 +235,12 @@ def release_held(
             report.model_copy(update={"status": Status.received})
         )
     except BaseException:  # incl. KeyboardInterrupt/cancellation: never lose it
-        _unclaim(report_id, raw, holding_store, claims, claim_key)
+        _unclaim(report_id, raw, holding_store, claims, claim_key, move=claim_move)
         raise
     if result.ok:
         _drop_claim(claims, claim_key)
     else:
-        _unclaim(report_id, raw, holding_store, claims, claim_key)
+        _unclaim(report_id, raw, holding_store, claims, claim_key, move=claim_move)
     return result
 
 
@@ -368,14 +370,18 @@ def recover_claimed(
     ):
         raise ValueError(f"stale_after must be >= 0 seconds, got {stale_after}")
     claims, own_prefix = _claims_of(holding_store, claimed_store)
+    own_move = None
+    if claims is getattr(holding_store, CLAIMS_ATTR, None):
+        own_move = carried_claim_move(holding_store)  # not through a wrapper
     now = _checked_time(clock())
     recovered = []
     for store, prefixed in _claim_locations(holding_store, claims, own_prefix):
+        move = own_move if store is claims else None
         for claim_key in [k for k in list(store) if _is_claim_key(k, prefixed)]:
             if _is_young(_claim_time(claim_key, prefixed), now, stale_after):
                 continue  # possibly a release still in flight
             report_id = _report_id_of_claim_key(claim_key, prefixed)
-            if _recover_one(report_id, claim_key, holding_store, store):
+            if _recover_one(report_id, claim_key, holding_store, store, move=move):
                 recovered.append(report_id)
     return recovered
 
@@ -397,7 +403,7 @@ def _is_young(claimed_at, now, stale_after):
     return abs(now - claimed_at) < stale_after
 
 
-def _recover_one(report_id, claim_key, holding_store, claims) -> bool:
+def _recover_one(report_id, claim_key, holding_store, claims, *, move=None) -> bool:
     """Return one claim's report to holding; whether it was returned."""
     if _is_report(holding_store.get(report_id), report_id):
         _drop_claim(claims, claim_key)  # holding is intact: the claim is redundant
@@ -405,8 +411,7 @@ def _recover_one(report_id, claim_key, holding_store, claims) -> bool:
     raw = claims.get(claim_key)
     if not _is_report(raw, report_id):
         return False  # torn or foreign: never let it replace anything
-    _unclaim(report_id, raw, holding_store, claims, claim_key)
-    return True
+    return _unclaim(report_id, raw, holding_store, claims, claim_key, move=move)
 
 
 def _is_report(raw, report_id):
@@ -488,11 +493,30 @@ def _claim_keys_of(report_id, claims, *, own_prefix):
     ]
 
 
-def _unclaim(report_id, raw, holding_store, claims, claim_key):
+def _unclaim(report_id, raw, holding_store, claims, claim_key, *, move=None) -> bool:
     """Put a claimed report back in holding, then drop its claim (in that order, so a
-    crash in between leaves it in both, never in neither)."""
+    crash in between leaves it in both, never in neither); whether this call put it
+    back.
+
+    With the atomic ``move`` the report was claimed with, it goes back the same way
+    (claims to holding), so a concurrent release never reads a half-written report in
+    holding. If the claim is gone, a ``recover_claimed`` elsewhere already put the
+    report back, and nothing is done. If the move cannot be made (e.g. on Windows, a
+    report of that id is in holding again, or a user's move that only works one way),
+    the report is written back instead.
+    """
+    if move is not None:
+        try:
+            move(claims, claim_key, holding_store, report_id)
+            return True
+        except KeyError:
+            if claim_key not in claims and report_id in holding_store:
+                return False  # the claim was recovered: the report is back in holding
+        except Exception:  # noqa: BLE001 (e.g. OSError): write it back instead
+            pass
     holding_store[report_id] = raw
     _drop_claim(claims, claim_key)
+    return True
 
 
 def _drop_claim(claims, claim_key):
